@@ -3708,8 +3708,7 @@ function botSend(){
   var inp=document.getElementById('bot-inp');if(!inp||!inp.value.trim())return;
   var txt=inp.value.trim();inp.value='';
   botBubble(txt,'user');
-  var _bk=CU&&(CU.role==='admin'||CU.role==='subadmin')?'AAAEpfJB-goz5rsBaFVoBDprjHqe-hSvqjSEjJAQ8ZaCdkQ29xc16xrNGkBQZ4fzAeFCBsZYae6VnC7iK0RAFZ6LedEq9lQ-30ipa-tna-ks'.split('').reverse().join(''):'';
-  var key=_bk||(localStorage.getItem('bot_claude_key')||'');
+  var key=localStorage.getItem('bot_claude_key')||'';
   if(!key){botBubble('Para responder necesito una API Key de Claude. Toca 🔑 en la barra superior para configurarla.','bot');return;}
   botTyping(true);
   var lbl=document.getElementById('bot-status-lbl');if(lbl)lbl.textContent='Pensando...';
@@ -3886,11 +3885,12 @@ function enviarMotivacionIA(){
     if(!st.hasData)return;
     resumen.push(u.name.trim()+': '+st.callsHoy+' gestiones hoy, '+st.estancados.length+' urgentes');
   });
-  var _bk='AAAEpfJB-goz5rsBaFVoBDprjHqe-hSvqjSEjJAQ8ZaCdkQ29xc16xrNGkBQZ4fzAeFCBsZYae6VnC7iK0RAFZ6LedEq9lQ-30ipa-tna-ks'.split('').reverse().join('');
+  var key=localStorage.getItem('bot_claude_key')||'';
+  if(!key){toast('Configura tu API Key de Claude para usar esta función (🔑).','err');return;}
   toast('Generando mensaje motivacional...','ok');
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
-    headers:{'x-api-key':_bk,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+    headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:200,
       system:'Eres el coach del equipo de ventas de Corporación La Roca. Generas mensajes motivacionales cortos, energéticos y personalizados para el equipo. Sin markdown. Máximo 4 oraciones.',
       messages:[{role:'user',content:'Genera un mensaje motivacional para el equipo de hoy ('+hoy+'). Datos del equipo: '+resumen.join('; ')+'. Menciona quiénes van bien y anima a todos a cerrar el día fuerte. En español, cálido y directo.'}]})
@@ -3906,8 +3906,8 @@ function motivacionIALogin(){
   var hoy=monFechaHN(0),vn=(CU.name||'').trim();
   if(CU.role!=='vendedor')return;
   var st=_vendStats(vn,hoy,null);
-  var _bk='AAAEpfJB-goz5rsBaFVoBDprjHqe-hSvqjSEjJAQ8ZaCdkQ29xc16xrNGkBQZ4fzAeFCBsZYae6VnC7iK0RAFZ6LedEq9lQ-30ipa-tna-ks'.split('').reverse().join('');
-  var key=localStorage.getItem('bot_claude_key')||_bk;
+  var key=localStorage.getItem('bot_claude_key')||'';
+  if(!key)return;
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
@@ -3929,8 +3929,7 @@ function botSpeechCliente(e){
     +'Escribe el mensaje como si lo enviara el vendedor directamente (en primera persona). '
     +'Que sea cálido, natural y persuasivo. Máximo 5 oraciones. Solo el mensaje, sin explicaciones.';
   botBubble('¿Qué le digo a '+e.nombre+'?','user');
-  var _bk=CU&&(CU.role==='admin'||CU.role==='subadmin')?'AAAEpfJB-goz5rsBaFVoBDprjHqe-hSvqjSEjJAQ8ZaCdkQ29xc16xrNGkBQZ4fzAeFCBsZYae6VnC7iK0RAFZ6LedEq9lQ-30ipa-tna-ks'.split('').reverse().join(''):'';
-  var key=_bk||(localStorage.getItem('bot_claude_key')||'');
+  var key=localStorage.getItem('bot_claude_key')||'';
   if(!key){botBubble('Necesitas configurar la API Key. Toca 🔑 arriba.','bot');return;}
   botTyping(true);
   var lbl=document.getElementById('bot-status-lbl');if(lbl)lbl.textContent='Generando mensaje...';

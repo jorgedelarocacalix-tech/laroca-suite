@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fintrack · La Roca</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;background:#E8EAF0;color:#202124;min-height:100vh}
+.app{max-width:540px;margin:0 auto;background:#F4F5F8;min-height:100vh;box-shadow:0 0 24px rgba(0,0,0,.14)}
+
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:linear-gradient(160deg,#185FA5,#0D3D6E);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999}
+.login-logo{color:#fff;font-size:28px;font-weight:700;letter-spacing:1px;margin-bottom:4px}
+.login-sub{color:rgba(255,255,255,.6);font-size:13px;margin-bottom:36px}
+.login-box{background:white;border-radius:16px;padding:28px 24px;width:300px;text-align:center}
+.login-box h2{font-size:15px;color:#444;margin-bottom:18px}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:20px}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:#E0E0E0;transition:.2s}
+.pin-dot.filled{background:#185FA5}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pin-btn{padding:14px;border:none;border-radius:10px;font-size:18px;font-weight:600;background:#F4F6FB;color:#333;cursor:pointer;transition:.1s}
+.pin-btn:active{background:#185FA5;color:#fff}
+.pin-btn.del{background:#FCEBEB;color:#A32D2D}
+.pin-error{color:#A32D2D;font-size:12px;margin-top:8px}
+
+/* HEADER */
+.header{background:#185FA5;color:#fff;padding:12px 14px 10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.header-title{font-size:17px;font-weight:700;letter-spacing:.3px}
+.header-btns{display:flex;gap:6px}
+.hbtn{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer}
+.hbtn:hover{background:rgba(255,255,255,.3)}
+.hbtn.ia{background:#3A7FCC}
+.mes-nav{display:flex;align-items:center;justify-content:center;gap:10px}
+.mes-nav button{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:4px;width:26px;height:26px;cursor:pointer;font-size:16px}
+.mes-label{font-size:13px;font-weight:600;min-width:130px;text-align:center}
+
+/* TABS */
+.tabs-main{display:flex;background:#fff;border-bottom:2px solid #E0E0E0}
+.tab-m{flex:1;padding:10px 4px;text-align:center;font-size:13px;font-weight:600;cursor:pointer;color:#888;border-bottom:3px solid transparent}
+.tab-m.act-t{color:#185FA5;border-bottom-color:#185FA5;background:#EEF5FF}
+.tab-m.act-p{color:#534AB7;border-bottom-color:#534AB7;background:#F0EFFF}
+
+.tabs-sub{display:flex;background:#F8F9FA;border-bottom:1px solid #E8E8E8;overflow-x:auto;scrollbar-width:none}
+.tabs-sub::-webkit-scrollbar{display:none}
+.tab-s{padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;color:#888;border-bottom:2px solid transparent;white-space:nowrap}
+.tab-s.act{color:#185FA5;border-bottom-color:#185FA5}
+.tabs-sub.prov .tab-s.act{color:#534AB7;border-bottom-color:#534AB7}
+
+/* CONTENIDO */
+#contenido{padding:10px}
+
+/* CHIPS RESUMEN */
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.chip{background:#fff;border-radius:10px;padding:10px 6px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.chip .n{font-size:22px;font-weight:700}
+.chip .l{font-size:10px;color:#888;margin-top:1px}
+.chip.urg .n{color:#A32D2D}
+.chip.prox .n{color:#854F0B}
+.chip.pag .n{color:#3B6D11}
+
+/* CARDS DE PAGO */
+.pcard{background:#fff;border-radius:10px;padding:11px 13px;margin-bottom:8px;border-left:4px solid #ddd;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+.pcard:hover{box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.pcard.mora   {border-left-color:#6B0000;background:#FFF0F0}
+.pcard.urgente{border-left-color:#A32D2D;background:#FCEBEB}
+.pcard.proximo{border-left-color:#854F0B;background:#FAEEDA}
+.pcard.pagado {border-left-color:#3B6D11;background:#EAF3DE;opacity:.78}
+.pcard.ok     {border-left-color:#3B6D11}
+.pcard.sinfecha{border-left-color:#BBB;background:#F5F5F5}
+
+.picon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0;background:#185FA5}
+.pcard.isis .picon{background:#993556}
+.pcard.prov .picon{background:#534AB7}
+
+.pinfo{flex:1;min-width:0}
+.pnombre{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.psub{font-size:11px;color:#777;margin-top:2px}
+.pnota{font-size:11px;color:#999;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pusd{font-size:10px;color:#854F0B;font-weight:700;margin-top:2px}
+
+.pder{text-align:right;flex-shrink:0}
+.pmonto{font-weight:700;font-size:14px}
+.pbadge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:4px}
+.b-mora   {background:#6B0000;color:#fff}
+.b-urgente{background:#A32D2D;color:#fff}
+.b-proximo{background:#854F0B;color:#fff}
+.b-pagado {background:#3B6D11;color:#fff}
+.b-ok     {background:#D8ECC4;color:#3B6D11}
+.b-sinfecha{background:#E0E0E0;color:#777}
+
+/* CALENDARIO */
+.cal-dia{margin-bottom:14px}
+.cal-hdr{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888;padding:4px 0 6px;border-bottom:1px solid #EEE;margin-bottom:6px}
+.cal-hdr.hoy{color:#185FA5}
+.cal-hdr.urgente{color:#A32D2D}
+
+/* FORMULARIOS */
+.form-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.form-title{font-size:14px;font-weight:700;margin-bottom:14px}
+.form-title.t{color:#185FA5}
+.form-title.p{color:#534AB7}
+.frow{margin-bottom:10px}
+.frow label{display:block;font-size:11px;font-weight:700;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+.frow select,.frow input{width:100%;padding:8px 10px;border:1.5px solid #E0E0E0;border-radius:7px;font-size:13px;color:#333;background:#FAFAFA;outline:none;transition:.15s}
+.frow select:focus,.frow input:focus{border-color:#185FA5;background:#fff;box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+.frow-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn-submit{width:100%;padding:11px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-top:6px;transition:.15s}
+.btn-t{background:#185FA5;color:#fff}
+.btn-t:hover{background:#144E8F}
+.btn-p{background:#534AB7;color:#fff}
+.btn-p:hover{background:#443EA0}
+.btn-submit:disabled{opacity:.5;cursor:not-allowed}
+.msg-ok {background:#EAF3DE;border-left:4px solid #3B6D11;color:#3B6D11;border-radius:6px;padding:9px 12px;font-size:12px;margin-bottom:10px}
+.msg-err{background:#FCEBEB;border-left:4px solid #A32D2D;color:#A32D2D;border-radius:6px;padding:9px 12px;font-size:12px;margin-bottom:10px}
+
+/* LISTA PROVEEDORES */
+.cat-header{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#534AB7;padding:10px 0 4px;border-bottom:1px solid #E8E8E8;margin-bottom:6px}
+.prov-item{background:#fff;border-radius:8px;padding:9px 12px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.prov-nombre{font-weight:600;font-size:13px}
+.prov-cat{font-size:10px;color:#999}
+.btn-pagar{background:none;border:1.5px solid #3B6D11;color:#3B6D11;border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer}
+.btn-pagar:hover{background:#3B6D11;color:#fff}
+
+/* ANÁLISIS IA */
+.ia-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:flex-end}
+.ia-panel{background:#fff;border-radius:20px 20px 0 0;padding:20px;max-height:80vh;overflow-y:auto;width:100%;max-width:540px;margin:0 auto}
+.ia-panel h3{font-size:15px;font-weight:700;color:#185FA5;margin-bottom:12px}
+.ia-text{font-size:13px;line-height:1.7;white-space:pre-wrap;color:#333}
+.ia-close{float:right;background:#F4F5F8;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-weight:600}
+
+/* CONFIG */
+.cfg-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px}
+.cfg-panel{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:360px}
+.cfg-panel h3{font-size:15px;font-weight:700;margin-bottom:16px}
+
+/* VACÍO / LOADING */
+.empty{text-align:center;padding:36px 20px;color:#AAA;font-size:13px}
+.spinner{width:30px;height:30px;border:3px solid #E0E0E0;border-top-color:#185FA5;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* BADGE TITULAR */
+.titular-badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:4px;vertical-align:middle}
+.tb-jorge{background:#E6F1FB;color:#185FA5}
+.tb-isis{background:#FBEAF0;color:#993556}
+
+/* SECCIÓN TÍTULO */
+.stitle{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888;padding:8px 0 5px;border-bottom:1px solid #EEE;margin-bottom:8px}
+.stitle.isis{color:#993556}
+
+/* BOTÓN MARCAR PAGADO EN CARD */
+.btn-mini{background:none;border:1.5px solid #3B6D11;color:#3B6D11;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:600;cursor:pointer;margin-top:4px}
+.btn-mini:hover{background:#3B6D11;color:#fff}
+.btn-mini.mora-btn{border-color:#A32D2D;color:#A32D2D}
+.btn-mini.pdf{border-color:#185FA5;color:#185FA5}
+.btn-mini.pdf:hover{background:#185FA5;color:#fff}
+.pdf-link{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#185FA5;text-decoration:none;background:#E6F1FB;padding:3px 8px;border-radius:5px;margin-top:4px}
+.pdf-link:hover{background:#185FA5;color:#fff}
+.pdf-uploading{font-size:10px;color:#854F0B;margin-top:4px}
+
+.hidden{display:none!important}
+
+/* ── RESPONSIVE: MOBILE cards / DESKTOP tabla ────── */
+.vista-cards{display:block}
+.vista-tabla{display:none}
+
+@media(min-width:768px){
+  body{background:#D8DCE6}
+  .app{max-width:100%;box-shadow:none;background:#ECEEF2}
+  #contenido{padding:18px 28px}
+  .header{padding:12px 28px 10px}
+  .vista-cards{display:none}
+  .vista-tabla{display:block;overflow-x:auto;margin-top:4px}
+
+  /* TABLA */
+  .ft-table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,.1)}
+  .ft-table th{background:#185FA5;color:white;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+  .ft-table td{padding:9px 14px;border-bottom:1px solid #F0F0F0;font-size:13px;vertical-align:middle}
+  .ft-table tr:last-child td{border-bottom:none}
+  .ft-table tbody tr:hover td{background:#F0F6FF!important}
+  .ft-table tr.mora td   {background:#FFF0F0}
+  .ft-table tr.urgente td{background:#FCEBEB}
+  .ft-table tr.proximo td{background:#FAEEDA}
+  .ft-table tr.pagado td {background:#F0FBF0;opacity:.85}
+  .ft-table tr.ok td     {background:#F9FFF6}
+  .ft-td-monto{font-weight:700;white-space:nowrap}
+  .ft-td-nota{color:#999;font-size:11px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ft-td-acc{white-space:nowrap;display:flex;gap:4px;align-items:center}
+
+  /* Chips en desktop: 2 grandes + 3 pequeños se ven bien */
+  .chips{grid-template-columns:repeat(3,1fr)}
+
+  /* Panel IA centrado en desktop */
+  .ia-modal{align-items:center}
+  .ia-panel{max-width:680px;border-radius:16px;margin:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-logo">Fintrack</div>
+  <div class="login-sub">Corporación La Roca</div>
+  <div class="login-box">
+    <h2>Ingresa tu PIN</h2>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="pin-pad">
+      <button class="pin-btn" onclick="pinNum(1)">1</button>
+      <button class="pin-btn" onclick="pinNum(2)">2</button>
+      <button class="pin-btn" onclick="pinNum(3)">3</button>
+      <button class="pin-btn" onclick="pinNum(4)">4</button>
+      <button class="pin-btn" onclick="pinNum(5)">5</button>
+      <button class="pin-btn" onclick="pinNum(6)">6</button>
+      <button class="pin-btn" onclick="pinNum(7)">7</button>
+      <button class="pin-btn" onclick="pinNum(8)">8</button>
+      <button class="pin-btn" onclick="pinNum(9)">9</button>
+      <button class="pin-btn" onclick="pinNum(0)" style="grid-column:2">0</button>
+      <button class="pin-btn del" onclick="pinDel()">⌫</button>
+    </div>
+    <div class="pin-error hidden" id="pin-error">PIN incorrecto</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app hidden" id="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="header-title">Fintrack · La Roca</div>
+      <div class="header-btns">
+        <button class="hbtn ia" onclick="abrirIA()">✦ IA</button>
+        <button class="hbtn" onclick="abrirConfig()">⚙</button>
+      </div>
+    </div>
+    <div class="mes-nav">
+      <button onclick="cambiarMes(-1)">‹</button>
+      <span class="mes-label" id="mes-label">—</span>
+      <button onclick="cambiarMes(1)">›</button>
+    </div>
+  </div>
+
+  <!-- TABS PRINCIPALES -->
+  <div class="tabs-main">
+    <div class="tab-m" id="tab-tarjetas" onclick="irTab('tarjetas','resumen')">💳 Tarjetas</div>
+    <div class="tab-m" id="tab-proveedores" onclick="irTab('proveedores','resumen')">🏪 Proveedores</div>
+  </div>
+
+  <!-- TABS SECUNDARIOS -->
+  <div id="tabs-sub-wrap"></div>
+
+  <!-- CONTENIDO -->
+  <div id="contenido">
+    <div class="empty"><div class="spinner"></div>Cargando...</div>
+  </div>
+</div>
+
+<!-- INPUT OCULTO PARA PDF -->
+<input type="file" id="pdf-input" accept="application/pdf" class="hidden" onchange="onPdfSeleccionado(this)">
+
+<!-- MODAL IA -->
+<div class="ia-modal hidden" id="ia-modal" onclick="cerrarIA(event)">
+  <div class="ia-panel">
+    <button class="ia-close" onclick="cerrarIA()">✕ Cerrar</button>
+    <h3>✦ Análisis IA — <span id="ia-mes"></span></h3>
+    <div class="ia-text" id="ia-text">Analizando...</div>
+  </div>
+</div>
+
+<!-- MODAL CONFIG -->
+<div class="cfg-modal hidden" id="cfg-modal" onclick="cerrarCfg(event)">
+  <div class="cfg-panel">
+    <h3>⚙ Configuración</h3>
+    <div class="frow">
+      <label>Claude API Key</label>
+      <input type="password" id="cfg-apikey" placeholder="sk-ant-...">
+    </div>
+    <div class="frow">
+      <label>Cambiar PIN (4 dígitos)</label>
+      <input type="number" id="cfg-pin" placeholder="Dejar vacío para no cambiar" maxlength="4">
+    </div>
+    <button class="btn-submit btn-t" onclick="guardarConfig()">Guardar</button>
+    <button class="btn-submit" style="background:#F4F5F8;color:#555;margin-top:6px" onclick="cerrarCfg()">Cancelar</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════
+const SB_URL = 'https://upaenjotkocmdvfuobii.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+const SK = 'ft_v1';
+const PIN_DEFAULT = '1234';
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const BANCOS = ['BAC','Atlántida','Banrural','Cuscatlán','Davivienda','Promerica','Ficohsa','Banpaís','Efectivo','Transferencia'];
+
+// ═══════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════
+const hoy = new Date();
+let S = {
+  tabMain: 'tarjetas',
+  tabSub:  'resumen',
+  mesIdx:  hoy.getMonth(),
+  anio:    hoy.getFullYear(),
+  registros: [],       // ft_registros_mes + ft_tarjetas
+  catalogoTarjetas: [],// ft_tarjetas
+  pagosProv: [],       // ft_pagos_proveedor + ft_proveedores_catalogo
+  catalogoProv: [],    // ft_proveedores_catalogo
+};
+
+function mesActual() {
+  return MESES_ES[S.mesIdx] + ' ' + S.anio;
+}
+
+// ═══════════════════════════════════════════════════
+// LOGIN / PIN
+// ═══════════════════════════════════════════════════
+let pinBuffer = '';
+
+function pinNum(n) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += n;
+  document.getElementById('d' + (pinBuffer.length - 1)).classList.add('filled');
+  if (pinBuffer.length === 4) verificarPin();
+}
+
+function pinDel() {
+  if (!pinBuffer.length) return;
+  pinBuffer = pinBuffer.slice(0, -1);
+  document.getElementById('d' + pinBuffer.length).classList.remove('filled');
+  document.getElementById('pin-error').classList.add('hidden');
+}
+
+function verificarPin() {
+  const pin = localStorage.getItem(SK + '_pin') || PIN_DEFAULT;
+  if (pinBuffer === pin) {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    iniciar();
+  } else {
+    document.getElementById('pin-error').classList.remove('hidden');
+    pinBuffer = '';
+    ['d0','d1','d2','d3'].forEach(id => document.getElementById(id).classList.remove('filled'));
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SUPABASE
+// ═══════════════════════════════════════════════════
+async function sbGet(tabla, params = '') {
+  const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${params}`, {
+    headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }
+  });
+  return r.json();
+}
+
+async function sbPost(tabla, body) {
+  const r = await fetch(`${SB_URL}/rest/v1/${tabla}`, {
+    method: 'POST',
+    headers: {
+      apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json', Prefer: 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+async function sbPatch(tabla, id, body) {
+  const r = await fetch(`${SB_URL}/rest/v1/${tabla}?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json', Prefer: 'return=representation'
+    },
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+// ═══════════════════════════════════════════════════
+// DATOS
+// ═══════════════════════════════════════════════════
+async function iniciar() {
+  document.getElementById('mes-label').textContent = capitalizar(mesActual());
+  await cargarTodo();
+  render();
+}
+
+async function cargarTodo() {
+  const mes = mesActual();
+  const [regs, catT, pagsProv, catProv] = await Promise.all([
+    sbGet('ft_registros_mes', `select=*,ft_tarjetas(*)&mes=eq.${encodeURIComponent(mes)}&order=fecha_pago.asc`),
+    sbGet('ft_tarjetas', 'select=*&activa=eq.true&order=titular.asc,banco.asc'),
+    sbGet('ft_pagos_proveedor', `select=*,ft_proveedores_catalogo(nombre,categoria)&estado=neq.pagado&order=fecha_vence.asc`),
+    sbGet('ft_proveedores_catalogo', 'select=*&activo=eq.true&order=nombre.asc'),
+  ]);
+  S.registros        = Array.isArray(regs) ? regs : [];
+  S.catalogoTarjetas = Array.isArray(catT) ? catT : [];
+  S.pagosProv        = Array.isArray(pagsProv) ? pagsProv : [];
+  S.catalogoProv     = Array.isArray(catProv) ? catProv : [];
+}
+
+// ═══════════════════════════════════════════════════
+// URGENCIA
+// ═══════════════════════════════════════════════════
+function diasHasta(fechaISO) {
+  if (!fechaISO) return null;
+  const h = new Date(); h.setHours(0,0,0,0);
+  const d = new Date(fechaISO + 'T00:00:00');
+  return Math.round((d - h) / 86400000);
+}
+
+function urgencia(fechaISO, estado) {
+  if (estado === 'pagado') return 'pagado';
+  if (estado === 'mora')   return 'mora';
+  const d = diasHasta(fechaISO);
+  if (d === null) return 'sinfecha';
+  if (d < 0)  return 'mora';
+  if (d <= 3) return 'urgente';
+  if (d <= 10) return 'proximo';
+  return 'ok';
+}
+
+const ORDEN_URG = { mora:0, urgente:1, proximo:2, ok:3, sinfecha:4, pagado:5 };
+function sortUrg(arr, fechaKey, estadoKey) {
+  return [...arr].sort((a,b) =>
+    (ORDEN_URG[urgencia(a[fechaKey], a[estadoKey])]||5) -
+    (ORDEN_URG[urgencia(b[fechaKey], b[estadoKey])]||5)
+  );
+}
+
+// ═══════════════════════════════════════════════════
+// NAVEGACIÓN
+// ═══════════════════════════════════════════════════
+function irTab(main, sub) {
+  S.tabMain = main; S.tabSub = sub;
+  render();
+}
+
+function cambiarMes(dir) {
+  S.mesIdx += dir;
+  if (S.mesIdx < 0)  { S.mesIdx = 11; S.anio--; }
+  if (S.mesIdx > 11) { S.mesIdx = 0;  S.anio++; }
+  document.getElementById('mes-label').textContent = capitalizar(mesActual());
+  document.getElementById('contenido').innerHTML = '<div class="empty"><div class="spinner"></div>Cargando...</div>';
+  cargarTodo().then(render);
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER PRINCIPAL
+// ═══════════════════════════════════════════════════
+function render() {
+  // tabs principales
+  document.getElementById('tab-tarjetas').className   = 'tab-m' + (S.tabMain === 'tarjetas'    ? ' act-t' : '');
+  document.getElementById('tab-proveedores').className = 'tab-m' + (S.tabMain === 'proveedores' ? ' act-p' : '');
+
+  // tabs secundarios
+  const subItems = S.tabMain === 'tarjetas'
+    ? [['resumen','Resumen'],['jorge','Jorge'],['isis','Isis'],['calendario','📅 Fechas'],['estado','📤 Estado'],['agregar','＋ Registrar']]
+    : [['resumen','Resumen'],['agregar','＋ Agregar'],['lista','Lista']];
+
+  document.getElementById('tabs-sub-wrap').innerHTML =
+    `<div class="tabs-sub ${S.tabMain === 'proveedores' ? 'prov' : ''}">` +
+    subItems.map(([id,lbl]) =>
+      `<span class="tab-s ${S.tabSub===id?'act':''}" onclick="irTabSub('${id}')">${lbl}</span>`
+    ).join('') + '</div>';
+
+  // contenido
+  const c = document.getElementById('contenido');
+  if (S.tabMain === 'tarjetas') {
+    if (S.tabSub === 'resumen')    c.innerHTML = renderResumenTarjetas();
+    else if (S.tabSub === 'jorge') c.innerHTML = renderListaTarjetas('jorge');
+    else if (S.tabSub === 'isis')  c.innerHTML = renderListaTarjetas('isis');
+    else if (S.tabSub === 'calendario') c.innerHTML = renderCalendario();
+    else if (S.tabSub === 'estado')     c.innerHTML = renderSubirEstado();
+    else if (S.tabSub === 'agregar')    c.innerHTML = renderFormTarjeta();
+  } else {
+    if (S.tabSub === 'resumen')  c.innerHTML = renderResumenProv();
+    else if (S.tabSub === 'agregar') c.innerHTML = renderFormProv();
+    else if (S.tabSub === 'lista')   c.innerHTML = renderListaProv();
+  }
+}
+
+function irTabSub(sub) { S.tabSub = sub; render(); }
+
+// ═══════════════════════════════════════════════════
+// RENDER TARJETAS
+// ═══════════════════════════════════════════════════
+function renderResumenTarjetas() {
+  const todos = sortUrg(S.registros, 'fecha_pago', 'estado');
+  const urg   = todos.filter(r => ['mora','urgente'].includes(urgencia(r.fecha_pago, r.estado)));
+  const prox  = todos.filter(r => urgencia(r.fecha_pago, r.estado) === 'proximo');
+  const pag   = todos.filter(r => r.estado === 'pagado');
+  const totalPend = todos.filter(r => r.estado !== 'pagado').reduce((s, r) => s + (r.valor_pagar || 0), 0);
+  const totalPag  = pag.reduce((s, r) => s + (r.valor_pagar || 0), 0);
+
+  if (!todos.length) return emptyMes();
+
+  return chips(urg.length, prox.length, pag.length, totalPend, totalPag) +
+    `<div class="vista-cards">${todos.map(r => cardTarjeta(r)).join('')}</div>` +
+    `<div class="vista-tabla">${renderTablaRegistros(todos)}</div>`;
+}
+
+function renderListaTarjetas(titular) {
+  const lista = sortUrg(
+    S.registros.filter(r => r.ft_tarjetas?.titular === titular),
+    'fecha_pago', 'estado'
+  );
+  if (!lista.length) return `<div class="empty">No hay registros de ${titular === 'jorge' ? 'Jorge' : 'Isis'} este mes.<br><br><button class="btn-submit btn-t" style="width:auto;padding:8px 18px" onclick="irTabSub('agregar')">＋ Registrar pago</button></div>`;
+  const titulo = `<div class="stitle ${titular === 'isis' ? 'isis' : ''}">Tarjetas de ${titular === 'jorge' ? 'Jorge' : 'Isis Fonseca'}</div>`;
+  return titulo +
+    `<div class="vista-cards">${lista.map(r => cardTarjeta(r, titular)).join('')}</div>` +
+    `<div class="vista-tabla">${renderTablaRegistros(lista)}</div>`;
+}
+
+function renderTablaRegistros(registros) {
+  if (!registros.length) return '';
+  const filas = registros.map(r => {
+    const t   = r.ft_tarjetas || {};
+    const urg = urgencia(r.fecha_pago, r.estado);
+    const titular = t.titular || 'jorge';
+    const accPagado = r.estado !== 'pagado'
+      ? `<button class="btn-mini" onclick="marcarPagadoTarjeta('${r.id}',event)">✓ Pagado</button>`
+      : '';
+    const accPdf = r.pdf_url
+      ? `<a class="pdf-link" href="${r.pdf_url}" target="_blank" onclick="event.stopPropagation()">📄 Ver</a>`
+      : `<button class="btn-mini pdf" onclick="pedirPdf('${r.id}',event)">📄 Estado</button>`;
+    return `<tr class="${urg}">
+      <td>${badge(urg, r.fecha_pago)}</td>
+      <td style="font-weight:700">${esc(t.banco || '?')}</td>
+      <td>${esc(t.cuenta || '—')}</td>
+      <td><span class="titular-badge tb-${titular}">${titular === 'isis' ? 'Isis' : 'Jorge'}</span></td>
+      <td>${r.fecha_corte ? fmtFecha(r.fecha_corte) : '—'}</td>
+      <td style="font-weight:600">${r.fecha_pago ? fmtFecha(r.fecha_pago) : '—'}</td>
+      <td class="ft-td-monto">${r.valor_pagar != null ? 'L ' + fmt(r.valor_pagar) : '—'}</td>
+      <td>${r.pago_minimo != null ? 'L ' + fmt(r.pago_minimo) : '—'}</td>
+      <td>${r.disponible != null ? 'L ' + fmt(r.disponible) : '—'}</td>
+      <td class="ft-td-nota" title="${esc(r.nota || '')}">${esc(r.nota || '')}</td>
+      <td><div class="ft-td-acc">${accPagado}${accPdf}</div></td>
+    </tr>`;
+  }).join('');
+
+  return `<table class="ft-table">
+    <thead><tr>
+      <th>Estado</th><th>Banco</th><th>Cuenta</th><th>Titular</th>
+      <th>Corte</th><th>Fecha Pago</th><th>Total</th><th>Mínimo</th>
+      <th>Disponible</th><th>Nota</th><th>Acciones</th>
+    </tr></thead>
+    <tbody>${filas}</tbody>
+  </table>`;
+}
+
+function cardTarjeta(r, forzarTitular) {
+  const t = r.ft_tarjetas || {};
+  const titular = forzarTitular || t.titular || 'jorge';
+  const urg = urgencia(r.fecha_pago, r.estado);
+  const nombre = (t.banco || '?') + ' ' + (t.cuenta || '');
+  const inicial = (t.banco || '?')[0].toUpperCase();
+  const monto = r.valor_pagar != null ? 'L ' + fmt(r.valor_pagar) : '—';
+  const sub = r.fecha_pago
+    ? `Pago: ${fmtFecha(r.fecha_pago)}${r.fecha_corte ? ' · Corte: ' + fmtFecha(r.fecha_corte) : ''}`
+    : 'Sin fecha de pago';
+  const extra = (r.disponible != null || (r.pago_minimo != null && r.estado !== 'pagado'))
+    ? `<div class="psub">${r.disponible != null ? 'Disponible: L ' + fmt(r.disponible) : ''}${r.disponible != null && r.pago_minimo != null && r.estado !== 'pagado' ? ' · ' : ''}${r.pago_minimo != null && r.estado !== 'pagado' ? 'Mín: L ' + fmt(r.pago_minimo) : ''}</div>`
+    : '';
+  const usdWarn = r.moneda === 'USD' ? '<div class="pusd">⚠ monto en USD — revisar</div>' : '';
+  const nota = r.nota ? `<div class="pnota">${esc(r.nota)}</div>` : '';
+  const botonPagado = r.estado !== 'pagado'
+    ? `<button class="btn-mini" onclick="marcarPagadoTarjeta('${r.id}',event)">✓ Pagado</button>`
+    : '';
+  const botonPdf = r.pdf_url
+    ? `<a class="pdf-link" href="${r.pdf_url}" target="_blank" onclick="event.stopPropagation()">📄 Ver estado</a>`
+    : `<button class="btn-mini pdf" id="pdf-btn-${r.id}" onclick="pedirPdf('${r.id}',event)">📄 Subir estado</button>`;
+  const acciones = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${botonPagado}${botonPdf}</div>`;
+
+  return `<div class="pcard ${urg} ${titular === 'isis' ? 'isis' : ''}" onclick="">
+    <div class="picon">${inicial}</div>
+    <div class="pinfo">
+      <div class="pnombre">${esc(nombre)} <span class="titular-badge tb-${titular}">${titular === 'isis' ? 'Isis' : 'Jorge'}</span></div>
+      <div class="psub">${sub}</div>${extra}${nota}${usdWarn}${acciones}
+    </div>
+    <div class="pder">
+      <div class="pmonto">${monto}</div>
+      ${badge(urg, r.fecha_pago)}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER CALENDARIO
+// ═══════════════════════════════════════════════════
+function renderCalendario() {
+  const eventos = [];
+  const hoyISO = hoy.toISOString().slice(0,10);
+
+  S.registros.forEach(r => {
+    if (r.fecha_pago) {
+      const t = r.ft_tarjetas || {};
+      eventos.push({
+        fecha: r.fecha_pago,
+        nombre: (t.banco||'') + ' ' + (t.cuenta||''),
+        monto: r.valor_pagar,
+        urg: urgencia(r.fecha_pago, r.estado),
+        tipo: t.titular === 'isis' ? 'isis' : 'jorge'
+      });
+    }
+  });
+  S.pagosProv.forEach(p => {
+    if (p.fecha_vence) {
+      const cat = p.ft_proveedores_catalogo || {};
+      eventos.push({
+        fecha: p.fecha_vence,
+        nombre: cat.nombre || '?',
+        monto: p.monto,
+        urg: urgencia(p.fecha_vence, p.estado),
+        tipo: 'prov'
+      });
+    }
+  });
+
+  if (!eventos.length) return '<div class="empty">No hay eventos con fechas este mes.</div>';
+
+  const grupos = {};
+  eventos.forEach(e => { (grupos[e.fecha] = grupos[e.fecha] || []).push(e); });
+  const fechas = Object.keys(grupos).sort();
+
+  return fechas.map(f => {
+    const items = grupos[f];
+    const esHoy = f === hoyISO;
+    const urgGrupo = items.some(i => ['mora','urgente'].includes(i.urg));
+    return `<div class="cal-dia">
+      <div class="cal-hdr ${esHoy ? 'hoy' : ''} ${urgGrupo ? 'urgente' : ''}">${esHoy ? '▶ HOY — ' : ''}${fmtFecha(f)}</div>
+      ${items.map(i => {
+        const ic = i.tipo === 'isis' ? 'I' : i.tipo === 'prov' ? 'P' : 'J';
+        return `<div class="pcard ${i.urg} ${i.tipo === 'isis' ? 'isis' : ''} ${i.tipo === 'prov' ? 'prov' : ''}">
+          <div class="picon">${ic}</div>
+          <div class="pinfo"><div class="pnombre">${esc(i.nombre)}</div></div>
+          <div class="pder"><div class="pmonto">${i.monto != null ? 'L '+fmt(i.monto) : '—'}</div>${badge(i.urg, f)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER PROVEEDORES
+// ═══════════════════════════════════════════════════
+function renderResumenProv() {
+  const todos = sortUrg(S.pagosProv, 'fecha_vence', 'estado');
+  const urg   = todos.filter(p => ['mora','urgente'].includes(urgencia(p.fecha_vence, p.estado)));
+  const prox  = todos.filter(p => urgencia(p.fecha_vence, p.estado) === 'proximo');
+  const pag   = todos.filter(p => p.estado === 'pagado');
+  const totalPend = todos.filter(p => p.estado !== 'pagado').reduce((s, p) => s + (p.monto || 0), 0);
+  const totalPag  = pag.reduce((s, p) => s + (p.monto || 0), 0);
+
+  if (!todos.length) return `<div class="empty">No hay pagos a proveedores pendientes.<br><br><button class="btn-submit btn-p" style="width:auto;padding:8px 18px" onclick="irTabSub('agregar')">＋ Agregar</button></div>`;
+
+  const filasProv = todos.map(p => {
+    const cat = p.ft_proveedores_catalogo || {};
+    const u = urgencia(p.fecha_vence, p.estado);
+    const acc = p.estado !== 'pagado'
+      ? `<button class="btn-mini" onclick="marcarPagadoProv('${p.id}',event)">✓ Pagado</button>` : '';
+    return `<tr class="${u}">
+      <td>${badge(u, p.fecha_vence)}</td>
+      <td style="font-weight:700">${esc(cat.nombre || '?')}</td>
+      <td>${esc(cat.categoria || '—')}</td>
+      <td>${p.fecha_vence ? fmtFecha(p.fecha_vence) : '—'}</td>
+      <td class="ft-td-monto">${p.monto != null ? 'L ' + fmt(p.monto) : '—'}</td>
+      <td class="ft-td-nota" title="${esc(p.nota||'')}">${esc(p.nota || '')}</td>
+      <td>${acc}</td>
+    </tr>`;
+  }).join('');
+
+  const tablaProv = `<table class="ft-table">
+    <thead><tr>
+      <th>Estado</th><th>Proveedor</th><th>Categoría</th>
+      <th>Fecha Pago</th><th>Monto</th><th>Nota</th><th>Acciones</th>
+    </tr></thead>
+    <tbody>${filasProv}</tbody>
+  </table>`;
+
+  return chips(urg.length, prox.length, pag.length, totalPend, totalPag, true) +
+    `<div class="vista-cards">${todos.map(p => cardProv(p)).join('')}</div>` +
+    `<div class="vista-tabla">${tablaProv}</div>`;
+}
+
+function cardProv(p) {
+  const cat = p.ft_proveedores_catalogo || {};
+  const urg = urgencia(p.fecha_vence, p.estado);
+  const nombre = cat.nombre || '?';
+  const monto = p.monto != null ? 'L ' + fmt(p.monto) : '—';
+  const sub = p.fecha_vence ? 'Vence: ' + fmtFecha(p.fecha_vence) : 'Sin fecha';
+  const nota = p.nota ? `<div class="pnota">${esc(p.nota)}</div>` : '';
+  const boton = p.estado !== 'pagado'
+    ? `<br><button class="btn-mini" onclick="marcarPagadoProv('${p.id}',event)">✓ Pagado</button>`
+    : '';
+
+  return `<div class="pcard ${urg} prov">
+    <div class="picon">${nombre[0].toUpperCase()}</div>
+    <div class="pinfo">
+      <div class="pnombre">${esc(nombre)}</div>
+      <div class="psub">${sub}${cat.categoria ? ' · ' + cat.categoria : ''}</div>
+      ${nota}${boton}
+    </div>
+    <div class="pder">
+      <div class="pmonto">${monto}</div>
+      ${badge(urg, p.fecha_vence)}
+    </div>
+  </div>`;
+}
+
+function renderListaProv() {
+  if (!S.catalogoProv.length) return '<div class="empty">Sin proveedores en el catálogo.</div>';
+  const grupos = {};
+  S.catalogoProv.forEach(p => {
+    const cat = p.categoria || 'Otro';
+    (grupos[cat] = grupos[cat] || []).push(p);
+  });
+  return Object.entries(grupos).map(([cat, provs]) =>
+    `<div class="cat-header">${cat}</div>` +
+    provs.map(p => `
+      <div class="prov-item">
+        <div><div class="prov-nombre">${esc(p.nombre)}</div><div class="prov-cat">${esc(p.categoria)}</div></div>
+        <button class="btn-pagar" onclick="irTabSub('agregar');rellProv('${p.id}')">Registrar pago</button>
+      </div>`).join('')
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// FORMULARIOS
+// ═══════════════════════════════════════════════════
+function renderFormTarjeta() {
+  const opsTarjetas = S.catalogoTarjetas.map(t =>
+    `<option value="${t.id}">[${t.titular === 'isis' ? 'Isis' : 'Jorge'}] ${esc(t.banco)} ${esc(t.cuenta)}</option>`
+  ).join('');
+  const opsEstado = ['pendiente','pagado','mora'].map(e =>
+    `<option value="${e}">${capitalizar(e)}</option>`
+  ).join('');
+
+  return `<div class="form-card">
+    <div class="form-title t">Registrar pago de tarjeta — ${capitalizar(mesActual())}</div>
+    <div id="form-msg-t"></div>
+    <div class="frow">
+      <label>Tarjeta</label>
+      <select id="ft-tarjeta">
+        <option value="">— Seleccionar tarjeta —</option>
+        ${opsTarjetas}
+        <option value="__nueva__">+ Agregar tarjeta nueva</option>
+      </select>
+    </div>
+    <div id="nueva-tarjeta-wrap" class="hidden">
+      <div class="frow-2">
+        <div class="frow"><label>Banco</label><input type="text" id="ft-nbanco" placeholder="BAC, Atlántida..."></div>
+        <div class="frow"><label>Cuenta / Últimos 4</label><input type="text" id="ft-ncuenta" placeholder="5548"></div>
+      </div>
+      <div class="frow">
+        <label>Titular</label>
+        <select id="ft-ntitular">
+          <option value="jorge">Jorge</option>
+          <option value="isis">Isis</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow-2">
+      <div class="frow"><label>Fecha de pago</label><input type="date" id="ft-fechapago"></div>
+      <div class="frow"><label>Fecha de corte</label><input type="date" id="ft-fechacorte"></div>
+    </div>
+    <div class="frow-2">
+      <div class="frow"><label>Monto a pagar (L)</label><input type="number" id="ft-monto" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="frow"><label>Disponible (L)</label><input type="number" id="ft-disponible" placeholder="0.00" min="0" step="0.01"></div>
+    </div>
+    <div class="frow-2">
+      <div class="frow">
+        <label>Moneda</label>
+        <select id="ft-moneda">
+          <option value="L">Lempiras (L)</option>
+          <option value="USD">Dólares (USD)</option>
+        </select>
+      </div>
+      <div class="frow">
+        <label>Estado</label>
+        <select id="ft-estado">${opsEstado}</select>
+      </div>
+    </div>
+    <div class="frow"><label>Nota</label><input type="text" id="ft-nota" placeholder="Opcional"></div>
+    <button class="btn-submit btn-t" id="btn-guardar-t" onclick="guardarRegistroTarjeta()">Guardar en Supabase</button>
+  </div>`;
+}
+
+function renderFormProv() {
+  const opsProv = S.catalogoProv.map(p =>
+    `<option value="${p.id}">${esc(p.nombre)} — ${esc(p.categoria)}</option>`
+  ).join('');
+  const opsBanco = BANCOS.map(b => `<option value="${b}">${b}</option>`).join('');
+
+  return `<div class="form-card">
+    <div class="form-title p">Agregar pago a proveedor</div>
+    <div id="form-msg-p"></div>
+    <div class="frow">
+      <label>Proveedor</label>
+      <select id="fp-prov" onchange="onCambiaProv(this.value)">
+        <option value="">— Seleccionar —</option>
+        ${opsProv}
+        <option value="__nuevo__">+ Nuevo proveedor</option>
+      </select>
+    </div>
+    <div id="nuevo-prov-wrap" class="hidden">
+      <div class="frow"><label>Nombre del proveedor</label><input type="text" id="fp-nnombre" placeholder="Ej: Ferretería López"></div>
+      <div class="frow">
+        <label>Categoría</label>
+        <select id="fp-ncat">
+          <option>Motos / Inventario</option>
+          <option>Electrodomésticos</option>
+          <option>Ferretería / Construcción</option>
+          <option>Interno</option>
+          <option>Varios</option>
+          <option>Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow-2">
+      <div class="frow"><label>Monto (L)</label><input type="number" id="fp-monto" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="frow"><label>Fecha vence</label><input type="date" id="fp-fecha"></div>
+    </div>
+    <div class="frow">
+      <label>Banco / Forma de pago</label>
+      <select id="fp-banco"><option value="">— Seleccionar —</option>${opsBanco}</select>
+    </div>
+    <div class="frow"><label>Nota (opcional)</label><input type="text" id="fp-nota" placeholder="cuota 3 de 6, factura #4521..."></div>
+    <button class="btn-submit btn-p" id="btn-guardar-p" onclick="guardarPagoProv()">Agregar a Supabase</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// ACCIONES — TARJETAS
+// ═══════════════════════════════════════════════════
+document.addEventListener('change', e => {
+  if (e.target.id === 'ft-tarjeta') {
+    const wrap = document.getElementById('nueva-tarjeta-wrap');
+    if (wrap) wrap.classList.toggle('hidden', e.target.value !== '__nueva__');
+  }
+});
+
+async function guardarRegistroTarjeta() {
+  const btn = document.getElementById('btn-guardar-t');
+  const msgEl = document.getElementById('form-msg-t');
+  btn.disabled = true;
+
+  let tarjetaId = document.getElementById('ft-tarjeta')?.value;
+
+  // Crear tarjeta nueva si corresponde
+  if (tarjetaId === '__nueva__') {
+    const banco    = document.getElementById('ft-nbanco')?.value.trim();
+    const cuenta   = document.getElementById('ft-ncuenta')?.value.trim();
+    const titular  = document.getElementById('ft-ntitular')?.value;
+    if (!banco || !cuenta) {
+      msgEl.innerHTML = '<div class="msg-err">Ingresa banco y número de cuenta.</div>';
+      btn.disabled = false; return;
+    }
+    const nueva = await sbPost('ft_tarjetas', { banco, cuenta, titular });
+    if (!nueva || nueva.error) {
+      msgEl.innerHTML = '<div class="msg-err">Error creando tarjeta: ' + (nueva?.message || '') + '</div>';
+      btn.disabled = false; return;
+    }
+    tarjetaId = nueva[0]?.id || nueva.id;
+  }
+
+  if (!tarjetaId) {
+    msgEl.innerHTML = '<div class="msg-err">Selecciona una tarjeta.</div>';
+    btn.disabled = false; return;
+  }
+
+  const monto = document.getElementById('ft-monto')?.value;
+  if (!monto) {
+    msgEl.innerHTML = '<div class="msg-err">Ingresa el monto a pagar.</div>';
+    btn.disabled = false; return;
+  }
+
+  const payload = {
+    tarjeta_id:  tarjetaId,
+    mes:         mesActual(),
+    fecha_pago:  document.getElementById('ft-fechapago')?.value || null,
+    fecha_corte: document.getElementById('ft-fechacorte')?.value || null,
+    valor_pagar: parseFloat(monto),
+    disponible:  document.getElementById('ft-disponible')?.value ? parseFloat(document.getElementById('ft-disponible').value) : null,
+    moneda:      document.getElementById('ft-moneda')?.value || 'L',
+    estado:      document.getElementById('ft-estado')?.value || 'pendiente',
+    nota:        document.getElementById('ft-nota')?.value.trim() || '',
+  };
+
+  const res = await sbPost('ft_registros_mes', payload);
+  btn.disabled = false;
+
+  if (!res || res.error) {
+    msgEl.innerHTML = '<div class="msg-err">Error: ' + (res?.message || 'desconocido') + '</div>';
+    return;
+  }
+  msgEl.innerHTML = '<div class="msg-ok">✓ Registro guardado correctamente.</div>';
+  await cargarTodo();
+  setTimeout(() => irTab('tarjetas', 'resumen'), 1200);
+}
+
+async function marcarPagadoTarjeta(id, e) {
+  if (e) e.stopPropagation();
+  await sbPatch('ft_registros_mes', id, { estado: 'pagado' });
+  await cargarTodo(); render();
+}
+
+// ═══════════════════════════════════════════════════
+// ACCIONES — PROVEEDORES
+// ═══════════════════════════════════════════════════
+function onCambiaProv(val) {
+  const wrap = document.getElementById('nuevo-prov-wrap');
+  if (wrap) wrap.classList.toggle('hidden', val !== '__nuevo__');
+}
+
+function rellProv(id) {
+  setTimeout(() => {
+    const sel = document.getElementById('fp-prov');
+    if (sel) sel.value = id;
+  }, 50);
+}
+
+async function guardarPagoProv() {
+  const btn = document.getElementById('btn-guardar-p');
+  const msgEl = document.getElementById('form-msg-p');
+  btn.disabled = true;
+
+  let provId = document.getElementById('fp-prov')?.value;
+
+  if (provId === '__nuevo__') {
+    const nombre = document.getElementById('fp-nnombre')?.value.trim();
+    const cat    = document.getElementById('fp-ncat')?.value;
+    if (!nombre) {
+      msgEl.innerHTML = '<div class="msg-err">Ingresa el nombre del proveedor.</div>';
+      btn.disabled = false; return;
+    }
+    const nuevo = await sbPost('ft_proveedores_catalogo', { nombre, categoria: cat });
+    if (!nuevo || nuevo.error) {
+      msgEl.innerHTML = '<div class="msg-err">Error creando proveedor.</div>';
+      btn.disabled = false; return;
+    }
+    provId = nuevo[0]?.id || nuevo.id;
+  }
+
+  const monto = document.getElementById('fp-monto')?.value;
+  if (!monto) {
+    msgEl.innerHTML = '<div class="msg-err">Ingresa el monto.</div>';
+    btn.disabled = false; return;
+  }
+
+  const payload = {
+    proveedor_id: provId || null,
+    fecha_vence:  document.getElementById('fp-fecha')?.value || null,
+    monto:        parseFloat(monto),
+    banco_pago:   document.getElementById('fp-banco')?.value || '',
+    nota:         document.getElementById('fp-nota')?.value.trim() || '',
+    estado:       'pendiente',
+  };
+
+  const res = await sbPost('ft_pagos_proveedor', payload);
+  btn.disabled = false;
+
+  if (!res || res.error) {
+    msgEl.innerHTML = '<div class="msg-err">Error: ' + (res?.message || 'desconocido') + '</div>';
+    return;
+  }
+  msgEl.innerHTML = '<div class="msg-ok">✓ Pago de proveedor registrado.</div>';
+  await cargarTodo();
+  setTimeout(() => irTab('proveedores', 'resumen'), 1200);
+}
+
+async function marcarPagadoProv(id, e) {
+  if (e) e.stopPropagation();
+  await sbPatch('ft_pagos_proveedor', id, { estado: 'pagado' });
+  await cargarTodo(); render();
+}
+
+// ═══════════════════════════════════════════════════
+// SUBIR ESTADO DE CUENTA — FLUJO COMPLETO
+// ═══════════════════════════════════════════════════
+function renderSubirEstado() {
+  const opsTarjetas = [
+    '<optgroup label="Jorge">',
+    ...S.catalogoTarjetas.filter(t => t.titular === 'jorge').map(t =>
+      `<option value="${t.id}">${esc(t.banco)} ${esc(t.cuenta)}</option>`),
+    '</optgroup>',
+    '<optgroup label="Isis">',
+    ...S.catalogoTarjetas.filter(t => t.titular === 'isis').map(t =>
+      `<option value="${t.id}">[Isis] ${esc(t.banco)} ${esc(t.cuenta)}</option>`),
+    '</optgroup>',
+  ].join('');
+
+  return `<div class="form-card">
+    <div class="form-title t">📤 Estado de Cuenta</div>
+    <div id="ec-msg"></div>
+
+    <div class="frow">
+      <label>¿De cuál tarjeta es este estado?</label>
+      <select id="ec-tarjeta" onchange="ecMostrarFormulario()">
+        <option value="">— Seleccionar tarjeta —</option>
+        ${opsTarjetas}
+      </select>
+    </div>
+
+    <div class="frow">
+      <label>PDF del banco — la IA extrae todos los datos automáticamente</label>
+      <div id="ec-dropzone" onclick="document.getElementById('ec-file').click()"
+        style="border:2px dashed #C5D8F0;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#F4F8FF;transition:.2s"
+        ondragover="event.preventDefault();this.style.borderColor='#185FA5';this.style.background='#EEF5FF'"
+        ondragleave="this.style.borderColor='#C5D8F0';this.style.background='#F4F8FF'"
+        ondrop="ecDrop(event)">
+        <div style="font-size:28px;margin-bottom:6px">📄</div>
+        <div style="font-size:13px;color:#185FA5;font-weight:700">Toca para subir el PDF</div>
+        <div style="font-size:11px;color:#888;margin-top:3px">La IA lee las fechas y montos automáticamente</div>
+        <div id="ec-filename" style="font-size:11px;color:#185FA5;margin-top:6px;font-weight:700"></div>
+      </div>
+      <input type="file" id="ec-file" accept=".pdf" class="hidden" onchange="ecArchivoSeleccionado(this)">
+    </div>
+  </div>
+
+  <div id="ec-resultado" class="hidden" style="margin-top:10px">
+    <div class="form-card">
+      <div class="form-title t">Datos del estado de cuenta</div>
+      <div id="ec-tarjeta-info" style="background:#EEF5FF;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#185FA5;font-weight:700"></div>
+      <div class="frow-2">
+        <div class="frow"><label>Fecha de corte</label><input type="date" id="ec-e-corte"></div>
+        <div class="frow"><label>Fecha de pago</label><input type="date" id="ec-e-pago"></div>
+      </div>
+      <div class="frow-2">
+        <div class="frow"><label>Total a pagar (L)</label><input type="number" id="ec-e-total" placeholder="0.00" min="0" step="0.01"></div>
+        <div class="frow"><label>Pago mínimo (L)</label><input type="number" id="ec-e-minimo" placeholder="0.00" min="0" step="0.01"></div>
+      </div>
+      <div class="frow-2">
+        <div class="frow"><label>Saldo anterior (L)</label><input type="number" id="ec-e-anterior" placeholder="0.00" min="0" step="0.01"></div>
+        <div class="frow"><label>Disponible (L)</label><input type="number" id="ec-e-disponible" placeholder="0.00" min="0" step="0.01"></div>
+      </div>
+      <div class="frow-2">
+        <div class="frow"><label>Compras del mes (L)</label><input type="number" id="ec-e-compras" placeholder="0.00" min="0" step="0.01"></div>
+        <div class="frow"><label>Intereses (L)</label><input type="number" id="ec-e-intereses" placeholder="0.00" min="0" step="0.01"></div>
+      </div>
+      <button class="btn-submit btn-t" id="ec-guardar-btn" onclick="ecGuardarEditable()">
+        ✓ Guardar en la proyección
+      </button>
+    </div>
+  </div>`;
+}
+
+let _ecArchivo = null;
+let _ecDatosExtraidos = null;
+
+function ecDrop(e) {
+  e.preventDefault();
+  document.getElementById('ec-dropzone').style.borderColor = '#C5D8F0';
+  const f = e.dataTransfer.files[0];
+  if (f) ecSetArchivo(f);
+}
+
+function ecArchivoSeleccionado(input) {
+  if (input.files[0]) ecSetArchivo(input.files[0]);
+}
+
+function ecSetArchivo(file) {
+  _ecArchivo = file;
+  const fn = document.getElementById('ec-filename');
+  if (fn) fn.textContent = '✓ ' + file.name;
+  const tid = document.getElementById('ec-tarjeta')?.value;
+  if (tid && file.name.toLowerCase().endsWith('.pdf')) ecAnalizar();
+}
+
+function ecMostrarFormulario() {
+  const tarjetaId = document.getElementById('ec-tarjeta')?.value;
+  if (!tarjetaId) return;
+  const tarjeta = S.catalogoTarjetas.find(t => t.id === tarjetaId);
+  const res = document.getElementById('ec-resultado');
+  const info = document.getElementById('ec-tarjeta-info');
+  if (info) info.innerHTML = `${tarjeta?.banco || ''} ${tarjeta?.cuenta || ''} <span class="titular-badge tb-${tarjeta?.titular||'jorge'}">${tarjeta?.titular==='isis'?'Isis':'Jorge'}</span> — ${capitalizar(mesActual())}`;
+  if (res) res.classList.remove('hidden');
+  _ecDatosExtraidos = { tarjeta_id: tarjetaId };
+  // Si ya hay un PDF listo, analizar automáticamente
+  if (_ecArchivo && _ecArchivo.name.toLowerCase().endsWith('.pdf')) ecAnalizar();
+}
+
+async function ecAnalizar() {
+  const tarjetaId = document.getElementById('ec-tarjeta')?.value;
+  if (!tarjetaId || !_ecArchivo) return;
+
+  const tarjeta = S.catalogoTarjetas.find(t => t.id === tarjetaId);
+  const msgDiv = document.getElementById('ec-msg');
+  const guardarBtn = document.getElementById('ec-guardar-btn');
+  const dz = document.getElementById('ec-dropzone');
+
+  msgDiv.innerHTML = '<div style="background:#EEF5FF;border-left:3px solid #185FA5;border-radius:6px;padding:9px 12px;font-size:12px;color:#185FA5;display:flex;align-items:center;gap:8px"><span style="animation:spin .8s linear infinite;display:inline-block">⏳</span> Leyendo PDF con IA — puede tardar unos segundos...</div>';
+  if (dz) dz.style.opacity = '0.5';
+  if (guardarBtn) guardarBtn.disabled = true;
+
+  try {
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(_ecArchivo);
+    });
+
+    const resp = await fetch(`${SB_URL}/functions/v1/analizar-estado`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${SB_KEY}`,
+      },
+      body: JSON.stringify({
+        pdf_base64: base64,
+        banco: tarjeta?.banco,
+        cuenta: tarjeta?.cuenta,
+        mes: mesActual(),
+      }),
+    });
+
+    const datos = await resp.json();
+    if (datos.error) throw new Error(datos.error);
+
+    _ecDatosExtraidos = { ...datos, tarjeta_id: tarjetaId };
+
+    // Mostrar formulario
+    const res = document.getElementById('ec-resultado');
+    const info = document.getElementById('ec-tarjeta-info');
+    if (info) info.innerHTML = `${tarjeta?.banco || ''} ${tarjeta?.cuenta || ''} <span class="titular-badge tb-${tarjeta?.titular||'jorge'}">${tarjeta?.titular==='isis'?'Isis':'Jorge'}</span> — ${capitalizar(mesActual())}`;
+    if (res) res.classList.remove('hidden');
+
+    // Pre-llenar campos con los datos extraídos
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+    set('ec-e-corte', datos.fecha_corte);
+    set('ec-e-pago', datos.fecha_pago);
+    set('ec-e-total', datos.valor_pagar);
+    set('ec-e-minimo', datos.pago_minimo);
+    set('ec-e-anterior', datos.saldo_anterior);
+    set('ec-e-disponible', datos.disponible);
+    set('ec-e-compras', datos.total_compras);
+    set('ec-e-intereses', datos.total_intereses);
+
+    msgDiv.innerHTML = '<div style="background:#EAF3DE;border-left:3px solid #3B6D11;border-radius:6px;padding:9px 12px;font-size:12px;color:#3B6D11;font-weight:600">✓ Datos extraídos — revisa y guarda</div>';
+    if (guardarBtn) guardarBtn.disabled = false;
+    res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    msgDiv.innerHTML = `<div class="msg-err">⚠ ${esc(err.message)}</div>`;
+    if (guardarBtn) guardarBtn.disabled = false;
+  }
+
+  if (dz) dz.style.opacity = '1';
+}
+
+// ── Extraer texto de PDF con PDF.js (sin API) ──────────────
+async function ecExtraerTextoPDF(file) {
+  if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js no cargó correctamente.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let texto = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    texto += content.items.map(item => item.str).join(' ') + '\n';
+  }
+  return texto;
+}
+
+// ── Parser con regex para bancos hondureños ────────────────
+function ecParsearTexto(texto) {
+  const t = texto.replace(/\s+/g, ' ');
+
+  // Fechas: busca "fecha de pago", "vencimiento", "fecha limite", "fecha corte"
+  function buscarFecha(patrones) {
+    for (const p of patrones) {
+      const m = t.match(p);
+      if (m && m[1]) return ecNormalizarFecha(m[1].trim());
+    }
+    return null;
+  }
+
+  // Montos: busca número tras etiqueta, con L, comas, decimales
+  function buscarMonto(patrones) {
+    for (const p of patrones) {
+      const m = t.match(p);
+      if (m && m[1]) {
+        const n = parseFloat(m[1].replace(/,/g, ''));
+        if (!isNaN(n)) return n;
+      }
+    }
+    return null;
+  }
+
+  const fecha_pago = buscarFecha([
+    /fecha\s*(?:l[íi]mite|de\s*pago|pago|vencimiento)[:\s]+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+    /vencimiento[:\s]+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+    /pagar\s*antes\s*del[:\s]+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+  ]);
+
+  const fecha_corte = buscarFecha([
+    /fecha\s*(?:de\s*)?corte[:\s]+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+    /corte[:\s]+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+    /per[íi]odo.*?al\s+(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+  ]);
+
+  const valor_pagar = buscarMonto([
+    /(?:saldo\s*total|total\s*a\s*pagar|monto\s*total|pago\s*total)[:\s]+L?\.?\s*([\d,]+\.?\d{0,2})/i,
+    /total[:\s]+L?\.?\s*([\d,]+\.\d{2})/i,
+  ]);
+
+  const pago_minimo = buscarMonto([
+    /pago\s*m[íi]nimo[:\s]+L?\.?\s*([\d,]+\.?\d{0,2})/i,
+    /m[íi]nimo[:\s]+L?\.?\s*([\d,]+\.\d{2})/i,
+  ]);
+
+  const saldo_anterior = buscarMonto([
+    /saldo\s*anterior[:\s]+L?\.?\s*([\d,]+\.?\d{0,2})/i,
+    /saldo\s*al\s*inicio[:\s]+L?\.?\s*([\d,]+\.\d{2})/i,
+  ]);
+
+  const total_compras = buscarMonto([
+    /(?:total\s*)?compras[:\s]+L?\.?\s*([\d,]+\.?\d{0,2})/i,
+    /cargo[s]?\s*del\s*mes[:\s]+L?\.?\s*([\d,]+\.\d{2})/i,
+  ]);
+
+  const total_pagos = buscarMonto([
+    /(?:total\s*)?pagos[:\s]+L?\.?\s*([\d,]+\.?\d{0,2})/i,
+    /abonos[:\s]+L?\.?\s*([\d,]+\.\d{2})/i,
+  ]);
+
+  const total_intereses = buscarMonto([
+    /intereses?[:\s]+L?\.?\s*([\d,]+\.?\d{0,2})/i,
+    /cargo\s*(?:por\s*)?inter[eé]s[:\s]+L?\.?\s*([\d,]+\.\d{2})/i,
+  ]);
+
+  const disponible = buscarMonto([
+    /(?:cr[eé]dito\s*)?disponible[:\s]+L?\.?\s*([\d,]+\.?\d{0,2})/i,
+    /l[íi]mite\s*disponible[:\s]+L?\.?\s*([\d,]+\.\d{2})/i,
+  ]);
+
+  const esUSD = /USD|d[oó]lar|\$/i.test(t.substring(0, 200));
+
+  return { fecha_corte, fecha_pago, saldo_anterior, total_compras, total_pagos,
+    total_intereses, valor_pagar, pago_minimo, disponible,
+    moneda: esUSD ? 'USD' : 'L', movimientos: [] };
+}
+
+function ecNormalizarFecha(str) {
+  if (!str) return null;
+  const p = str.split(/[\/-]/);
+  if (p.length !== 3) return null;
+  let [a, b, c] = p.map(Number);
+  let dia, mes, anio;
+  if (c > 31) { anio = c; if (a > 12) { dia = a; mes = b; } else { mes = a; dia = b; } }
+  else if (a > 31) { anio = a; mes = b; dia = c; }
+  else { dia = a; mes = b; anio = c < 100 ? 2000 + c : c; }
+  if (!dia || !mes || !anio || mes > 12 || dia > 31) return null;
+  return `${anio}-${String(mes).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+}
+
+// ── Formulario editable cuando no hay API ─────────────────
+function ecMostrarFormularioEditable(datos, tarjeta, tarjetaId) {
+  const res = document.getElementById('ec-resultado');
+  const dat = document.getElementById('ec-datos');
+  res.classList.remove('hidden');
+
+  const encontrado = Object.values(datos).some(v => v !== null && v !== 'L' && !Array.isArray(v));
+
+  dat.innerHTML = `
+    <div style="background:#FFF8E6;border-left:3px solid #854F0B;border-radius:6px;padding:9px 12px;font-size:12px;color:#854F0B;margin-bottom:12px">
+      ${encontrado
+        ? '✓ Se detectaron algunos datos automáticamente. Revisa y corrige lo que falte.'
+        : '⚠ No se detectaron datos automáticamente. Ingresa los datos manualmente.'}
+    </div>
+
+    <div style="background:#EEF5FF;border-radius:8px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:#185FA5">
+        ${tarjeta ? tarjeta.banco + ' ' + tarjeta.cuenta : ''}
+        <span class="titular-badge tb-${tarjeta?.titular||'jorge'}">${tarjeta?.titular==='isis'?'Isis':'Jorge'}</span>
+      </div>
+      <div style="font-size:11px;color:#666">${capitalizar(mesActual())}</div>
+    </div>
+
+    <div class="frow-2">
+      <div class="frow"><label>Fecha de corte</label>
+        <input type="date" id="ec-e-corte" value="${datos.fecha_corte||''}"></div>
+      <div class="frow"><label>Fecha de pago</label>
+        <input type="date" id="ec-e-pago" value="${datos.fecha_pago||''}"></div>
+    </div>
+    <div class="frow-2">
+      <div class="frow"><label>Total a pagar (L)</label>
+        <input type="number" id="ec-e-total" placeholder="0.00" value="${datos.valor_pagar||''}"></div>
+      <div class="frow"><label>Pago mínimo (L)</label>
+        <input type="number" id="ec-e-minimo" placeholder="0.00" value="${datos.pago_minimo||''}"></div>
+    </div>
+    <div class="frow-2">
+      <div class="frow"><label>Saldo anterior (L)</label>
+        <input type="number" id="ec-e-anterior" placeholder="0.00" value="${datos.saldo_anterior||''}"></div>
+      <div class="frow"><label>Disponible (L)</label>
+        <input type="number" id="ec-e-disponible" placeholder="0.00" value="${datos.disponible||''}"></div>
+    </div>
+    <div class="frow-2">
+      <div class="frow"><label>Compras del mes (L)</label>
+        <input type="number" id="ec-e-compras" placeholder="0.00" value="${datos.total_compras||''}"></div>
+      <div class="frow"><label>Intereses (L)</label>
+        <input type="number" id="ec-e-intereses" placeholder="0.00" value="${datos.total_intereses||''}"></div>
+    </div>`;
+
+  // Reemplazar botón de guardar para leer de los inputs editables
+  _ecDatosExtraidos = { ...datos, tarjeta_id: tarjetaId };
+  const guardarBtn = document.getElementById('ec-guardar-btn');
+  if (guardarBtn) {
+    guardarBtn.onclick = ecGuardarEditable;
+    guardarBtn.textContent = '✓ Guardar en la proyección';
+    guardarBtn.disabled = false;
+  }
+
+  res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function ecGuardarEditable() {
+  const btn = document.getElementById('ec-guardar-btn');
+  btn.disabled = true; btn.textContent = '⏳ Guardando...';
+
+  const tarjetaId = _ecDatosExtraidos?.tarjeta_id;
+  const g = id => { const el = document.getElementById(id); return el?.value ? parseFloat(el.value) : null; };
+  const gd = id => { const el = document.getElementById(id); return el?.value || null; };
+
+  const payload = {
+    tarjeta_id:      tarjetaId,
+    mes:             mesActual(),
+    fecha_pago:      gd('ec-e-pago'),
+    fecha_corte:     gd('ec-e-corte'),
+    valor_pagar:     g('ec-e-total'),
+    pago_minimo:     g('ec-e-minimo'),
+    disponible:      g('ec-e-disponible'),
+    saldo_anterior:  g('ec-e-anterior'),
+    total_compras:   g('ec-e-compras'),
+    total_intereses: g('ec-e-intereses'),
+    moneda:          'L',
+    estado:          'pendiente',
+  };
+
+  const res = await sbPost('ft_registros_mes', payload);
+  if (res?.error) {
+    document.getElementById('ec-msg').innerHTML = `<div class="msg-err">Error: ${res.message}</div>`;
+    btn.disabled = false; btn.textContent = '✓ Guardar en la proyección';
+    return;
+  }
+
+  await cargarTodo();
+  _ecDatosExtraidos = null; _ecArchivo = null;
+  irTab('tarjetas', 'resumen');
+}
+
+async function ecLeerPDF(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const base64 = e.target.result.split(',')[1];
+      // Enviar como texto el base64 — Claude puede procesar PDFs en base64
+      resolve('[PDF en base64 — Claude analizará el documento directamente]\nBase64: ' + base64.substring(0, 100) + '...');
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function ecLeerPDFConClaude(file, key) {
+  // Para PDFs usamos el tipo document de la API de Claude
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async e => {
+      const base64 = e.target.result.split(',')[1];
+      try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 4096,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+                { type: 'text', text: 'Extrae todo el texto de este estado de cuenta bancario, incluyendo fechas, montos y movimientos.' }
+              ]
+            }]
+          })
+        });
+        const d = await resp.json();
+        resolve(d.content?.[0]?.text || '');
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function ecLeerExcel(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        if (file.name.toLowerCase().endsWith('.csv')) {
+          resolve(new TextDecoder().decode(new Uint8Array(e.target.result)));
+          return;
+        }
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+        let texto = '';
+        wb.SheetNames.forEach(name => {
+          texto += `\n=== Hoja: ${name} ===\n`;
+          texto += XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+        });
+        resolve(texto);
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function ecMostrarResultado(datos, tarjeta) {
+  const res = document.getElementById('ec-resultado');
+  const dat = document.getElementById('ec-datos');
+  res.classList.remove('hidden');
+
+  const fila = (lbl, val, dest) => val != null
+    ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F0F0F0">
+        <span style="font-size:12px;color:#666">${lbl}</span>
+        <span style="font-size:13px;font-weight:700;color:${dest||'#333'}">${val}</span>
+       </div>`
+    : '';
+
+  const movs = (datos.movimientos || []).slice(0, 5);
+  const movHtml = movs.length ? `
+    <div style="margin-top:10px">
+      <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px">
+        Primeros movimientos (${datos.movimientos.length} total)
+      </div>
+      ${movs.map(m => `
+        <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid #F5F5F5">
+          <span style="color:#555;flex:1;margin-right:8px">${esc(m.descripcion||'')}</span>
+          <span style="font-weight:700;color:${m.tipo==='pago'?'#3B6D11':'#A32D2D'}">${m.tipo==='pago'?'-':'+'} L ${fmt(m.monto||0)}</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  dat.innerHTML = `
+    <div style="background:#EEF5FF;border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:#185FA5;margin-bottom:4px">
+        ${tarjeta ? tarjeta.banco + ' ' + tarjeta.cuenta : ''}
+        <span class="titular-badge tb-${tarjeta?.titular||'jorge'}">${tarjeta?.titular==='isis'?'Isis':'Jorge'}</span>
+      </div>
+      <div style="font-size:11px;color:#666">${capitalizar(mesActual())}</div>
+    </div>
+    ${fila('Fecha de corte',   datos.fecha_corte   ? fmtFecha(datos.fecha_corte)  : null)}
+    ${fila('Fecha de pago',    datos.fecha_pago    ? fmtFecha(datos.fecha_pago)   : null, '#A32D2D')}
+    ${fila('Saldo anterior',   datos.saldo_anterior != null ? 'L '+fmt(datos.saldo_anterior) : null)}
+    ${fila('Compras del mes',  datos.total_compras  != null ? 'L '+fmt(datos.total_compras)  : null)}
+    ${fila('Pagos realizados', datos.total_pagos    != null ? 'L '+fmt(datos.total_pagos)    : null, '#3B6D11')}
+    ${fila('Intereses',        datos.total_intereses!= null ? 'L '+fmt(datos.total_intereses): null, '#854F0B')}
+    ${fila('Total a pagar',    datos.valor_pagar    != null ? 'L '+fmt(datos.valor_pagar)    : null, '#A32D2D')}
+    ${fila('Pago mínimo',      datos.pago_minimo    != null ? 'L '+fmt(datos.pago_minimo)    : null)}
+    ${fila('Disponible',       datos.disponible     != null ? 'L '+fmt(datos.disponible)     : null, '#3B6D11')}
+    ${movHtml}`;
+
+  res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function ecGuardar() {
+  if (!_ecDatosExtraidos) return;
+  const btn = document.getElementById('ec-guardar-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+
+  const d = _ecDatosExtraidos;
+  const payload = {
+    tarjeta_id:      d.tarjeta_id,
+    mes:             mesActual(),
+    fecha_pago:      d.fecha_pago    || null,
+    fecha_corte:     d.fecha_corte   || null,
+    valor_pagar:     d.valor_pagar   || null,
+    pago_minimo:     d.pago_minimo   || null,
+    disponible:      d.disponible    || null,
+    saldo_anterior:  d.saldo_anterior|| null,
+    total_compras:   d.total_compras || null,
+    total_pagos:     d.total_pagos   || null,
+    total_intereses: d.total_intereses|| null,
+    moneda:          d.moneda === 'USD' ? 'USD' : 'L',
+    estado:          'pendiente',
+  };
+
+  const res = await sbPost('ft_registros_mes', payload);
+  if (res?.error || !res) {
+    document.getElementById('ec-msg').innerHTML = `<div class="msg-err">Error guardando: ${res?.message||'desconocido'}</div>`;
+    btn.disabled = false;
+    btn.textContent = '✓ Guardar en la proyección';
+    return;
+  }
+
+  const registroId = res[0]?.id || res.id;
+
+  // Guardar movimientos si los hay
+  if (registroId && d.movimientos?.length) {
+    const movRows = d.movimientos.map(m => ({
+      registro_id: registroId,
+      fecha:       m.fecha || null,
+      descripcion: m.descripcion || '',
+      monto:       m.monto || 0,
+      tipo:        m.tipo || 'otro',
+    }));
+    await sbPost('ft_movimientos', movRows);
+  }
+
+  await cargarTodo();
+  _ecDatosExtraidos = null;
+  _ecArchivo = null;
+  irTab('tarjetas', 'resumen');
+}
+
+// ═══════════════════════════════════════════════════
+// ANÁLISIS IA
+// ═══════════════════════════════════════════════════
+async function abrirIA() {
+  const key = localStorage.getItem(SK + '_claudekey');
+  if (!key) {
+    alert('Configura tu Claude API key en ⚙ Configuración.');
+    return;
+  }
+  document.getElementById('ia-mes').textContent = capitalizar(mesActual());
+  document.getElementById('ia-text').textContent = 'Analizando con Claude...';
+  document.getElementById('ia-modal').classList.remove('hidden');
+
+  const resumen = construirResumenIA();
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: 'Eres un asesor financiero para un empresario hondureño que maneja tarjetas de crédito personales (suyas y de su esposa Isis) y pagos a proveedores de su negocio de retail (motos, electrodomésticos, ferretería). Detecta pagos urgentes, errores de datos, y da un resumen ejecutivo corto. Responde en español, montos en lempiras (L), tono directo y práctico — sin relleno.',
+        messages: [{ role: 'user', content: 'Analiza estos datos de ' + mesActual() + ':\n\n' + resumen }]
+      })
+    });
+    const d = await r.json();
+    document.getElementById('ia-text').textContent =
+      d.content?.[0]?.text || ('Error: ' + (d.error?.message || 'sin respuesta'));
+  } catch(err) {
+    document.getElementById('ia-text').textContent = 'Error de conexión: ' + err.message;
+  }
+}
+
+function construirResumenIA() {
+  const lines = [];
+  lines.push('=== TARJETAS JORGE ===');
+  S.registros.filter(r => r.ft_tarjetas?.titular === 'jorge').forEach(r => {
+    const t = r.ft_tarjetas || {};
+    lines.push(`${t.banco} ${t.cuenta} | Pago: ${r.fecha_pago||'sin fecha'} | L ${r.valor_pagar||'?'} | ${r.estado}${r.nota ? ' | ' + r.nota : ''}`);
+  });
+  lines.push('\n=== TARJETAS ISIS ===');
+  S.registros.filter(r => r.ft_tarjetas?.titular === 'isis').forEach(r => {
+    const t = r.ft_tarjetas || {};
+    lines.push(`${t.banco} ${t.cuenta} | Pago: ${r.fecha_pago||'sin fecha'} | L ${r.valor_pagar||'?'} | ${r.estado}`);
+  });
+  lines.push('\n=== PROVEEDORES ===');
+  S.pagosProv.forEach(p => {
+    const cat = p.ft_proveedores_catalogo || {};
+    lines.push(`${cat.nombre||'?'} | Vence: ${p.fecha_vence||'sin fecha'} | L ${p.monto||'?'} | ${p.estado}${p.nota ? ' | ' + p.nota : ''}`);
+  });
+  return lines.join('\n');
+}
+
+function cerrarIA(e) {
+  if (!e || e.target === document.getElementById('ia-modal')) {
+    document.getElementById('ia-modal').classList.add('hidden');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// CONFIGURACIÓN
+// ═══════════════════════════════════════════════════
+function abrirConfig() {
+  const k = localStorage.getItem(SK + '_claudekey') || '';
+  document.getElementById('cfg-apikey').value = k;
+  document.getElementById('cfg-pin').value = '';
+  document.getElementById('cfg-modal').classList.remove('hidden');
+}
+
+function guardarConfig() {
+  const key = document.getElementById('cfg-apikey').value.trim();
+  const pin = document.getElementById('cfg-pin').value.trim();
+  if (key) localStorage.setItem(SK + '_claudekey', key);
+  if (pin && pin.length === 4 && /^\d+$/.test(pin)) localStorage.setItem(SK + '_pin', pin);
+  cerrarCfg();
+  alert('Configuración guardada.');
+}
+
+function cerrarCfg(e) {
+  if (!e || e.target === document.getElementById('cfg-modal')) {
+    document.getElementById('cfg-modal').classList.add('hidden');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// HELPERS UI
+// ═══════════════════════════════════════════════════
+function fmtChip(v) {
+  if (v == null) return '—';
+  if (v >= 1000000) return 'L ' + (v / 1000000).toFixed(2) + 'M';
+  if (v >= 1000)    return 'L ' + (v / 1000).toFixed(0) + 'K';
+  return 'L ' + fmt(v);
+}
+
+function chips(u, p, pg, totalPend = null, totalPag = null, prov = false) {
+  const moneyRow = totalPend != null ? `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+    <div class="chip" style="background:#FCEBEB;border-left:3px solid #A32D2D">
+      <div class="n" style="font-size:17px;color:#A32D2D">${fmtChip(totalPend)}</div>
+      <div class="l">Total por pagar</div>
+    </div>
+    <div class="chip" style="background:#EAF3DE;border-left:3px solid #3B6D11">
+      <div class="n" style="font-size:17px;color:#3B6D11">${fmtChip(totalPag)}</div>
+      <div class="l">Total pagado</div>
+    </div>
+  </div>` : '';
+  return moneyRow + `<div class="chips">
+    <div class="chip urg"><div class="n">${u}</div><div class="l">Mora/Urgente</div></div>
+    <div class="chip prox"><div class="n">${p}</div><div class="l">Próximos</div></div>
+    <div class="chip pag"><div class="n">${pg}</div><div class="l">Pagados</div></div>
+  </div>`;
+}
+
+function badge(urg, fechaISO) {
+  const clases = { mora:'b-mora', urgente:'b-urgente', proximo:'b-proximo', pagado:'b-pagado', ok:'b-ok', sinfecha:'b-sinfecha' };
+  let txt = { mora:'¡En mora!', pagado:'Pagado', ok:'Al día', sinfecha:'Sin fecha' }[urg] || '';
+  if (['urgente','proximo'].includes(urg) && fechaISO) {
+    const d = diasHasta(fechaISO);
+    txt = d === 0 ? '¡Hoy!' : d === 1 ? 'Mañana' : `En ${d} días`;
+  }
+  return `<span class="pbadge ${clases[urg]||''}">${txt}</span>`;
+}
+
+function emptyMes() {
+  return `<div class="empty">No hay registros para ${capitalizar(mesActual())}.<br><br>
+    <button class="btn-submit btn-t" style="width:auto;padding:8px 18px" onclick="irTabSub('agregar')">＋ Registrar primer pago</button>
+  </div>`;
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtFecha(iso) {
+  if (!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  const mes = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][parseInt(m)-1];
+  return `${parseInt(d)} ${mes} ${y}`;
+}
+
+function capitalizar(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════
+// SUBIR ESTADO DE CUENTA (PDF)
+// ═══════════════════════════════════════════════════
+let _pdfRegistroId = null;
+
+function pedirPdf(registroId, e) {
+  if (e) e.stopPropagation();
+  _pdfRegistroId = registroId;
+  document.getElementById('pdf-input').value = '';
+  document.getElementById('pdf-input').click();
+}
+
+async function onPdfSeleccionado(input) {
+  const file = input.files[0];
+  if (!file || !_pdfRegistroId) return;
+
+  // Buscar el registro para armar la ruta
+  const reg = S.registros.find(r => r.id === _pdfRegistroId);
+  const tarjetaId = reg?.tarjeta_id || 'sin-tarjeta';
+  const mes = (reg?.mes || mesActual()).replace(/\s/g, '-');
+  const nombreArchivo = `${tarjetaId}_${mes}_${Date.now()}.pdf`;
+  const ruta = `${tarjetaId}/${mes}/${nombreArchivo}`;
+
+  // Feedback visual
+  const btn = document.getElementById('pdf-btn-' + _pdfRegistroId);
+  if (btn) { btn.textContent = '⏳ Subiendo...'; btn.disabled = true; }
+
+  try {
+    // Subir a Supabase Storage
+    const upRes = await fetch(`${SB_URL}/storage/v1/object/estados-cuenta/${ruta}`, {
+      method: 'POST',
+      headers: {
+        apikey: SB_KEY,
+        Authorization: 'Bearer ' + SB_KEY,
+        'Content-Type': 'application/pdf',
+        'x-upsert': 'true',
+      },
+      body: file,
+    });
+
+    if (!upRes.ok) {
+      const err = await upRes.json();
+      throw new Error(err.message || 'Error subiendo archivo');
+    }
+
+    // URL pública
+    const pdfUrl = `${SB_URL}/storage/v1/object/public/estados-cuenta/${ruta}`;
+
+    // Guardar URL en el registro
+    await sbPatch('ft_registros_mes', _pdfRegistroId, { pdf_url: pdfUrl });
+
+    await cargarTodo();
+    render();
+  } catch (err) {
+    alert('Error al subir el PDF: ' + err.message);
+    if (btn) { btn.textContent = '📄 Subir estado'; btn.disabled = false; }
+  }
+
+  _pdfRegistroId = null;
+}
+</script>
+</body>
+</html>
