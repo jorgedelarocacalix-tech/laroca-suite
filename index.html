@@ -161,6 +161,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
     <option value="">Selecciona tu nombre…</option>
     <option value="jorge">Jorge Calix</option>
     <option value="isis">Isis Fonseca (Johana)</option>
+    <option value="milagro">Milagro Gómez</option>
   </select>
   <button id="btnEnable" class="notif-btn">🔔 Activar notificaciones</button>
   <button id="btnTest" class="notif-btn notif-btn-secondary" style="display:none">📨 Enviar prueba</button>
@@ -199,8 +200,9 @@ var btnTest = document.getElementById('btnTest');
 var notifPersonaEl = document.getElementById('notifPersona');
 
 var ROLES_POR_PERSONA = {
-  jorge: ['admin', 'rrhh', 'auditoria'],
-  isis:  ['rrhh', 'auditoria']
+  jorge:   ['admin', 'rrhh', 'auditoria'],
+  isis:    ['rrhh', 'auditoria'],
+  milagro: ['admin', 'rrhh', 'auditoria']
 };
 
 function rolesSeleccionados() {
