@@ -156,13 +156,13 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
 
 <div class="notif-box" id="notifBox">
   <p id="notifStatus" class="notif-status">Notificaciones: desactivadas</p>
-  <p class="notif-roles-label">¿Qué solicitudes te deben llegar?</p>
-  <div id="notifRoles" class="notif-roles">
-    <label><input type="checkbox" value="admin"> Administrador</label>
-    <label><input type="checkbox" value="rrhh"> RRHH (vacaciones, préstamos)</label>
-    <label><input type="checkbox" value="auditoria"> Auditoría (gastos sin factura)</label>
-    <label><input type="checkbox" value="asociado"> Asociado / vendedor</label>
-  </div>
+  <p class="notif-roles-label">¿Quién eres?</p>
+  <select id="notifPersona" class="notif-select">
+    <option value="">Selecciona tu nombre…</option>
+    <option value="jorge">Jorge Calix</option>
+    <option value="isis">Isis Fonseca</option>
+    <option value="johana">Johana</option>
+  </select>
   <button id="btnEnable" class="notif-btn">🔔 Activar notificaciones</button>
   <button id="btnTest" class="notif-btn notif-btn-secondary" style="display:none">📨 Enviar prueba</button>
 </div>
@@ -176,8 +176,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
 .notif-btn:hover{border-color:#2A2A2A;background:#181818}
 .notif-btn-secondary{color:#5B9CEA}
 .notif-roles-label{font-size:11px;color:#555;margin-top:6px}
-.notif-roles{display:flex;flex-direction:column;gap:6px;background:#141414;border:1px solid #1E1E1E;border-radius:8px;padding:10px 14px;align-items:flex-start}
-.notif-roles label{font-size:12px;color:#ccc;display:flex;align-items:center;gap:8px;cursor:pointer}
+.notif-select{background:#141414;border:1px solid #1E1E1E;color:#fff;font-size:12px;padding:8px 12px;border-radius:8px}
 </style>
 
 <script>
@@ -198,16 +197,22 @@ var statusEl = document.getElementById('notifStatus');
 var btnEnable = document.getElementById('btnEnable');
 var btnTest = document.getElementById('btnTest');
 
-var notifRolesEl = document.getElementById('notifRoles');
+var notifPersonaEl = document.getElementById('notifPersona');
+
+var ROLES_POR_PERSONA = {
+  jorge:  ['admin', 'rrhh', 'auditoria'],
+  isis:   ['auditoria'],
+  johana: ['rrhh']
+};
 
 function rolesSeleccionados() {
-  return Array.from(notifRolesEl.querySelectorAll('input:checked')).map(function (c) { return c.value; });
+  return ROLES_POR_PERSONA[notifPersonaEl.value] || [];
 }
 
 function setUiSubscribed() {
   statusEl.textContent = 'Notificaciones: activadas';
   btnEnable.style.display = 'none';
-  notifRolesEl.style.display = 'none';
+  notifPersonaEl.style.display = 'none';
   document.querySelector('.notif-roles-label').style.display = 'none';
   btnTest.style.display = 'inline-flex';
 }
@@ -219,7 +224,7 @@ async function registerAndSubscribe() {
   }
   var roles = rolesSeleccionados();
   if (!roles.length) {
-    alert('Marca al menos una opción de qué solicitudes te deben llegar.');
+    alert('Selecciona tu nombre de la lista.');
     return;
   }
   var reg = await navigator.serviceWorker.register('sw.js');
