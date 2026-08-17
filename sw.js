@@ -1,4 +1,4 @@
-// Service Worker de La Roca Suite — habilita instalación y notificaciones push
+// Service Worker de CaliFon App — habilita instalación y notificaciones push
 self.addEventListener('install', function (e) {
   self.skipWaiting();
 });
@@ -9,15 +9,16 @@ self.addEventListener('activate', function (e) {
 
 self.addEventListener('push', function (e) {
   var data = {};
-  try { data = e.data ? e.data.json() : {}; } catch (err) { data = { title: 'La Roca Suite', body: e.data ? e.data.text() : '' }; }
+  try { data = e.data ? e.data.json() : {}; } catch (err) { data = { title: 'CaliFon App', body: e.data ? e.data.text() : '' }; }
 
-  var title = data.title || 'La Roca Suite';
+  var title = data.title || 'CaliFon App';
   var options = {
     body: data.body || '',
     icon: 'icons/icon-192.png',
     badge: 'icons/icon-192.png',
     data: { url: data.url || './' }
   };
+  if (data.image) options.image = data.image;
 
   e.waitUntil(self.registration.showNotification(title, options));
 });

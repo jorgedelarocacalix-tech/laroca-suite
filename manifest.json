@@ -1,12 +1,12 @@
 {
-  "name": "La Roca Suite",
-  "short_name": "La Roca",
+  "name": "CaliFon App",
+  "short_name": "CaliFon",
   "description": "Acceso rápido a CRM, Cobranza, Cierre y Arqueos de Corporación La Roca.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0D0D0D",
-  "theme_color": "#0D0D0D",
+  "theme_color": "#C6285A",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
