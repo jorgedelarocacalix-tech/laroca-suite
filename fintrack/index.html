@@ -1052,11 +1052,35 @@ function renderSubirEstado() {
     </div>
 
     <button type="button" class="btn-submit" style="background:#fff;color:#185FA5;border:1.5px solid #185FA5;margin-top:4px" onclick="window.open('https://drive.google.com/drive/folders/1-ZkiHTAHZIF-g6d_VYZQfcZITvncwS9F','_blank')">
-      📁 Abrir carpeta de Drive (revisión automática cada 30 min)
+      📁 Abrir carpeta de Drive
+    </button>
+    <button type="button" id="ec-revisar-drive-btn" class="btn-submit btn-t" style="margin-top:6px" onclick="ecRevisarDriveAhora()">
+      🔄 Revisar carpeta de Drive ahora
     </button>
   </div>
 
   <div id="ec-cola"></div>`;
+}
+
+const EC_DRIVE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxhdCx-wgCcHJtB7kg4FVOzZj8huSQF2VKQTfuuKPx9y-Qio-irRVxvkbMpafieHuM_/exec';
+const EC_DRIVE_WEBAPP_KEY = 'f701b13d6bff54f61bdb03bc6d123aa5';
+
+async function ecRevisarDriveAhora() {
+  const btn = document.getElementById('ec-revisar-drive-btn');
+  const msgDiv = document.getElementById('ec-msg');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Revisando la carpeta de Drive...'; }
+  if (msgDiv) msgDiv.innerHTML = '<div style="background:#EEF5FF;border-left:3px solid #185FA5;border-radius:6px;padding:9px 12px;font-size:12px;color:#185FA5"><span style="animation:spin .8s linear infinite;display:inline-block">⏳</span> Pidiéndole al revisor automático que analice los PDFs de la carpeta...</div>';
+
+  try {
+    await fetch(`${EC_DRIVE_WEBAPP_URL}?key=${EC_DRIVE_WEBAPP_KEY}`, { mode: 'no-cors' });
+    if (msgDiv) msgDiv.innerHTML = '<div style="background:#EAF3DE;border-left:3px solid #3B6D11;border-radius:6px;padding:9px 12px;font-size:12px;color:#3B6D11;font-weight:600">✓ Revisión completada — se actualizó la lista abajo.</div>';
+  } catch (err) {
+    if (msgDiv) msgDiv.innerHTML = `<div class="msg-err">⚠ No se pudo contactar al revisor: ${esc(err.message)}</div>`;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 Revisar carpeta de Drive ahora'; }
+  await cargarTodo();
+  render();
 }
 
 let _ecCola = [];
