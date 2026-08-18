@@ -294,6 +294,7 @@ async function fetchActividadCRM(mesKey){
 
 // ══ Render ══
 var ANALISIS_CIERRE_URL='https://analisis-cierre-production.up.railway.app';
+var COBRANZA_URL='https://cobranza-app-production-f653.up.railway.app';
 
 async function cargarTodo(){
   document.getElementById('statusLine').textContent='Cargando '+mesLabel(mesSel)+'…';
@@ -328,6 +329,7 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm){
     var cobroColor=pctCobro>=90?'good':pctCobro>=70?'warn':'bad';
     var cobroBarColor=pctCobro>=90?'#48bb78':pctCobro>=70?'#ed8936':'#fc5c5c';
     var ventasHref=ANALISIS_CIERRE_URL+'/?tab=ventas&suc='+t.ventas+'&mes='+mesSel;
+    var reporteHref=COBRANZA_URL+'/?cart='+t.cobranza+'&tab=REPORTE';
 
     html+='<div class="team" style="--c:'+t.color+'"><style>.team[style*="'+t.color+'"]::before{background:'+t.color+'}</style>';
     html+='<h2>'+t.nombre+'</h2><div class="sub">Cartera '+(NOMBRES_CARTERA[t.cobranza]||t.cobranza)+' · Ventas '+t.ventas+'</div>';
@@ -343,7 +345,7 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm){
 
     html+='<div class="mrow">';
     html+='<div class="stat"><div class="l">Clientes que sí abonaron</div><div class="v good">'+a.pagaronNombres.size+'</div><div class="s">clientes distintos con abono en '+mesLabel(mesSel)+' (Arqueos)</div></div>';
-    html+='<div class="stat"><div class="l">Clientes sin abonar</div><div class="v bad">'+sinAbonar.length+'</div><div class="s">de '+m.clientesEnMora.length+' en mora hoy · '+fmt(cuotasSinAbonar)+' en cuotas de este mes · '+fmt(m.moraTotal)+' mora total</div></div>';
+    html+='<a class="stat statlink" href="'+reporteHref+'" target="_blank" rel="noopener"><div class="l">Clientes sin abonar ↗</div><div class="v bad">'+sinAbonar.length+'</div><div class="s">de '+m.clientesEnMora.length+' en mora hoy · '+fmt(cuotasSinAbonar)+' en cuotas de este mes · '+fmt(m.moraTotal)+' mora total · ver listado</div></a>';
     html+='</div>';
 
     html+='<div class="mrow">';
