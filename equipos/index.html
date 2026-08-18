@@ -6,30 +6,30 @@
 <title>La Roca — Análisis por Equipo</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0D0D0D;color:#fff;min-height:100%}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F2F4F7;color:#1a1d23;min-height:100%}
 body{padding:24px 16px 60px}
 .wrap{max-width:1440px;margin:0 auto}
 .top{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-bottom:20px}
-.brand h1{font-size:20px;font-weight:800}
-.brand p{font-size:12px;color:#555;margin-top:2px}
-.back{font-size:12px;color:#5B9CEA;text-decoration:none;border:1px solid #1E1E1E;padding:6px 12px;border-radius:8px}
-.back:hover{background:#141414}
+.brand h1{font-size:20px;font-weight:800;color:#1a1d23}
+.brand p{font-size:12px;color:#6b7280;margin-top:2px}
+.back{font-size:12px;color:#1a55a0;text-decoration:none;border:1px solid #d8dce3;padding:6px 12px;border-radius:8px;background:#fff}
+.back:hover{background:#eef2f7}
 .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
-.mbtn{background:#141414;border:1px solid #1E1E1E;color:#aaa;font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer}
-.mbtn.on{background:#1E2A1E;border-color:#2E7D32;color:#8BC34A}
-.mbtn:hover{border-color:#2A2A2A}
-.status{font-size:12px;color:#555;margin-bottom:14px}
+.mbtn{background:#fff;border:1px solid #d8dce3;color:#4b5563;font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer}
+.mbtn.on{background:#e7f6ea;border-color:#2E7D32;color:#1e7e34}
+.mbtn:hover{border-color:#aab2bf}
+.status{font-size:12px;color:#6b7280;margin-bottom:14px}
 .grid2{display:grid;grid-template-columns:1fr;gap:18px}
-.team{background:#141414;border:1px solid #1E1E1E;border-radius:16px;padding:20px;position:relative;overflow:hidden}
+.team{background:#fff;border:1px solid #e3e6eb;border-radius:16px;padding:20px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(20,25,35,.05)}
 .team::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-.team h2{font-size:17px;font-weight:800;margin-bottom:2px}
-.team .sub{font-size:11px;color:#555;margin-bottom:16px}
+.team h2{font-size:17px;font-weight:800;margin-bottom:2px;color:#1a1d23}
+.team .sub{font-size:11px;color:#6b7280;margin-bottom:16px}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-.stat{background:#0F0F0F;border:1px solid #1a1a1a;border-radius:10px;padding:12px}
+.stat{background:#f8f9fb;border:1px solid #e6e9ee;border-radius:10px;padding:12px;color:#1a1d23}
 .statlink{display:block;text-decoration:none;cursor:pointer;transition:border-color .15s,background .15s}
-.statlink:hover{border-color:#5B9CEA;background:#0f1620}
-.statbtn{background:#0F0F0F;border:1px solid #1a1a1a;border-radius:10px;padding:12px;cursor:pointer;text-align:left;width:100%;font-family:inherit;transition:border-color .15s,background .15s}
-.statbtn:hover{border-color:#5B9CEA;background:#0f1620}
+.statlink:hover{border-color:#1a55a0;background:#eef4fb}
+.statbtn{background:#f8f9fb;border:1px solid #e6e9ee;border-radius:10px;padding:12px;cursor:pointer;text-align:left;width:100%;font-family:inherit;color:#1a1d23;transition:border-color .15s,background .15s}
+.statbtn:hover{border-color:#1a55a0;background:#eef4fb}
 .moralist{display:none;margin-top:10px;background:#fff;border:1px solid #ddd;border-radius:10px;overflow:hidden}
 .moralist.open{display:block}
 .moralist-scroll{overflow-x:auto}
@@ -43,21 +43,21 @@ body{padding:24px 16px 60px}
 .badge-sin{background:#fdeaea;color:#c0392b;padding:1px 7px;border-radius:4px;font-size:9px;font-weight:700}
 .moralist-foot{padding:8px 10px;font-size:10px;color:#888;background:#fafafa;border-top:1px solid #eee}
 .moralist-foot a{color:#1a55a0;text-decoration:none;font-weight:600}
-.stat .l{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
-.stat .v{font-size:19px;font-weight:800}
-.stat .s{font-size:10.5px;color:#666;margin-top:3px}
-.good{color:#48bb78}.warn{color:#ed8936}.bad{color:#fc5c5c}.info{color:#5B9CEA}
-.warn-box{background:#2a1a08;border:1px solid #5a3a10;color:#f6c667;font-size:11.5px;font-weight:600;padding:10px 12px;border-radius:10px;margin-bottom:14px;line-height:1.5}
-.bar{height:6px;background:#1c1c1c;border-radius:3px;margin-top:8px;overflow:hidden}
+.stat .l{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.stat .v{font-size:19px;font-weight:800;color:#1a1d23}
+.stat .s{font-size:10.5px;color:#6b7280;margin-top:3px}
+.good{color:#1a7a3c}.warn{color:#b06a00}.bad{color:#c0392b}.info{color:#1a55a0}
+.warn-box{background:#fff6e5;border:1px solid #f0c766;color:#8a5b00;font-size:11.5px;font-weight:600;padding:10px 12px;border-radius:10px;margin-bottom:14px;line-height:1.5}
+.bar{height:6px;background:#e6e9ee;border-radius:3px;margin-top:8px;overflow:hidden}
 .bar>div{height:100%;border-radius:3px}
 .mini{margin-top:16px}
-.mini h3{font-size:11px;color:#777;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
-.prodrow{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;border-bottom:1px solid #1a1a1a;color:#bbb}
+.mini h3{font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.prodrow{display:flex;justify-content:space-between;font-size:11.5px;padding:5px 0;border-bottom:1px solid #eee;color:#444}
 .prodrow:last-child{border-bottom:none}
-.prodrow b{color:#eee;font-weight:600}
-.empty-mini{font-size:11px;color:#555;padding:6px 0}
-.loading{text-align:center;color:#555;font-size:13px;padding:60px 0}
-.foot-note{font-size:10px;color:#3a3a3a;text-align:center;margin-top:30px;line-height:1.7}
+.prodrow b{color:#1a1d23;font-weight:600}
+.empty-mini{font-size:11px;color:#9aa0aa;padding:6px 0}
+.loading{text-align:center;color:#9aa0aa;font-size:13px;padding:60px 0}
+.foot-note{font-size:10px;color:#9aa0aa;text-align:center;margin-top:30px;line-height:1.7}
 </style>
 </head>
 <body>
