@@ -29,6 +29,20 @@ body{padding:24px 16px 60px}
 .stat{background:#0F0F0F;border:1px solid #1a1a1a;border-radius:10px;padding:12px}
 .statlink{display:block;text-decoration:none;cursor:pointer;transition:border-color .15s,background .15s}
 .statlink:hover{border-color:#5B9CEA;background:#0f1620}
+.statbtn{background:#0F0F0F;border:1px solid #1a1a1a;border-radius:10px;padding:12px;cursor:pointer;text-align:left;width:100%;font-family:inherit;transition:border-color .15s,background .15s}
+.statbtn:hover{border-color:#5B9CEA;background:#0f1620}
+.moralist{display:none;margin-top:10px;background:#0F0F0F;border:1px solid #1a1a1a;border-radius:10px;overflow:hidden}
+.moralist.open{display:block}
+.moralist-scroll{overflow-x:auto}
+.moralist table{width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap}
+.moralist th{text-align:left;padding:7px 10px;color:#666;text-transform:uppercase;font-size:9px;letter-spacing:.04em;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#0F0F0F}
+.moralist td{padding:6px 10px;border-bottom:1px solid #161616;color:#ccc}
+.moralist tr:last-child td{border-bottom:none}
+.moralist-wrap{max-height:340px;overflow-y:auto}
+.badge-abono{background:#0f2a17;color:#48bb78;padding:1px 7px;border-radius:4px;font-size:9px;font-weight:700}
+.badge-sin{background:#2a1010;color:#fc5c5c;padding:1px 7px;border-radius:4px;font-size:9px;font-weight:700}
+.moralist-foot{padding:8px 10px;font-size:10px;color:#555}
+.moralist-foot a{color:#5B9CEA;text-decoration:none}
 .stat .l{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 .stat .v{font-size:19px;font-weight:800}
 .stat .s{font-size:10.5px;color:#666;margin-top:3px}
@@ -90,12 +104,42 @@ var TIENDAS=[
 var hoy=new Date();
 var MES_ACTUAL=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0');
 var mesSel=MES_ACTUAL;
+var MORA_DATA={}; // tienda.id -> [{nombre,saldo,cuota,mora,ultimoPago,abono}]
+var MORA_OPEN={}; // tienda.id -> filtro abierto actualmente ('todos'|'sin'|null)
 
 function fmt(n){return 'L '+Math.round(n||0).toLocaleString('es-HN');}
 function pct(a,b){return b>0?Math.round(a/b*100):0;}
 function norm(s){return String(s||'').toLowerCase().trim().replace(/\s+/g,' ').replace(/[.,]/g,'');}
 function mesLabel(mk){var M=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];var p=mk.split('-');return M[parseInt(p[1])]+' '+p[0];}
 function nombreSucursal(suc){var t=TIENDAS.find(function(x){return x.ventas===suc;});return t?t.nombre:suc;}
+
+// ══ Lista de clientes en mora, desplegable dentro del mismo modulo (sin salir a Cobranza) ══
+function toggleMoraList(tid,filtro){
+  var panel=document.getElementById('moralist-'+tid);
+  if(!panel)return;
+  if(panel.classList.contains('open')&&MORA_OPEN[tid]===filtro){
+    panel.classList.remove('open');
+    MORA_OPEN[tid]=null;
+    return;
+  }
+  MORA_OPEN[tid]=filtro;
+  panel.classList.add('open');
+  var datos=MORA_DATA[tid]||[];
+  var filtrados=filtro==='sin'?datos.filter(function(c){return !c.abono;}):datos;
+  var body=document.getElementById('moralist-body-'+tid);
+  var countEl=document.getElementById('moralist-count-'+tid);
+  if(countEl)countEl.textContent=filtrados.length;
+  if(!body)return;
+  if(!filtrados.length){
+    body.innerHTML='<tr><td colspan="6" style="color:#555;text-align:center;padding:16px">Sin clientes para mostrar.</td></tr>';
+    return;
+  }
+  body.innerHTML=filtrados.map(function(c){
+    var badge=c.abono?'<span class="badge-abono">✓ Abonó</span>':'<span class="badge-sin">Sin abonar</span>';
+    return '<tr><td>'+c.nombre+'</td><td>'+fmt(c.saldo)+'</td><td>'+fmt(c.cuota)+'</td><td style="color:#fc5c5c;font-weight:700">'+fmt(c.mora)+'</td><td>'+(c.ultimoPago||'—')+'</td><td>'+badge+'</td></tr>';
+  }).join('');
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 
 function findCol(headersLower,keys){
   for(var i=0;i<headersLower.length;i++){var h=headersLower[i];for(var k=0;k<keys.length;k++){if(h===keys[k]||h.indexOf(keys[k])===0)return i;}}
@@ -193,7 +237,7 @@ async function fetchMoraCobranza(){
     (row.clientes||[]).forEach(function(c){
       if(c.tramo==='INACTIVO')return;
       var dif=calcMoraCliente(c);
-      if(dif&&dif>0){lista.push({nombre:c.nombre,moraVal:dif,cuota:c.cuota||0});total+=dif;}
+      if(dif&&dif>0){lista.push({nombre:c.nombre,moraVal:dif,cuota:c.cuota||0,saldo:c.saldo||0,ultimoPago:c.ultimo_pago||''});total+=dif;}
     });
     out[row.id]={clientesEnMora:lista,moraTotal:total};
   });
@@ -313,6 +357,7 @@ async function cargarTodo(){
 }
 
 function renderEquipos(arq,proyectado,mora,invSinMov,crm){
+  MORA_DATA={};MORA_OPEN={};
   var html='<div class="grid2">';
   TIENDAS.forEach(function(t){
     var a=arq[t.ventas]||{ventaTotal:0,nVentas:0,cobradoAbono:0,productosVendidos:new Set(),pagaronNombres:new Set()};
@@ -320,6 +365,8 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm){
     var m=mora[t.cobranza]||{clientesEnMora:[],moraTotal:0};
     var sinAbonar=m.clientesEnMora.filter(function(c){return !a.pagaronNombres.has(norm(c.nombre));});
     var cuotasSinAbonar=sinAbonar.reduce(function(s,c){return s+(c.cuota||0);},0);
+    var saldoEnMora=m.clientesEnMora.reduce(function(s,c){return s+(c.saldo||0);},0);
+    var cuotasEnMora=m.clientesEnMora.reduce(function(s,c){return s+(c.cuota||0);},0);
     var prodSinMov=(invSinMov[t.ventas]||[]).slice().sort(function(a2,b2){return b2.valor-a2.valor;});
     var valorSinMov=prodSinMov.reduce(function(s,p){return s+p.valor;},0);
     var g=crm[t.crm]||{clientesVendido:0,llamadasMes:0,llamadasTotalMes:0,clientesContactados:0};
@@ -344,14 +391,28 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm){
     html+='</div>';
 
     html+='<div class="mrow">';
+    html+='<button type="button" class="statbtn" onclick="toggleMoraList(\''+t.id+'\',\'todos\')"><div class="l">Mora (cartera)</div><div class="v bad">'+fmt(m.moraTotal)+'</div><div class="s">'+m.clientesEnMora.length+' clientes en mora · saldo '+fmt(saldoEnMora)+' · cuotas '+fmt(cuotasEnMora)+' · ver listado ▾</div></button>';
     html+='<div class="stat"><div class="l">Clientes que sí abonaron</div><div class="v good">'+a.pagaronNombres.size+'</div><div class="s">clientes distintos con abono en '+mesLabel(mesSel)+' (Arqueos)</div></div>';
-    html+='<a class="stat statlink" href="'+reporteHref+'" target="_blank" rel="noopener"><div class="l">Clientes sin abonar ↗</div><div class="v bad">'+sinAbonar.length+'</div><div class="s">de '+m.clientesEnMora.length+' en mora hoy · '+fmt(cuotasSinAbonar)+' en cuotas de este mes · '+fmt(m.moraTotal)+' mora total · ver listado</div></a>';
     html+='</div>';
 
     html+='<div class="mrow">';
+    html+='<button type="button" class="statbtn" onclick="toggleMoraList(\''+t.id+'\',\'sin\')"><div class="l">Clientes sin abonar</div><div class="v bad">'+sinAbonar.length+'</div><div class="s">de '+m.clientesEnMora.length+' en mora hoy · '+fmt(cuotasSinAbonar)+' en cuotas de este mes · ver listado ▾</div></button>';
     html+='<div class="stat"><div class="l">Clientes recompra (Vendido)</div><div class="v good">'+g.clientesVendido+'</div><div class="s">'+g.llamadasMes+' llamadas a estos clientes en '+mesLabel(mesSel)+'</div></div>';
-    html+='<div class="stat"><div class="l">Llamadas totales (CRM)</div><div class="v info">'+g.llamadasTotalMes+'</div><div class="s">'+g.clientesContactados+' clientes contactados · meta 8/día por vendedor</div></div>';
     html+='</div>';
+
+    html+='<div class="moralist" id="moralist-'+t.id+'">'
+      +'<div class="moralist-wrap"><div class="moralist-scroll"><table><thead><tr><th>Cliente</th><th>Saldo</th><th>Cuota</th><th>Mora</th><th>Último pago</th><th>Estado ('+mesLabel(mesSel)+')</th></tr></thead><tbody id="moralist-body-'+t.id+'"></tbody></table></div></div>'
+      +'<div class="moralist-foot">Mostrando <span id="moralist-count-'+t.id+'">0</span> clientes · <a href="'+reporteHref+'" target="_blank" rel="noopener">Abrir en Cobranza para gestionar →</a></div>'
+      +'</div>';
+
+    html+='<div class="mrow">';
+    html+='<div class="stat"><div class="l">Llamadas totales (CRM)</div><div class="v info">'+g.llamadasTotalMes+'</div><div class="s">'+g.clientesContactados+' clientes contactados · meta 8/día por vendedor</div></div>';
+    html+='<div class="stat" style="opacity:0"></div>';
+    html+='</div>';
+
+    MORA_DATA[t.id]=m.clientesEnMora.map(function(c){
+      return {nombre:c.nombre,saldo:c.saldo,cuota:c.cuota,mora:c.moraVal,ultimoPago:c.ultimoPago,abono:a.pagaronNombres.has(norm(c.nombre))};
+    }).sort(function(x,y){return y.mora-x.mora;});
 
     html+='<div class="mini"><h3>📦 Productos con stock sin vender este mes ('+prodSinMov.length+''+(valorSinMov?' · '+fmt(valorSinMov)+' en riesgo':'')+')</h3>';
     if(!prodSinMov.length){
