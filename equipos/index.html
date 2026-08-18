@@ -19,8 +19,7 @@ body{padding:24px 16px 60px}
 .mbtn.on{background:#1E2A1E;border-color:#2E7D32;color:#8BC34A}
 .mbtn:hover{border-color:#2A2A2A}
 .status{font-size:12px;color:#555;margin-bottom:14px}
-.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:18px}
-@media(max-width:480px){.grid2{grid-template-columns:1fr}}
+.grid2{display:grid;grid-template-columns:1fr;gap:18px}
 .team{background:#141414;border:1px solid #1E1E1E;border-radius:16px;padding:20px;position:relative;overflow:hidden}
 .team::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .team h2{font-size:17px;font-weight:800;margin-bottom:2px}
@@ -107,6 +106,8 @@ var MES_ACTUAL=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0');
 var mesSel=MES_ACTUAL;
 var MORA_DATA={}; // tienda.id -> [{nombre,saldo,cuota,mora,ultimoPago,abono}]
 var MORA_OPEN={}; // tienda.id -> filtro abierto actualmente ('todos'|'sin'|null)
+var DETAIL_DATA={}; // 'ventasvend-TID' / 'llamadasvend-TID' -> {headers:[...], rows:[[...]]}
+var DETAIL_OPEN={}; // key -> bool
 
 function fmt(n){return 'L '+Math.round(n||0).toLocaleString('es-HN');}
 function pct(a,b){return b>0?Math.round(a/b*100):0;}
@@ -139,6 +140,25 @@ function toggleMoraList(tid,filtro){
     var badge=c.abono?'<span class="badge-abono">✓ Abonó</span>':'<span class="badge-sin">Sin abonar</span>';
     return '<tr><td>'+c.nombre+'</td><td>'+fmt(c.saldo)+'</td><td>'+fmt(c.cuota)+'</td><td style="color:#fc5c5c;font-weight:700">'+fmt(c.mora)+'</td><td>'+(c.ultimoPago||'—')+'</td><td>'+badge+'</td></tr>';
   }).join('');
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ══ Toggle genérico para paneles de detalle simples (ventas/llamadas por vendedor) ══
+function toggleDetailList(key){
+  var panel=document.getElementById('detail-'+key);
+  if(!panel)return;
+  if(panel.classList.contains('open')){panel.classList.remove('open');return;}
+  panel.classList.add('open');
+  if(!DETAIL_OPEN[key]){
+    DETAIL_OPEN[key]=true;
+    var d=DETAIL_DATA[key]||{rows:[]};
+    var body=document.getElementById('detail-body-'+key);
+    if(body){
+      body.innerHTML=d.rows.length
+        ? d.rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';}).join('')
+        : '<tr><td colspan="4" style="color:#999;text-align:center;padding:16px">Sin datos para '+mesLabel(mesSel)+'. Falta subir el Excel de ventas por vendedor en Análisis de Cierre.</td></tr>';
+    }
+  }
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
@@ -181,6 +201,32 @@ async function fetchArqueos(mesKey){
       o.cobradoAbono+=Number(c.monto||0);
       if(c.cliente)o.pagaronNombres.add(norm(c.cliente));
     });
+  });
+  return out;
+}
+
+// ══ Fetch: Ventas por vendedor (cierre_ventas, Excel subido en Análisis de Cierre) ══
+// Nota: distinto de arqueos — este es el detalle por asesor de ventas, no siempre está
+// subido para el mes actual (depende de que cada tienda suba su Excel de vendedores).
+async function fetchVentasPorVendedor(mesKey){
+  var r=await sbA.from('cierre_ventas').select('sucursal,rows,headers').eq('mes_key',mesKey);
+  var out={}; // sucursal -> [{vendedor,monto,cant,tickets}]
+  (r.data||[]).forEach(function(row){
+    var headers=(row.headers||[]).map(function(h){return norm(h);});
+    var iVend=findCol(headers,['vendedor','asesor','agente','representante']);
+    var iMonto=findCol(headers,['total venta','monto','sub total','subtotal','total','valor','importe','ventas','venta']);
+    var iCant=findCol(headers,['cantidad','qty','cant','unidades']);
+    if(iVend<0)return;
+    var porVend={};
+    (row.rows||[]).forEach(function(r0){
+      var vend=String(r0[iVend]||'').trim();if(!vend)return;
+      var key=vend.toLowerCase().replace(/[\s.\-_]/g,'');
+      if(!porVend[key])porVend[key]={vendedor:vend,monto:0,cant:0,tickets:0};
+      var v=iMonto>=0?(parseFloat(String(r0[iMonto]||'').replace(/[,L$\s]/g,''))||0):0;
+      var c=iCant>=0?(parseFloat(String(r0[iCant]||'').replace(/[,\s]/g,''))||0):0;
+      porVend[key].monto+=v;porVend[key].cant+=(c||1);porVend[key].tickets++;
+    });
+    out[row.sucursal]=Object.keys(porVend).map(function(k){return porVend[k];}).sort(function(a,b){return b.monto-a.monto;});
   });
   return out;
 }
@@ -310,13 +356,13 @@ async function fetchActividadCRM(mesKey){
   var partes=mesKey.split('-').map(Number);
   var endD=new Date(partes[0],partes[1],0);
   var end=partes[0]+'-'+String(partes[1]).padStart(2,'0')+'-'+String(endD.getDate()).padStart(2,'0');
-  var rg=await sbC.from('gestiones').select('client_id,cartera_id,date_iso,estado,resultado')
+  var rg=await sbC.from('gestiones').select('client_id,cartera_id,date_iso,estado,resultado,user_name')
     .gte('date_iso',start).lte('date_iso',end);
 
-  var out={}; // cartera_id -> {clientesVendido, llamadasMes, llamadasTotalMes, clientesContactados}
+  var out={}; // cartera_id -> {clientesVendido, llamadasMes, llamadasTotalMes, clientesContactados, porVendedor}
   var contactadosPorCartera={}; // cartera_id -> Set(client_id)
   function ensure(cid){
-    if(!out[cid])out[cid]={clientesVendido:vendidoPorCartera[cid]||0,llamadasMes:0,llamadasTotalMes:0,clientesContactados:0};
+    if(!out[cid])out[cid]={clientesVendido:vendidoPorCartera[cid]||0,llamadasMes:0,llamadasTotalMes:0,clientesContactados:0,porVendedor:{}};
     return out[cid];
   }
   Object.keys(vendidoPorCartera).forEach(ensure);
@@ -326,6 +372,8 @@ async function fetchActividadCRM(mesKey){
     var o=ensure(g.cartera_id);
     o.llamadasTotalMes++;
     if(vendidoIds.has(g.client_id))o.llamadasMes++;
+    var vend=(g.user_name||'Sin nombre').trim();
+    o.porVendedor[vend]=(o.porVendedor[vend]||0)+1;
     if(g.client_id){
       if(!contactadosPorCartera[g.cartera_id])contactadosPorCartera[g.cartera_id]=new Set();
       contactadosPorCartera[g.cartera_id].add(g.client_id);
@@ -350,15 +398,17 @@ async function cargarTodo(){
     var mora=await fetchMoraCobranza();
     var invSinMov= mesSel===MES_ACTUAL ? await fetchInventarioSinMovimiento(arq) : {};
     var crm=await fetchActividadCRM(mesSel);
-    renderEquipos(arq,proyectado,mora,invSinMov,crm);
+    var ventasVend=await fetchVentasPorVendedor(mesSel);
+    renderEquipos(arq,proyectado,mora,invSinMov,crm,ventasVend);
     document.getElementById('statusLine').textContent='Datos de '+mesLabel(mesSel)+(mesSel!==MES_ACTUAL?' · Inventario y mora siempre reflejan hoy, no el mes histórico':' · Mora en vivo, a la fecha de hoy');
   }catch(err){
     document.getElementById('content').innerHTML='<div class="loading" style="color:#fc5c5c">Error cargando datos: '+err.message+'</div>';
   }
 }
 
-function renderEquipos(arq,proyectado,mora,invSinMov,crm){
+function renderEquipos(arq,proyectado,mora,invSinMov,crm,ventasVend){
   MORA_DATA={};MORA_OPEN={};
+  DETAIL_DATA={};DETAIL_OPEN={};
   var html='<div class="grid2">';
   TIENDAS.forEach(function(t){
     var a=arq[t.ventas]||{ventaTotal:0,nVentas:0,cobradoAbono:0,productosVendidos:new Set(),pagaronNombres:new Set()};
@@ -410,6 +460,21 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm){
     html+='<div class="stat"><div class="l">Llamadas totales (CRM)</div><div class="v info">'+g.llamadasTotalMes+'</div><div class="s">'+g.clientesContactados+' clientes contactados · meta 8/día por vendedor</div></div>';
     html+='<div class="stat" style="opacity:0"></div>';
     html+='</div>';
+
+    var vv=(ventasVend[t.ventas]||[]);
+    var vvKey='ventasvend-'+t.id;
+    html+='<div class="mrow">';
+    html+='<button type="button" class="statbtn" onclick="toggleDetailList(\''+vvKey+'\')"><div class="l">Ventas por vendedor</div><div class="v info">'+vv.length+' vendedor(es)</div><div class="s">monto y cantidad vendida en '+mesLabel(mesSel)+' · ver detalle ▾</div></button>';
+    var lvKey='llamadasvend-'+t.id;
+    html+='<button type="button" class="statbtn" onclick="toggleDetailList(\''+lvKey+'\')"><div class="l">Llamadas CRM por vendedor</div><div class="v info">'+Object.keys(g.porVendedor||{}).length+' vendedor(es)</div><div class="s">gestiones reales en '+mesLabel(mesSel)+' · ver detalle ▾</div></button>';
+    html+='</div>';
+
+    html+='<div class="moralist" id="detail-'+vvKey+'"><div class="moralist-wrap"><div class="moralist-scroll"><table><thead><tr><th>Vendedor</th><th>Monto vendido</th><th>Cantidad</th><th>Tickets</th></tr></thead><tbody id="detail-body-'+vvKey+'"></tbody></table></div></div></div>';
+    html+='<div class="moralist" id="detail-'+lvKey+'"><div class="moralist-wrap"><div class="moralist-scroll"><table><thead><tr><th>Vendedor</th><th>Llamadas</th></tr></thead><tbody id="detail-body-'+lvKey+'"></tbody></table></div></div></div>';
+
+    DETAIL_DATA[vvKey]={rows:vv.map(function(v){return [v.vendedor,fmt(v.monto),v.cant,v.tickets];})};
+    var llamVendRows=Object.keys(g.porVendedor||{}).sort(function(x,y){return g.porVendedor[y]-g.porVendedor[x];}).map(function(v){return [v,g.porVendedor[v]];});
+    DETAIL_DATA[lvKey]={rows:llamVendRows};
 
     MORA_DATA[t.id]=m.clientesEnMora.map(function(c){
       return {nombre:c.nombre,saldo:c.saldo,cuota:c.cuota,mora:c.moraVal,ultimoPago:c.ultimoPago,abono:a.pagaronNombres.has(norm(c.nombre))};
