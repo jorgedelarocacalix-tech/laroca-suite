@@ -93,12 +93,14 @@ var NOMBRES_CARTERA={LA_ROCA_COMERCIAL_1:'La Roca Comercial',LA_ROCA_MOTORS_BARR
 // Confirmado con gerencia: el sufijo _1/_2 de las carteras de Motors coincide con
 // "R2 Roca 1 Inverca" → Barrio Arriba (_1) y "R3 La Roca Motor 2" → La Libertad (_2),
 // y con roca1motors/roca2motors del CRM.
+// grupoCRM: tiendas que comparten el mismo equipo de asesores y por lo tanto la misma
+// meta de 8 llamadas/dia (no se suma 8 por tienda si es el mismo vendedor cubriendo ambas).
 var TIENDAS=[
-  {id:'roca_comercial',nombre:'La Roca Comercial',color:'#E07070',cobranza:'LA_ROCA_COMERCIAL_1',ventas:'R1',crm:'roca1'},
-  {id:'roca_barrio',nombre:'Motors Barrio Arriba',color:'#ed8936',cobranza:'LA_ROCA_MOTORS_BARRIO_ARRIBA_1',ventas:'R2',crm:'roca1motors'},
-  {id:'roca_libertad',nombre:'Motors La Libertad',color:'#9f7aea',cobranza:'LA_ROCA_MOTORS_LA_LIBERTAD_2',ventas:'R3',crm:'roca2motors'},
-  {id:'sumueble',nombre:'Su Mueble Danlí',color:'#5B9CEA',cobranza:'SU_MUEBLE',ventas:'R4',crm:'sumuebledanli'},
-  {id:'sumoto',nombre:'Su Moto Danlí',color:'#48bb78',cobranza:'SU_MOTO_DANLI',ventas:'R5',crm:'sumotodanli'}
+  {id:'roca_comercial',nombre:'La Roca Comercial',color:'#E07070',cobranza:'LA_ROCA_COMERCIAL_1',ventas:'R1',crm:'roca1',grupoCRM:'roca_comercial'},
+  {id:'roca_barrio',nombre:'Motors Barrio Arriba',color:'#ed8936',cobranza:'LA_ROCA_MOTORS_BARRIO_ARRIBA_1',ventas:'R2',crm:'roca1motors',grupoCRM:'roca_barrio'},
+  {id:'roca_libertad',nombre:'Motors La Libertad',color:'#9f7aea',cobranza:'LA_ROCA_MOTORS_LA_LIBERTAD_2',ventas:'R3',crm:'roca2motors',grupoCRM:'roca_libertad'},
+  {id:'sumueble',nombre:'Su Mueble Danlí',color:'#5B9CEA',cobranza:'SU_MUEBLE',ventas:'R4',crm:'sumuebledanli',grupoCRM:'sumueble_sumoto'},
+  {id:'sumoto',nombre:'Su Moto Danlí',color:'#48bb78',cobranza:'SU_MOTO_DANLI',ventas:'R5',crm:'sumotodanli',grupoCRM:'sumueble_sumoto'}
 ];
 
 var hoy=new Date();
@@ -409,6 +411,19 @@ async function cargarTodo(){
 function renderEquipos(arq,proyectado,mora,invSinMov,crm,ventasVend){
   MORA_DATA={};MORA_OPEN={};
   DETAIL_DATA={};DETAIL_OPEN={};
+
+  // Meta de llamadas CRM: 8/dia por vendedor. Su Mueble y Su Moto comparten el mismo
+  // equipo de asesores, asi que su meta se calcula junta (no se duplica el 8 por tienda).
+  var partesMes=mesSel.split('-').map(Number);
+  var diasT= mesSel===MES_ACTUAL ? hoy.getDate() : new Date(partesMes[0],partesMes[1],0).getDate();
+  var metaPorGrupo={}; // grupoCRM -> {vendedores:Set, llamadas:0}
+  TIENDAS.forEach(function(t){
+    var g0=crm[t.crm]||{llamadasTotalMes:0,porVendedor:{}};
+    if(!metaPorGrupo[t.grupoCRM])metaPorGrupo[t.grupoCRM]={vendedores:new Set(),llamadas:0};
+    Object.keys(g0.porVendedor||{}).forEach(function(v){metaPorGrupo[t.grupoCRM].vendedores.add(v);});
+    metaPorGrupo[t.grupoCRM].llamadas+=g0.llamadasTotalMes;
+  });
+
   var html='<div class="grid2">';
   TIENDAS.forEach(function(t){
     var a=arq[t.ventas]||{ventaTotal:0,nVentas:0,cobradoAbono:0,productosVendidos:new Set(),pagaronNombres:new Set()};
@@ -457,7 +472,14 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm,ventasVend){
       +'</div>';
 
     html+='<div class="mrow">';
-    html+='<div class="stat"><div class="l">Llamadas totales (CRM)</div><div class="v info">'+g.llamadasTotalMes+'</div><div class="s">'+g.clientesContactados+' clientes contactados · meta 8/día por vendedor</div></div>';
+    var metaG=metaPorGrupo[t.grupoCRM]||{vendedores:new Set(),llamadas:0};
+    var nVendMeta=Math.max(1,metaG.vendedores.size);
+    var metaEsperada=8*diasT*nVendMeta;
+    var faltanLlamadas=Math.max(0,metaEsperada-metaG.llamadas);
+    var compartidaTxt=t.grupoCRM==='sumueble_sumoto'?' · meta compartida Su Mueble + Su Moto':'';
+    var faltanColor=faltanLlamadas>0?'bad':'good';
+    html+='<div class="stat"><div class="l">Llamadas totales (CRM)</div><div class="v info">'+g.llamadasTotalMes+'</div><div class="s">'+g.clientesContactados+' clientes contactados · '+nVendMeta+' vendedor(es) · meta 8/día'+compartidaTxt+'</div>'
+      +'<div class="s" style="margin-top:4px"><span class="'+faltanColor+'" style="font-weight:700">'+(faltanLlamadas>0?'Faltan '+faltanLlamadas:'✓ Meta al día')+'</span> de '+metaEsperada+' esperadas a día '+diasT+'</div></div>';
     html+='<div class="stat" style="opacity:0"></div>';
     html+='</div>';
 
