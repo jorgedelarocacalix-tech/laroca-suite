@@ -183,37 +183,49 @@ async function fetchInventarioSinMovimiento(ventasPorSuc){
   return out;
 }
 
-// ══ Fetch: CRM — clientes recompra (Kanban "Vendido") y llamadas del mes hacia ellos ══
+// ══ Fetch: CRM — actividad de llamadas del mes + clientes recompra (Kanban "Vendido") ══
 // Nota: gestiones.estado NUNCA vale 'vendido' (ese es solo el id de columna del Kanban,
 // guardado en clientes.kb_col). Tampoco hay fecha confiable de cuándo un cliente pasó a
 // vendido (updated_at es de una sincronización masiva, no del cambio de columna). Por eso
-// medimos: (1) clientes actualmente marcados Vendido por cartera, y (2) cuántas llamadas
-// reales se les hizo durante el mes seleccionado — la mejor aproximación honesta disponible.
-async function fetchRecompraCRM(mesKey){
+// medimos: (1) clientes actualmente marcados Vendido por cartera, (2) el total de llamadas
+// reales y clientes únicos contactados en el mes (meta del CRM: 8 gestiones/día por
+// vendedor), y (3) cuántas de esas llamadas fueron a clientes ya marcados Vendido.
+async function fetchActividadCRM(mesKey){
   var rc=await sbC.from('clientes').select('id,cartera_id').eq('kb_col','vendido');
-  var out={}; // cartera_id -> {clientesVendido, llamadasMes}
-  var idsPorCartera={};
+  var vendidoIds=new Set();var vendidoPorCartera={};
   (rc.data||[]).forEach(function(c){
-    if(!out[c.cartera_id])out[c.cartera_id]={clientesVendido:0,llamadasMes:0};
-    out[c.cartera_id].clientesVendido++;
-    if(!idsPorCartera[c.cartera_id])idsPorCartera[c.cartera_id]=[];
-    idsPorCartera[c.cartera_id].push(c.id);
+    vendidoIds.add(c.id);
+    vendidoPorCartera[c.cartera_id]=(vendidoPorCartera[c.cartera_id]||0)+1;
   });
-  var allIds=(rc.data||[]).map(function(c){return c.id;});
-  if(allIds.length){
-    var start=mesKey+'-01';
-    var partes=mesKey.split('-').map(Number);
-    var endD=new Date(partes[0],partes[1],0);
-    var end=partes[0]+'-'+String(partes[1]).padStart(2,'0')+'-'+String(endD.getDate()).padStart(2,'0');
-    var rg=await sbC.from('gestiones').select('client_id,cartera_id,date_iso,estado,resultado')
-      .in('client_id',allIds).gte('date_iso',start).lte('date_iso',end);
-    (rg.data||[]).forEach(function(g){
-      var esReal=g.estado!=='actividad'&&g.estado!=='meta_manual'&&g.resultado!=='venta-manual';
-      if(!esReal)return;
-      if(!out[g.cartera_id])out[g.cartera_id]={clientesVendido:0,llamadasMes:0};
-      out[g.cartera_id].llamadasMes++;
-    });
+
+  var start=mesKey+'-01';
+  var partes=mesKey.split('-').map(Number);
+  var endD=new Date(partes[0],partes[1],0);
+  var end=partes[0]+'-'+String(partes[1]).padStart(2,'0')+'-'+String(endD.getDate()).padStart(2,'0');
+  var rg=await sbC.from('gestiones').select('client_id,cartera_id,date_iso,estado,resultado')
+    .gte('date_iso',start).lte('date_iso',end);
+
+  var out={}; // cartera_id -> {clientesVendido, llamadasMes, llamadasTotalMes, clientesContactados}
+  var contactadosPorCartera={}; // cartera_id -> Set(client_id)
+  function ensure(cid){
+    if(!out[cid])out[cid]={clientesVendido:vendidoPorCartera[cid]||0,llamadasMes:0,llamadasTotalMes:0,clientesContactados:0};
+    return out[cid];
   }
+  Object.keys(vendidoPorCartera).forEach(ensure);
+  (rg.data||[]).forEach(function(g){
+    var esReal=g.estado!=='actividad'&&g.estado!=='meta_manual'&&g.resultado!=='venta-manual';
+    if(!esReal)return;
+    var o=ensure(g.cartera_id);
+    o.llamadasTotalMes++;
+    if(vendidoIds.has(g.client_id))o.llamadasMes++;
+    if(g.client_id){
+      if(!contactadosPorCartera[g.cartera_id])contactadosPorCartera[g.cartera_id]=new Set();
+      contactadosPorCartera[g.cartera_id].add(g.client_id);
+    }
+  });
+  Object.keys(contactadosPorCartera).forEach(function(cid){
+    ensure(cid).clientesContactados=contactadosPorCartera[cid].size;
+  });
   return out;
 }
 
@@ -225,7 +237,7 @@ async function cargarTodo(){
     var cobranza=await fetchCobranza(mesSel);
     var ventas=await fetchVentas(mesSel);
     var invSinMov= mesSel===MES_ACTUAL ? await fetchInventarioSinMovimiento(ventas) : {};
-    var crm=await fetchRecompraCRM(mesSel);
+    var crm=await fetchActividadCRM(mesSel);
     renderEquipos(cobranza,ventas,invSinMov,crm);
     document.getElementById('statusLine').textContent='Datos de '+mesLabel(mesSel)+(mesSel!==MES_ACTUAL?' · Inventario solo disponible para el mes actual':'');
   }catch(err){
@@ -252,10 +264,11 @@ function renderEquipos(cobranza,ventas,invSinMov,crm){
     });
     prodSinMov.sort(function(a,b){return b.valor-a.valor;});
     var valorSinMov=prodSinMov.reduce(function(s,p){return s+p.valor;},0);
-    var clientesVendido=0,llamadasMes=0;
+    var clientesVendido=0,llamadasMes=0,llamadasTotalMes=0,clientesContactados=0;
     eq.carterasCRM.forEach(function(cid){
       var g=crm[cid];if(!g)return;
       clientesVendido+=g.clientesVendido;llamadasMes+=g.llamadasMes;
+      llamadasTotalMes+=g.llamadasTotalMes;clientesContactados+=g.clientesContactados;
     });
 
     var pctCobro=pct(cobrado,proyectado);
@@ -273,6 +286,11 @@ function renderEquipos(cobranza,ventas,invSinMov,crm){
     html+='<div class="mrow">';
     html+='<div class="stat"><div class="l">Clientes sin abonar</div><div class="v bad">'+nSinAbonar+'</div><div class="s">de '+nEnMora+' en mora · '+fmt(moraTotal)+' mora total</div></div>';
     html+='<div class="stat"><div class="l">Clientes recompra (Vendido)</div><div class="v good">'+clientesVendido+'</div><div class="s">'+llamadasMes+' llamadas a estos clientes en '+mesLabel(mesSel)+'</div></div>';
+    html+='</div>';
+
+    html+='<div class="mrow">';
+    html+='<div class="stat"><div class="l">Llamadas totales (CRM)</div><div class="v info">'+llamadasTotalMes+'</div><div class="s">gestiones reales en '+mesLabel(mesSel)+' · meta 8/día por vendedor</div></div>';
+    html+='<div class="stat"><div class="l">Clientes contactados</div><div class="v info">'+clientesContactados+'</div><div class="s">clientes únicos con al menos 1 llamada</div></div>';
     html+='</div>';
 
     html+='<div class="mini"><h3>📦 Productos con stock sin vender este mes ('+prodSinMov.length+''+(valorSinMov?' · '+fmt(valorSinMov)+' en riesgo':'')+')</h3>';
