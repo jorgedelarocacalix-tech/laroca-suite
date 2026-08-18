@@ -31,6 +31,7 @@ body{padding:24px 16px 60px}
 .stat .v{font-size:19px;font-weight:800}
 .stat .s{font-size:10.5px;color:#666;margin-top:3px}
 .good{color:#48bb78}.warn{color:#ed8936}.bad{color:#fc5c5c}.info{color:#5B9CEA}
+.warn-box{background:#2a1a08;border:1px solid #5a3a10;color:#f6c667;font-size:11.5px;font-weight:600;padding:10px 12px;border-radius:10px;margin-bottom:14px;line-height:1.5}
 .bar{height:6px;background:#1c1c1c;border-radius:3px;margin-top:8px;overflow:hidden}
 .bar>div{height:100%;border-radius:3px}
 .mini{margin-top:16px}
@@ -92,6 +93,7 @@ function fmt(n){return 'L '+Math.round(n||0).toLocaleString('es-HN');}
 function pct(a,b){return b>0?Math.round(a/b*100):0;}
 function norm(s){return String(s||'').toLowerCase().trim().replace(/\s+/g,' ').replace(/[.,]/g,'');}
 function mesLabel(mk){var M=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];var p=mk.split('-');return M[parseInt(p[1])]+' '+p[0];}
+function nombreSucursal(suc){var t=TIENDAS.find(function(x){return x.ventas===suc;});return t?t.nombre:suc;}
 
 function findCol(headersLower,keys){
   for(var i=0;i<headersLower.length;i++){var h=headersLower[i];for(var k=0;k<keys.length;k++){if(h===keys[k]||h.indexOf(keys[k])===0)return i;}}
@@ -156,15 +158,26 @@ async function fetchVentas(mesKey){
 }
 
 // ══ Fetch: Inventario (cierre_inventario, siempre mes actual) — productos sin movimiento ══
+// También detecta inventarios "copiados": si dos sucursales tienen exactamente el mismo
+// archivo cargado (mismo total de filas + misma primera fila), lo más probable es que
+// alguien subió el Excel equivocado — se marca para avisar en pantalla, no se adivina cuál
+// de las dos es la correcta.
 async function fetchInventarioSinMovimiento(ventasPorSuc){
   var r=await sbA.from('cierre_inventario').select('sucursal,rows,headers');
   var out={}; // sucursal -> [{nombre,cantidad,valor}]
+  var firmas={}; // firma (primera fila + n filas) -> [sucursales]
+  var dupMap={}; // sucursal -> [otras sucursales con el mismo archivo]
   (r.data||[]).forEach(function(row){
     var headers=(row.headers||[]).map(function(h){return norm(h);});
     var iDesc=findCol(headers,['descripcion']);
     var iCant=findCol(headers,['cantidad']);
     var iPV=findCol(headers,['precio venta']);
     if(iDesc<0)return;
+
+    var firma=(row.rows&&row.rows.length)+'|'+JSON.stringify(row.rows&&row.rows[0]);
+    if(!firmas[firma])firmas[firma]=[];
+    firmas[firma].push(row.sucursal);
+
     var vendidosSet=(ventasPorSuc[row.sucursal]&&ventasPorSuc[row.sucursal].productos)||new Set();
     var lista=[];
     (row.rows||[]).forEach(function(r0){
@@ -181,6 +194,12 @@ async function fetchInventarioSinMovimiento(ventasPorSuc){
     lista.sort(function(a,b){return b.valor-a.valor;});
     out[row.sucursal]=lista;
   });
+  Object.keys(firmas).forEach(function(f){
+    var sucs=firmas[f];
+    if(sucs.length<2)return;
+    sucs.forEach(function(s){dupMap[s]=sucs.filter(function(x){return x!==s;});});
+  });
+  out._duplicados=dupMap;
   return out;
 }
 
@@ -254,6 +273,7 @@ function renderEquipos(cobranza,ventas,invSinMov,crm){
     var prodSinMov=(invSinMov[t.ventas]||[]).slice().sort(function(a,b){return b.valor-a.valor;});
     var valorSinMov=prodSinMov.reduce(function(s,p){return s+p.valor;},0);
     var g=crm[t.crm]||{clientesVendido:0,llamadasMes:0,llamadasTotalMes:0,clientesContactados:0};
+    var dupSucs=((invSinMov._duplicados||{})[t.ventas]||[]).map(nombreSucursal);
 
     var pctCobro=pct(c.cobrado,c.proyectado);
     var cobroColor=pctCobro>=90?'good':pctCobro>=70?'warn':'bad';
@@ -261,6 +281,10 @@ function renderEquipos(cobranza,ventas,invSinMov,crm){
 
     html+='<div class="team" style="--c:'+t.color+'"><style>.team[style*="'+t.color+'"]::before{background:'+t.color+'}</style>';
     html+='<h2>'+t.nombre+'</h2><div class="sub">Cartera '+(NOMBRES_CARTERA[t.cobranza]||t.cobranza)+' · Ventas '+t.ventas+'</div>';
+
+    if(dupSucs.length){
+      html+='<div class="warn-box">⚠️ Inventario mal ingresado: es idéntico al de '+dupSucs.join(' y ')+'. Favor resubir el archivo correcto de esta tienda en Análisis de Cierre.</div>';
+    }
 
     html+='<div class="mrow">';
     html+='<div class="stat"><div class="l">Ventas generadas</div><div class="v info">'+fmt(v.total)+'</div><div class="s">'+v.nVentas+' ventas registradas</div></div>';
