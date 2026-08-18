@@ -193,7 +193,7 @@ async function fetchMoraCobranza(){
     (row.clientes||[]).forEach(function(c){
       if(c.tramo==='INACTIVO')return;
       var dif=calcMoraCliente(c);
-      if(dif&&dif>0){lista.push({nombre:c.nombre,moraVal:dif});total+=dif;}
+      if(dif&&dif>0){lista.push({nombre:c.nombre,moraVal:dif,cuota:c.cuota||0});total+=dif;}
     });
     out[row.id]={clientesEnMora:lista,moraTotal:total};
   });
@@ -318,6 +318,7 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm){
     var proy=proyectado[t.ventas]||0;
     var m=mora[t.cobranza]||{clientesEnMora:[],moraTotal:0};
     var sinAbonar=m.clientesEnMora.filter(function(c){return !a.pagaronNombres.has(norm(c.nombre));});
+    var cuotasSinAbonar=sinAbonar.reduce(function(s,c){return s+(c.cuota||0);},0);
     var prodSinMov=(invSinMov[t.ventas]||[]).slice().sort(function(a2,b2){return b2.valor-a2.valor;});
     var valorSinMov=prodSinMov.reduce(function(s,p){return s+p.valor;},0);
     var g=crm[t.crm]||{clientesVendido:0,llamadasMes:0,llamadasTotalMes:0,clientesContactados:0};
@@ -342,7 +343,7 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm){
 
     html+='<div class="mrow">';
     html+='<div class="stat"><div class="l">Clientes que sí abonaron</div><div class="v good">'+a.pagaronNombres.size+'</div><div class="s">clientes distintos con abono en '+mesLabel(mesSel)+' (Arqueos)</div></div>';
-    html+='<div class="stat"><div class="l">Clientes sin abonar</div><div class="v bad">'+sinAbonar.length+'</div><div class="s">de '+m.clientesEnMora.length+' en mora hoy · '+fmt(m.moraTotal)+' mora total</div></div>';
+    html+='<div class="stat"><div class="l">Clientes sin abonar</div><div class="v bad">'+sinAbonar.length+'</div><div class="s">de '+m.clientesEnMora.length+' en mora hoy · '+fmt(cuotasSinAbonar)+' en cuotas de este mes · '+fmt(m.moraTotal)+' mora total</div></div>';
     html+='</div>';
 
     html+='<div class="mrow">';
@@ -364,7 +365,7 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm){
     html+='</div>';
   });
   html+='</div>';
-  html+='<div class="foot-note">Ventas y Cobro = arqueos (cierres de caja diarios) del mes seleccionado · Cobro cuenta solo abonos, excluye primas y ventas de contado · Proyectado = "Mi Proyección" subida en Análisis de Cierre, o el cierre de Cobranza si falta<br>Clientes que sí abonaron = clientes distintos con abono registrado en arqueos ese mes · Clientes sin abonar = de los que Cobranza marca en mora HOY, cuáles no tienen abono ese mes en arqueos<br>Clientes recompra = clientes del CRM actualmente en la columna "Vendido" del tablero Recompra · Llamadas = gestiones reales del mes (excluye ventas manuales; el CRM no registra la fecha exacta en que un cliente pasó a Vendido)<br>Productos sin movimiento = inventario con stock que no aparece en las ventas del mes (solo disponible para el mes actual)</div>';
+  html+='<div class="foot-note">Ventas y Cobro = arqueos (cierres de caja diarios) del mes seleccionado · Cobro cuenta solo abonos, excluye primas y ventas de contado · Proyectado = "Mi Proyección" subida en Análisis de Cierre, o el cierre de Cobranza si falta<br>Clientes que sí abonaron = clientes distintos con abono registrado en arqueos ese mes · Clientes sin abonar = de los que Cobranza marca en mora HOY, cuáles no tienen abono ese mes en arqueos · "en cuotas de este mes" = suma de la cuota mensual de esos clientes (no la mora acumulada)<br>Cobro vs. Proyectado puede pasar de 100% aunque haya clientes sin abonar: son dos cosas distintas — uno mide dinero total (L), el otro cuenta personas. Pocos clientes pagando de más o liquidando saldo pueden superar la meta en L aunque otros no hayan pagado nada. En meses pasados, "en mora hoy" no es exactamente la misma mora que había ese mes, porque Cobranza no guarda fotos históricas por cliente<br>Clientes recompra = clientes del CRM actualmente en la columna "Vendido" del tablero Recompra · Llamadas = gestiones reales del mes (excluye ventas manuales; el CRM no registra la fecha exacta en que un cliente pasó a Vendido)<br>Productos sin movimiento = inventario con stock que no aparece en las ventas del mes (solo disponible para el mes actual)</div>';
   document.getElementById('content').innerHTML=html;
 }
 
