@@ -27,6 +27,8 @@ body{padding:24px 16px 60px}
 .team .sub{font-size:11px;color:#555;margin-bottom:16px}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .stat{background:#0F0F0F;border:1px solid #1a1a1a;border-radius:10px;padding:12px}
+.statlink{display:block;text-decoration:none;cursor:pointer;transition:border-color .15s,background .15s}
+.statlink:hover{border-color:#5B9CEA;background:#0f1620}
 .stat .l{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 .stat .v{font-size:19px;font-weight:800}
 .stat .s{font-size:10.5px;color:#666;margin-top:3px}
@@ -58,7 +60,7 @@ body{padding:24px 16px 60px}
   <div class="controls" id="mesButtons"></div>
   <div class="status" id="statusLine">Cargando…</div>
 
-  <div id="content" class="loading">Cargando datos de las 3 fuentes (Cobranza, Ventas, CRM)…</div>
+  <div id="content" class="loading">Cargando datos de Arqueos, Cobranza y CRM…</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -99,60 +101,101 @@ function findCol(headersLower,keys){
   for(var i=0;i<headersLower.length;i++){var h=headersLower[i];for(var k=0;k<keys.length;k++){if(h===keys[k]||h.indexOf(keys[k])===0)return i;}}
   return -1;
 }
+function parseHNDate(s){if(!s)return null;var p=String(s).split('/');if(p.length!==3)return null;var d=new Date(+p[2],+p[1]-1,+p[0]);d.setHours(0,0,0,0);return isNaN(d)?null:d;}
 
-// ══ Fetch: Cobranza (cierre_proyeccion + historial_clientes) ══
-async function fetchCobranza(mesKey){
-  var r1=await sbA.from('cierre_proyeccion').select('cartera_id,mes_key,datos').order('mes_key',{ascending:false});
-  var byCart={}; // ultimo cierre por cartera
-  (r1.data||[]).forEach(function(row){
-    if(byCart[row.cartera_id])return;
-    byCart[row.cartera_id]=row;
-  });
+// ══ Fetch: Arqueos (cierres de caja diarios) — la fuente real de ventas y cobros ══
+// cobrado = TODO lo que pasó por caja ese día (abonos + primas + contado), por eso no sirve
+// solo para medir cobranza. Se desglosa analisis_json.cobros[].tipo: ABONO es cobranza real
+// de cartera; PRIMA y CONTADO son dinero de ventas nuevas, no cobranza. Ventas = analisis_json.ventas[].total_erp.
+async function fetchArqueos(mesKey){
   var start=mesKey+'-01';
   var partes=mesKey.split('-').map(Number);
   var endD=new Date(partes[0],partes[1],0);
   var end=partes[0]+'-'+String(partes[1]).padStart(2,'0')+'-'+String(endD.getDate()).padStart(2,'0');
-  var r2=await sbA.from('historial_clientes').select('cartera_id,cliente_nombre,tipo,monto,fecha_accion')
-    .in('tipo',['pago','abono']).gte('fecha_accion',start).lte('fecha_accion',end);
-  var pagosPorCartera={}; // cartera_id -> {total, pagaron:Set(nombre normalizado)}
-  (r2.data||[]).forEach(function(p){
-    if(!pagosPorCartera[p.cartera_id])pagosPorCartera[p.cartera_id]={total:0,pagaron:new Set()};
-    pagosPorCartera[p.cartera_id].total+=Number(p.monto||0);
-    pagosPorCartera[p.cartera_id].pagaron.add(norm(p.cliente_nombre));
-  });
-  var out={};
-  Object.keys(byCart).forEach(function(cid){
-    var datos=byCart[cid].datos||[];
-    var proyectado=0,moraTotal=0,clientesEnMora=[],nClientes=0;
-    datos.forEach(function(c){
-      if(c.mora==='INACTIVO')return;
-      nClientes++;
-      proyectado+=(c.montoAsesor||0);
-      if((c.moraVal||0)>0){moraTotal+=c.moraVal;clientesEnMora.push(c);}
+  var r=await sbA.from('arqueos').select('sucursal,fecha,version,analisis_json')
+    .gte('fecha',start).lte('fecha',end).order('version',{ascending:false});
+  var vistos={}; // sucursal+fecha -> ya procesado (toma la version mas reciente, como dedupArqueos)
+  var out={}; // sucursal -> {ventaTotal,nVentas,cobradoAbono,productosVendidos:Set,pagaronNombres:Set}
+  function ensure(suc){
+    if(!out[suc])out[suc]={ventaTotal:0,nVentas:0,cobradoAbono:0,productosVendidos:new Set(),pagaronNombres:new Set()};
+    return out[suc];
+  }
+  (r.data||[]).forEach(function(row){
+    var key=row.sucursal+'|'+row.fecha;
+    if(vistos[key])return; // ya se tomó la version mas reciente de este dia
+    vistos[key]=true;
+    var o=ensure(row.sucursal);
+    var aj=row.analisis_json||{};
+    (aj.ventas||[]).forEach(function(v){
+      o.ventaTotal+=Number(v.total_erp||0);
+      o.nVentas++;
+      if(v.articulo)o.productosVendidos.add(norm(v.articulo));
     });
-    var pc=pagosPorCartera[cid]||{total:0,pagaron:new Set()};
-    var sinAbonar=clientesEnMora.filter(function(c){return !pc.pagaron.has(norm(c.nombre));});
-    out[cid]={proyectado:proyectado,cobrado:pc.total,moraTotal:moraTotal,nClientesEnMora:clientesEnMora.length,nSinAbonar:sinAbonar.length,nAbonaron:pc.pagaron.size,nClientes:nClientes};
+    (aj.cobros||[]).forEach(function(c){
+      if((c.tipo||'').toUpperCase()!=='ABONO')return;
+      o.cobradoAbono+=Number(c.monto||0);
+      if(c.cliente)o.pagaronNombres.add(norm(c.cliente));
+    });
   });
   return out;
 }
 
-// ══ Fetch: Ventas (cierre_ventas) ══
-async function fetchVentas(mesKey){
-  var r=await sbA.from('cierre_ventas').select('sucursal,rows,headers').eq('mes_key',mesKey);
-  var out={}; // sucursal -> {total, nVentas, productosVendidos:Set}
-  (r.data||[]).forEach(function(row){
-    var headers=(row.headers||[]).map(function(h){return norm(h);});
-    var iMonto=findCol(headers,['total venta','monto','sub total','subtotal','total','valor','importe','ventas','venta']);
-    var iProd=findCol(headers,['producto','articulo','descripcion','item','modelo']);
-    var total=0,nVentas=0;var prods=new Set();
-    (row.rows||[]).forEach(function(r0){
-      if(!r0.some(function(c){return String(c||'').trim();}))return;
-      nVentas++;
-      if(iMonto>=0){var v=parseFloat(String(r0[iMonto]||'').replace(/[,L$\s]/g,''))||0;total+=v;}
-      if(iProd>=0){var p=norm(r0[iProd]);if(p)prods.add(p);}
+// ══ Fetch: Proyectado — "Mi Proyección" (proyeccion_manual, subida en Análisis de Cierre)
+// con respaldo en cierre_proyeccion de Cobranza si una sucursal no tiene datos ahí ══
+async function fetchProyectado(mesKey){
+  var out={}; // sucursal -> monto proyectado
+  var r1=await sbA.from('proyeccion_manual').select('filas').eq('mes_key',mesKey).maybeSingle();
+  var sucsConManual={};
+  ((r1.data&&r1.data.filas)||[]).forEach(function(f){
+    var suc=f.sucursal;if(!suc)return;
+    out[suc]=(out[suc]||0)+Number(f.monto||0);
+    sucsConManual[suc]=true;
+  });
+  var faltantes=TIENDAS.filter(function(t){return !sucsConManual[t.ventas];});
+  if(faltantes.length){
+    var r2=await sbA.from('cierre_proyeccion').select('cartera_id,mes_key,datos').order('mes_key',{ascending:false});
+    var byCart={};
+    (r2.data||[]).forEach(function(row){if(!byCart[row.cartera_id])byCart[row.cartera_id]=row;});
+    faltantes.forEach(function(t){
+      var row=byCart[t.cobranza];if(!row)return;
+      var total=0;
+      (row.datos||[]).forEach(function(c){if(c.mora!=='INACTIVO')total+=(c.montoAsesor||0);});
+      out[t.ventas]=total;
     });
-    out[row.sucursal]={total:total,nVentas:nVentas,productos:prods};
+  }
+  return out;
+}
+
+// ══ Fetch: Mora en vivo de Cobranza (carteras) — misma fórmula que "Reporte de Cobro" ══
+// diferencia = saldo real − saldo esperado según cuotas transcurridas. Siempre es "a hoy",
+// no depende del mes seleccionado (Cobranza no guarda snapshots históricos por cliente).
+function calcMoraCliente(c){
+  var numCuotas=c.num_cuotas||0;
+  var totalCredito=(c.pagado||0)+(c.saldo||0);
+  if(!totalCredito||!c.cuota||c.cuota<=0)return null;
+  var fFact=parseHNDate(c.fecha_factura);
+  var cuotasTrans=0;
+  var hoyD=new Date();
+  if(fFact&&hoyD>fFact){
+    var meses=(hoyD.getFullYear()-fFact.getFullYear())*12+(hoyD.getMonth()-fFact.getMonth());
+    if(c.dia_pago>0&&hoyD.getDate()>=c.dia_pago)meses+=1;
+    cuotasTrans=Math.max(0,Math.min(meses,numCuotas||999));
+  }
+  var esperado=Math.max(0,Math.round(totalCredito-cuotasTrans*c.cuota));
+  return c.saldo-esperado;
+}
+async function fetchMoraCobranza(){
+  var ids=TIENDAS.map(function(t){return t.cobranza;});
+  var r=await sbA.from('carteras').select('id,clientes').in('id',ids);
+  var out={}; // cartera_id -> {clientesEnMora:[{nombre,moraVal}], moraTotal}
+  (r.data||[]).forEach(function(row){
+    var lista=[],total=0;
+    (row.clientes||[]).forEach(function(c){
+      if(c.tramo==='INACTIVO')return;
+      var dif=calcMoraCliente(c);
+      if(dif&&dif>0){lista.push({nombre:c.nombre,moraVal:dif});total+=dif;}
+    });
+    out[row.id]={clientesEnMora:lista,moraTotal:total};
   });
   return out;
 }
@@ -162,7 +205,7 @@ async function fetchVentas(mesKey){
 // archivo cargado (mismo total de filas + misma primera fila), lo más probable es que
 // alguien subió el Excel equivocado — se marca para avisar en pantalla, no se adivina cuál
 // de las dos es la correcta.
-async function fetchInventarioSinMovimiento(ventasPorSuc){
+async function fetchInventarioSinMovimiento(arqPorSuc){
   var r=await sbA.from('cierre_inventario').select('sucursal,rows,headers');
   var out={}; // sucursal -> [{nombre,cantidad,valor}]
   var firmas={}; // firma (primera fila + n filas) -> [sucursales]
@@ -178,7 +221,7 @@ async function fetchInventarioSinMovimiento(ventasPorSuc){
     if(!firmas[firma])firmas[firma]=[];
     firmas[firma].push(row.sucursal);
 
-    var vendidosSet=(ventasPorSuc[row.sucursal]&&ventasPorSuc[row.sucursal].productos)||new Set();
+    var vendidosSet=(arqPorSuc[row.sucursal]&&arqPorSuc[row.sucursal].productosVendidos)||new Set();
     var lista=[];
     (row.rows||[]).forEach(function(r0){
       var desc=String(r0[iDesc]||'').trim();if(!desc)return;
@@ -250,34 +293,40 @@ async function fetchActividadCRM(mesKey){
 }
 
 // ══ Render ══
+var ANALISIS_CIERRE_URL='https://analisis-cierre-production.up.railway.app';
+
 async function cargarTodo(){
   document.getElementById('statusLine').textContent='Cargando '+mesLabel(mesSel)+'…';
-  document.getElementById('content').innerHTML='<div class="loading">Cargando datos de las 3 fuentes (Cobranza, Ventas, CRM)…</div>';
+  document.getElementById('content').innerHTML='<div class="loading">Cargando datos de Arqueos, Cobranza y CRM…</div>';
   try{
-    var cobranza=await fetchCobranza(mesSel);
-    var ventas=await fetchVentas(mesSel);
-    var invSinMov= mesSel===MES_ACTUAL ? await fetchInventarioSinMovimiento(ventas) : {};
+    var arq=await fetchArqueos(mesSel);
+    var proyectado=await fetchProyectado(mesSel);
+    var mora=await fetchMoraCobranza();
+    var invSinMov= mesSel===MES_ACTUAL ? await fetchInventarioSinMovimiento(arq) : {};
     var crm=await fetchActividadCRM(mesSel);
-    renderEquipos(cobranza,ventas,invSinMov,crm);
-    document.getElementById('statusLine').textContent='Datos de '+mesLabel(mesSel)+(mesSel!==MES_ACTUAL?' · Inventario solo disponible para el mes actual':'');
+    renderEquipos(arq,proyectado,mora,invSinMov,crm);
+    document.getElementById('statusLine').textContent='Datos de '+mesLabel(mesSel)+(mesSel!==MES_ACTUAL?' · Inventario y mora siempre reflejan hoy, no el mes histórico':' · Mora en vivo, a la fecha de hoy');
   }catch(err){
     document.getElementById('content').innerHTML='<div class="loading" style="color:#fc5c5c">Error cargando datos: '+err.message+'</div>';
   }
 }
 
-function renderEquipos(cobranza,ventas,invSinMov,crm){
+function renderEquipos(arq,proyectado,mora,invSinMov,crm){
   var html='<div class="grid2">';
   TIENDAS.forEach(function(t){
-    var c=cobranza[t.cobranza]||{proyectado:0,cobrado:0,moraTotal:0,nClientesEnMora:0,nSinAbonar:0,nAbonaron:0};
-    var v=ventas[t.ventas]||{total:0,nVentas:0};
-    var prodSinMov=(invSinMov[t.ventas]||[]).slice().sort(function(a,b){return b.valor-a.valor;});
+    var a=arq[t.ventas]||{ventaTotal:0,nVentas:0,cobradoAbono:0,productosVendidos:new Set(),pagaronNombres:new Set()};
+    var proy=proyectado[t.ventas]||0;
+    var m=mora[t.cobranza]||{clientesEnMora:[],moraTotal:0};
+    var sinAbonar=m.clientesEnMora.filter(function(c){return !a.pagaronNombres.has(norm(c.nombre));});
+    var prodSinMov=(invSinMov[t.ventas]||[]).slice().sort(function(a2,b2){return b2.valor-a2.valor;});
     var valorSinMov=prodSinMov.reduce(function(s,p){return s+p.valor;},0);
     var g=crm[t.crm]||{clientesVendido:0,llamadasMes:0,llamadasTotalMes:0,clientesContactados:0};
     var dupSucs=((invSinMov._duplicados||{})[t.ventas]||[]).map(nombreSucursal);
 
-    var pctCobro=pct(c.cobrado,c.proyectado);
+    var pctCobro=pct(a.cobradoAbono,proy);
     var cobroColor=pctCobro>=90?'good':pctCobro>=70?'warn':'bad';
     var cobroBarColor=pctCobro>=90?'#48bb78':pctCobro>=70?'#ed8936':'#fc5c5c';
+    var ventasHref=ANALISIS_CIERRE_URL+'/?tab=ventas&suc='+t.ventas+'&mes='+mesSel;
 
     html+='<div class="team" style="--c:'+t.color+'"><style>.team[style*="'+t.color+'"]::before{background:'+t.color+'}</style>';
     html+='<h2>'+t.nombre+'</h2><div class="sub">Cartera '+(NOMBRES_CARTERA[t.cobranza]||t.cobranza)+' · Ventas '+t.ventas+'</div>';
@@ -287,13 +336,13 @@ function renderEquipos(cobranza,ventas,invSinMov,crm){
     }
 
     html+='<div class="mrow">';
-    html+='<div class="stat"><div class="l">Ventas generadas</div><div class="v info">'+fmt(v.total)+'</div><div class="s">'+v.nVentas+' ventas registradas</div></div>';
-    html+='<div class="stat"><div class="l">Cobro vs. proyectado (sistema)</div><div class="v '+cobroColor+'">'+pctCobro+'%</div><div class="s">'+fmt(c.cobrado)+' de '+fmt(c.proyectado)+'</div><div class="bar"><div style="width:'+Math.min(pctCobro,100)+'%;background:'+cobroBarColor+'"></div></div></div>';
+    html+='<a class="stat statlink" href="'+ventasHref+'" target="_blank" rel="noopener"><div class="l">Ventas generadas ↗</div><div class="v info">'+fmt(a.ventaTotal)+'</div><div class="s">'+a.nVentas+' ventas (Arqueos) · ver detalle por vendedor</div></a>';
+    html+='<div class="stat"><div class="l">Cobro vs. proyectado (sistema)</div><div class="v '+cobroColor+'">'+pctCobro+'%</div><div class="s">'+fmt(a.cobradoAbono)+' de '+fmt(proy)+' · solo abonos, sin primas/contado</div><div class="bar"><div style="width:'+Math.min(pctCobro,100)+'%;background:'+cobroBarColor+'"></div></div></div>';
     html+='</div>';
 
     html+='<div class="mrow">';
-    html+='<div class="stat"><div class="l">Clientes que sí abonaron</div><div class="v good">'+c.nAbonaron+'</div><div class="s">pagos/abonos distintos en '+mesLabel(mesSel)+'</div></div>';
-    html+='<div class="stat"><div class="l">Clientes sin abonar</div><div class="v bad">'+c.nSinAbonar+'</div><div class="s">de '+c.nClientesEnMora+' en mora · '+fmt(c.moraTotal)+' mora total</div></div>';
+    html+='<div class="stat"><div class="l">Clientes que sí abonaron</div><div class="v good">'+a.pagaronNombres.size+'</div><div class="s">clientes distintos con abono en '+mesLabel(mesSel)+' (Arqueos)</div></div>';
+    html+='<div class="stat"><div class="l">Clientes sin abonar</div><div class="v bad">'+sinAbonar.length+'</div><div class="s">de '+m.clientesEnMora.length+' en mora hoy · '+fmt(m.moraTotal)+' mora total</div></div>';
     html+='</div>';
 
     html+='<div class="mrow">';
@@ -315,15 +364,15 @@ function renderEquipos(cobranza,ventas,invSinMov,crm){
     html+='</div>';
   });
   html+='</div>';
-  html+='<div class="foot-note">Cobro = pagos/abonos registrados en Cobranza el mes seleccionado · Proyectado = último cierre de mes cargado por gerencia<br>Clientes que sí abonaron = clientes distintos con al menos un pago/abono ese mes · Clientes sin abonar = de los que están en mora, cuáles no pagaron<br>Clientes recompra = clientes del CRM actualmente en la columna "Vendido" del tablero Recompra · Llamadas = gestiones reales del mes (excluye ventas manuales; el CRM no registra la fecha exacta en que un cliente pasó a Vendido)<br>Productos sin movimiento = inventario con stock que no aparece en las ventas del mes (solo disponible para el mes actual)</div>';
+  html+='<div class="foot-note">Ventas y Cobro = arqueos (cierres de caja diarios) del mes seleccionado · Cobro cuenta solo abonos, excluye primas y ventas de contado · Proyectado = "Mi Proyección" subida en Análisis de Cierre, o el cierre de Cobranza si falta<br>Clientes que sí abonaron = clientes distintos con abono registrado en arqueos ese mes · Clientes sin abonar = de los que Cobranza marca en mora HOY, cuáles no tienen abono ese mes en arqueos<br>Clientes recompra = clientes del CRM actualmente en la columna "Vendido" del tablero Recompra · Llamadas = gestiones reales del mes (excluye ventas manuales; el CRM no registra la fecha exacta en que un cliente pasó a Vendido)<br>Productos sin movimiento = inventario con stock que no aparece en las ventas del mes (solo disponible para el mes actual)</div>';
   document.getElementById('content').innerHTML=html;
 }
 
 // ══ Selector de mes ══
 async function initMeses(){
-  var r=await sbA.from('cierre_ventas').select('mes_key').order('mes_key',{ascending:false});
+  var r=await sbA.from('arqueos').select('fecha').order('fecha',{ascending:false}).limit(2000);
   var set=new Set([MES_ACTUAL]);
-  (r.data||[]).forEach(function(row){set.add(row.mes_key);});
+  (r.data||[]).forEach(function(row){set.add(row.fecha.slice(0,7));});
   var meses=[...set].sort().reverse().slice(0,6);
   var el=document.getElementById('mesButtons');
   el.innerHTML=meses.map(function(mk){
