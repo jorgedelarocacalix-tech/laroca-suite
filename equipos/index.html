@@ -43,6 +43,9 @@ body{padding:24px 16px 60px}
 .badge-sin{background:#fdeaea;color:#c0392b;padding:1px 7px;border-radius:4px;font-size:9px;font-weight:700}
 .moralist-foot{padding:8px 10px;font-size:10px;color:#888;background:#fafafa;border-top:1px solid #eee}
 .moralist-foot a{color:#1a55a0;text-decoration:none;font-weight:600}
+.xlsbtn{background:#e7f6ea;border:1px solid #bfe6c8;color:#1a7a3c;font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;cursor:pointer;font-family:inherit}
+.xlsbtn:hover{background:#d7f0dd}
+.moralist tfoot td{border-top:2px solid #ddd;border-bottom:none}
 .stat .l{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 .stat .v{font-size:19px;font-weight:800;color:#1a1d23}
 .stat .s{font-size:10.5px;color:#6b7280;margin-top:3px}
@@ -78,6 +81,7 @@ body{padding:24px 16px 60px}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script>
 // ══ Config ══
 var SUPA1_URL='https://ixskgawbpwwxdjnkiixt.supabase.co'; // Cobranza + Analisis de Cierre
@@ -108,6 +112,7 @@ var MES_ACTUAL=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0');
 var mesSel=MES_ACTUAL;
 var MORA_DATA={}; // tienda.id -> [{nombre,saldo,cuota,mora,ultimoPago,abono}]
 var MORA_OPEN={}; // tienda.id -> filtro abierto actualmente ('todos'|'sin'|null)
+var MORA_ULTIMO_FILTRADO={}; // tienda.id -> ultima lista filtrada mostrada (para exportar a Excel)
 var DETAIL_DATA={}; // 'ventasvend-TID' / 'llamadasvend-TID' -> {headers:[...], rows:[[...]]}
 var DETAIL_OPEN={}; // key -> bool
 
@@ -130,19 +135,43 @@ function toggleMoraList(tid,filtro){
   panel.classList.add('open');
   var datos=MORA_DATA[tid]||[];
   var filtrados=filtro==='sin'?datos.filter(function(c){return !c.abono;}):datos;
+  MORA_ULTIMO_FILTRADO[tid]=filtrados;
   var body=document.getElementById('moralist-body-'+tid);
+  var foot=document.getElementById('moralist-tfoot-'+tid);
   var countEl=document.getElementById('moralist-count-'+tid);
   if(countEl)countEl.textContent=filtrados.length;
   if(!body)return;
   if(!filtrados.length){
     body.innerHTML='<tr><td colspan="6" style="color:#555;text-align:center;padding:16px">Sin clientes para mostrar.</td></tr>';
+    if(foot)foot.innerHTML='';
     return;
   }
   body.innerHTML=filtrados.map(function(c){
     var badge=c.abono?'<span class="badge-abono">✓ Abonó</span>':'<span class="badge-sin">Sin abonar</span>';
     return '<tr><td>'+c.nombre+'</td><td>'+fmt(c.saldo)+'</td><td>'+fmt(c.cuota)+'</td><td style="color:#fc5c5c;font-weight:700">'+fmt(c.mora)+'</td><td>'+(c.ultimoPago||'—')+'</td><td>'+badge+'</td></tr>';
   }).join('');
+  if(foot){
+    var tSaldo=filtrados.reduce(function(s,c){return s+(c.saldo||0);},0);
+    var tCuota=filtrados.reduce(function(s,c){return s+(c.cuota||0);},0);
+    var tMora=filtrados.reduce(function(s,c){return s+(c.mora||0);},0);
+    foot.innerHTML='<tr style="font-weight:800;background:#f5f6f8"><td>TOTAL ('+filtrados.length+')</td><td>'+fmt(tSaldo)+'</td><td>'+fmt(tCuota)+'</td><td style="color:#c0392b">'+fmt(tMora)+'</td><td></td><td></td></tr>';
+  }
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function descargarMoraExcel(tid,nombreTienda){
+  var filas=MORA_ULTIMO_FILTRADO[tid]||[];
+  if(!filas.length){alert('No hay clientes para descargar en esta vista.');return;}
+  var aoa=[['Cliente','Saldo','Cuota','Mora','Último pago','Estado']];
+  filas.forEach(function(c){aoa.push([c.nombre,c.saldo,c.cuota,c.mora,c.ultimoPago||'',c.abono?'Abonó':'Sin abonar']);});
+  var tSaldo=filas.reduce(function(s,c){return s+(c.saldo||0);},0);
+  var tCuota=filas.reduce(function(s,c){return s+(c.cuota||0);},0);
+  var tMora=filas.reduce(function(s,c){return s+(c.mora||0);},0);
+  aoa.push(['TOTAL ('+filas.length+')',tSaldo,tCuota,tMora,'','']);
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Mora');
+  XLSX.writeFile(wb,'Mora_'+nombreTienda.replace(/\s+/g,'_')+'_'+mesSel+'.xlsx');
 }
 
 // ══ Toggle genérico para paneles de detalle simples (ventas/llamadas por vendedor) ══
@@ -467,8 +496,8 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm,ventasVend){
     html+='</div>';
 
     html+='<div class="moralist" id="moralist-'+t.id+'">'
-      +'<div class="moralist-wrap"><div class="moralist-scroll"><table><thead><tr><th>Cliente</th><th>Saldo</th><th>Cuota</th><th>Mora</th><th>Último pago</th><th>Estado ('+mesLabel(mesSel)+')</th></tr></thead><tbody id="moralist-body-'+t.id+'"></tbody></table></div></div>'
-      +'<div class="moralist-foot">Mostrando <span id="moralist-count-'+t.id+'">0</span> clientes · <a href="'+reporteHref+'" target="_blank" rel="noopener">Abrir en Cobranza para gestionar →</a></div>'
+      +'<div class="moralist-wrap"><div class="moralist-scroll"><table><thead><tr><th>Cliente</th><th>Saldo</th><th>Cuota</th><th>Mora</th><th>Último pago</th><th>Estado ('+mesLabel(mesSel)+')</th></tr></thead><tbody id="moralist-body-'+t.id+'"></tbody><tfoot id="moralist-tfoot-'+t.id+'"></tfoot></table></div></div>'
+      +'<div class="moralist-foot">Mostrando <span id="moralist-count-'+t.id+'">0</span> clientes · <button type="button" class="xlsbtn" onclick="descargarMoraExcel(\''+t.id+'\',\''+t.nombre.replace(/'/g,"")+'\')">⬇ Descargar Excel</button> · <a href="'+reporteHref+'" target="_blank" rel="noopener">Abrir en Cobranza para gestionar →</a></div>'
       +'</div>';
 
     html+='<div class="mrow">';
