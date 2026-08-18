@@ -8,7 +8,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0D0D0D;color:#fff;min-height:100%}
 body{padding:24px 16px 60px}
-.wrap{max-width:1100px;margin:0 auto}
+.wrap{max-width:1440px;margin:0 auto}
 .top{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-bottom:20px}
 .brand h1{font-size:20px;font-weight:800}
 .brand p{font-size:12px;color:#555;margin-top:2px}
@@ -19,8 +19,8 @@ body{padding:24px 16px 60px}
 .mbtn.on{background:#1E2A1E;border-color:#2E7D32;color:#8BC34A}
 .mbtn:hover{border-color:#2A2A2A}
 .status{font-size:12px;color:#555;margin-bottom:14px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:18px}
+@media(max-width:480px){.grid2{grid-template-columns:1fr}}
 .team{background:#141414;border:1px solid #1E1E1E;border-radius:16px;padding:20px;position:relative;overflow:hidden}
 .team::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
 .team h2{font-size:17px;font-weight:800;margin-bottom:2px}
@@ -72,15 +72,16 @@ var sbC=window.supabase.createClient(SUPA2_URL,SUPA2_KEY);
 
 var NOMBRES_CARTERA={LA_ROCA_COMERCIAL_1:'La Roca Comercial',LA_ROCA_MOTORS_BARRIO_ARRIBA_1:'Motors Barrio Arriba',LA_ROCA_MOTORS_LA_LIBERTAD_2:'Motors La Libertad',SU_MOTO_DANLI:'Su Moto Danlí',SU_MUEBLE:'Su Mueble'};
 
-var EQUIPOS=[
-  {id:'roca',nombre:'Equipo Roca',color:'#E07070',
-    carterasCobranza:['LA_ROCA_COMERCIAL_1','LA_ROCA_MOTORS_BARRIO_ARRIBA_1','LA_ROCA_MOTORS_LA_LIBERTAD_2'],
-    sucursalesVentas:['R1','R2','R3'],
-    carterasCRM:['roca1','roca1motors','roca2motors']},
-  {id:'sumueble',nombre:'Equipo Su Mueble',color:'#5B9CEA',
-    carterasCobranza:['SU_MUEBLE','SU_MOTO_DANLI'],
-    sucursalesVentas:['R4','R5'],
-    carterasCRM:['sumuebledanli','sumotodanli']}
+// Una tienda = una cartera de Cobranza = una sucursal de ventas = una cartera del CRM.
+// Confirmado con gerencia: el sufijo _1/_2 de las carteras de Motors coincide con
+// "R2 Roca 1 Inverca" → Barrio Arriba (_1) y "R3 La Roca Motor 2" → La Libertad (_2),
+// y con roca1motors/roca2motors del CRM.
+var TIENDAS=[
+  {id:'roca_comercial',nombre:'La Roca Comercial',color:'#E07070',cobranza:'LA_ROCA_COMERCIAL_1',ventas:'R1',crm:'roca1'},
+  {id:'roca_barrio',nombre:'Motors Barrio Arriba',color:'#ed8936',cobranza:'LA_ROCA_MOTORS_BARRIO_ARRIBA_1',ventas:'R2',crm:'roca1motors'},
+  {id:'roca_libertad',nombre:'Motors La Libertad',color:'#9f7aea',cobranza:'LA_ROCA_MOTORS_LA_LIBERTAD_2',ventas:'R3',crm:'roca2motors'},
+  {id:'sumueble',nombre:'Su Mueble Danlí',color:'#5B9CEA',cobranza:'SU_MUEBLE',ventas:'R4',crm:'sumuebledanli'},
+  {id:'sumoto',nombre:'Su Moto Danlí',color:'#48bb78',cobranza:'SU_MOTO_DANLI',ventas:'R5',crm:'sumotodanli'}
 ];
 
 var hoy=new Date();
@@ -129,7 +130,7 @@ async function fetchCobranza(mesKey){
     });
     var pc=pagosPorCartera[cid]||{total:0,pagaron:new Set()};
     var sinAbonar=clientesEnMora.filter(function(c){return !pc.pagaron.has(norm(c.nombre));});
-    out[cid]={proyectado:proyectado,cobrado:pc.total,moraTotal:moraTotal,nClientesEnMora:clientesEnMora.length,nSinAbonar:sinAbonar.length,nClientes:nClientes};
+    out[cid]={proyectado:proyectado,cobrado:pc.total,moraTotal:moraTotal,nClientesEnMora:clientesEnMora.length,nSinAbonar:sinAbonar.length,nAbonaron:pc.pagaron.size,nClientes:nClientes};
   });
   return out;
 }
@@ -247,55 +248,38 @@ async function cargarTodo(){
 
 function renderEquipos(cobranza,ventas,invSinMov,crm){
   var html='<div class="grid2">';
-  EQUIPOS.forEach(function(eq){
-    var proyectado=0,cobrado=0,moraTotal=0,nSinAbonar=0,nEnMora=0;
-    eq.carterasCobranza.forEach(function(cid){
-      var c=cobranza[cid];if(!c)return;
-      proyectado+=c.proyectado;cobrado+=c.cobrado;moraTotal+=c.moraTotal;nSinAbonar+=c.nSinAbonar;nEnMora+=c.nClientesEnMora;
-    });
-    var ventaTotal=0,nVentas=0;
-    eq.sucursalesVentas.forEach(function(suc){
-      var v=ventas[suc];if(!v)return;
-      ventaTotal+=v.total;nVentas+=v.nVentas;
-    });
-    var prodSinMov=[];
-    eq.sucursalesVentas.forEach(function(suc){
-      (invSinMov[suc]||[]).forEach(function(p){prodSinMov.push(p);});
-    });
-    prodSinMov.sort(function(a,b){return b.valor-a.valor;});
+  TIENDAS.forEach(function(t){
+    var c=cobranza[t.cobranza]||{proyectado:0,cobrado:0,moraTotal:0,nClientesEnMora:0,nSinAbonar:0,nAbonaron:0};
+    var v=ventas[t.ventas]||{total:0,nVentas:0};
+    var prodSinMov=(invSinMov[t.ventas]||[]).slice().sort(function(a,b){return b.valor-a.valor;});
     var valorSinMov=prodSinMov.reduce(function(s,p){return s+p.valor;},0);
-    var clientesVendido=0,llamadasMes=0,llamadasTotalMes=0,clientesContactados=0;
-    eq.carterasCRM.forEach(function(cid){
-      var g=crm[cid];if(!g)return;
-      clientesVendido+=g.clientesVendido;llamadasMes+=g.llamadasMes;
-      llamadasTotalMes+=g.llamadasTotalMes;clientesContactados+=g.clientesContactados;
-    });
+    var g=crm[t.crm]||{clientesVendido:0,llamadasMes:0,llamadasTotalMes:0,clientesContactados:0};
 
-    var pctCobro=pct(cobrado,proyectado);
+    var pctCobro=pct(c.cobrado,c.proyectado);
     var cobroColor=pctCobro>=90?'good':pctCobro>=70?'warn':'bad';
     var cobroBarColor=pctCobro>=90?'#48bb78':pctCobro>=70?'#ed8936':'#fc5c5c';
 
-    html+='<div class="team" style="--c:'+eq.color+'"><style>.team[style*="'+eq.color+'"]::before{background:'+eq.color+'}</style>';
-    html+='<h2>'+eq.nombre+'</h2><div class="sub">'+eq.carterasCobranza.map(function(c){return NOMBRES_CARTERA[c]||c;}).join(' · ')+'</div>';
+    html+='<div class="team" style="--c:'+t.color+'"><style>.team[style*="'+t.color+'"]::before{background:'+t.color+'}</style>';
+    html+='<h2>'+t.nombre+'</h2><div class="sub">Cartera '+(NOMBRES_CARTERA[t.cobranza]||t.cobranza)+' · Ventas '+t.ventas+'</div>';
 
     html+='<div class="mrow">';
-    html+='<div class="stat"><div class="l">Ventas generadas</div><div class="v info">'+fmt(ventaTotal)+'</div><div class="s">'+nVentas+' ventas registradas</div></div>';
-    html+='<div class="stat"><div class="l">Cobro vs. proyectado</div><div class="v '+cobroColor+'">'+pctCobro+'%</div><div class="s">'+fmt(cobrado)+' de '+fmt(proyectado)+'</div><div class="bar"><div style="width:'+Math.min(pctCobro,100)+'%;background:'+cobroBarColor+'"></div></div></div>';
+    html+='<div class="stat"><div class="l">Ventas generadas</div><div class="v info">'+fmt(v.total)+'</div><div class="s">'+v.nVentas+' ventas registradas</div></div>';
+    html+='<div class="stat"><div class="l">Cobro vs. proyectado (sistema)</div><div class="v '+cobroColor+'">'+pctCobro+'%</div><div class="s">'+fmt(c.cobrado)+' de '+fmt(c.proyectado)+'</div><div class="bar"><div style="width:'+Math.min(pctCobro,100)+'%;background:'+cobroBarColor+'"></div></div></div>';
     html+='</div>';
 
     html+='<div class="mrow">';
-    html+='<div class="stat"><div class="l">Clientes sin abonar</div><div class="v bad">'+nSinAbonar+'</div><div class="s">de '+nEnMora+' en mora · '+fmt(moraTotal)+' mora total</div></div>';
-    html+='<div class="stat"><div class="l">Clientes recompra (Vendido)</div><div class="v good">'+clientesVendido+'</div><div class="s">'+llamadasMes+' llamadas a estos clientes en '+mesLabel(mesSel)+'</div></div>';
+    html+='<div class="stat"><div class="l">Clientes que sí abonaron</div><div class="v good">'+c.nAbonaron+'</div><div class="s">pagos/abonos distintos en '+mesLabel(mesSel)+'</div></div>';
+    html+='<div class="stat"><div class="l">Clientes sin abonar</div><div class="v bad">'+c.nSinAbonar+'</div><div class="s">de '+c.nClientesEnMora+' en mora · '+fmt(c.moraTotal)+' mora total</div></div>';
     html+='</div>';
 
     html+='<div class="mrow">';
-    html+='<div class="stat"><div class="l">Llamadas totales (CRM)</div><div class="v info">'+llamadasTotalMes+'</div><div class="s">gestiones reales en '+mesLabel(mesSel)+' · meta 8/día por vendedor</div></div>';
-    html+='<div class="stat"><div class="l">Clientes contactados</div><div class="v info">'+clientesContactados+'</div><div class="s">clientes únicos con al menos 1 llamada</div></div>';
+    html+='<div class="stat"><div class="l">Clientes recompra (Vendido)</div><div class="v good">'+g.clientesVendido+'</div><div class="s">'+g.llamadasMes+' llamadas a estos clientes en '+mesLabel(mesSel)+'</div></div>';
+    html+='<div class="stat"><div class="l">Llamadas totales (CRM)</div><div class="v info">'+g.llamadasTotalMes+'</div><div class="s">'+g.clientesContactados+' clientes contactados · meta 8/día por vendedor</div></div>';
     html+='</div>';
 
     html+='<div class="mini"><h3>📦 Productos con stock sin vender este mes ('+prodSinMov.length+''+(valorSinMov?' · '+fmt(valorSinMov)+' en riesgo':'')+')</h3>';
     if(!prodSinMov.length){
-      html+='<div class="empty-mini">'+(Object.keys(invSinMov).length?'Todo el inventario con stock tuvo movimiento.':'Sube el inventario del mes en Análisis de Cierre para ver este dato.')+'</div>';
+      html+='<div class="empty-mini">'+(invSinMov[t.ventas]?'Todo el inventario con stock tuvo movimiento.':'Sube el inventario del mes en Análisis de Cierre para ver este dato.')+'</div>';
     } else {
       prodSinMov.slice(0,6).forEach(function(p){
         html+='<div class="prodrow"><b>'+p.nombre+'</b><span>'+p.cantidad+' und · '+fmt(p.valor)+'</span></div>';
@@ -307,7 +291,7 @@ function renderEquipos(cobranza,ventas,invSinMov,crm){
     html+='</div>';
   });
   html+='</div>';
-  html+='<div class="foot-note">Cobro = pagos/abonos registrados en Cobranza el mes seleccionado · Proyectado = último cierre de mes cargado por gerencia<br>Clientes recompra = clientes del CRM actualmente en la columna "Vendido" del tablero Recompra · Llamadas = gestiones reales hechas a esos clientes en el mes seleccionado (excluye ventas manuales; el CRM no registra la fecha exacta en que un cliente pasó a Vendido)<br>Productos sin movimiento = inventario con stock que no aparece en las ventas del mes (solo disponible para el mes actual)</div>';
+  html+='<div class="foot-note">Cobro = pagos/abonos registrados en Cobranza el mes seleccionado · Proyectado = último cierre de mes cargado por gerencia<br>Clientes que sí abonaron = clientes distintos con al menos un pago/abono ese mes · Clientes sin abonar = de los que están en mora, cuáles no pagaron<br>Clientes recompra = clientes del CRM actualmente en la columna "Vendido" del tablero Recompra · Llamadas = gestiones reales del mes (excluye ventas manuales; el CRM no registra la fecha exacta en que un cliente pasó a Vendido)<br>Productos sin movimiento = inventario con stock que no aparece en las ventas del mes (solo disponible para el mes actual)</div>';
   document.getElementById('content').innerHTML=html;
 }
 
