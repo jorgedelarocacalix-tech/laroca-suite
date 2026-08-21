@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP Empresas — Corporación La Roca</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23111827'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='%23f59e0b' font-family='Arial'>R</text></svg>">
+<style>
+  :root {
+    --bg: #0b0f17;
+    --surface: #111827;
+    --surface-hover: #182234;
+    --border: #1f2937;
+    --border-strong: #2d3a4f;
+    --text: #e5e7eb;
+    --text-dim: #94a3b8;
+    --text-faint: #64748b;
+    --accent: #f59e0b;
+    --accent-soft: rgba(245, 158, 11, 0.12);
+    --green: #34d399;
+    --radius: 14px;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background:
+      radial-gradient(1200px 500px at 80% -10%, rgba(245, 158, 11, 0.06), transparent 60%),
+      radial-gradient(900px 400px at 10% 110%, rgba(56, 130, 246, 0.05), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .container {
+    width: min(1100px, calc(100% - 40px));
+    margin: 0 auto;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    padding: 48px 0 28px;
+  }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), #d97706);
+    color: #111827;
+    font-weight: 800;
+    font-size: 24px;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 4px 18px rgba(245, 158, 11, 0.25);
+    flex-shrink: 0;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .brand small {
+    display: block;
+    color: var(--text-faint);
+    font-size: 13px;
+    font-weight: 400;
+    margin-top: 2px;
+  }
+  .clock {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .clock b { color: var(--accent); font-weight: 600; }
+
+  /* ---------- Search ---------- */
+  .search-wrap {
+    position: relative;
+    margin-top: 26px;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    stroke: var(--text-faint);
+  }
+  #search {
+    width: 100%;
+    padding: 15px 18px 15px 46px;
+    font-size: 15px;
+    font-family: var(--sans);
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  #search::placeholder { color: var(--text-faint); }
+  #search:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  /* ---------- Stats ---------- */
+  .stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+  .stat {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 7px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+  }
+  .stat:hover { border-color: var(--border-strong); color: var(--text); }
+  .stat.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .stat b { color: inherit; font-weight: 700; }
+
+  /* ---------- Grid ---------- */
+  main { flex: 1; padding: 8px 0 60px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    gap: 16px;
+    margin-top: 22px;
+  }
+
+  .card {
+    position: relative;
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform .16s ease, border-color .16s, background .16s, box-shadow .16s;
+    overflow: hidden;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--cat-color, var(--accent));
+    opacity: 0;
+    transition: opacity .16s;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--border-strong);
+    background: var(--surface-hover);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+  .card:hover::before { opacity: 1; }
+  .card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin-bottom: 16px;
+  }
+  .app-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 17px;
+    color: #fff;
+    flex-shrink: 0;
+    letter-spacing: -0.02em;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  .card-sub {
+    font-size: 12.5px;
+    color: var(--text-faint);
+    margin-top: 3px;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.02);
+    max-width: 70%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .open-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--text-faint);
+    transition: color .15s;
+    white-space: nowrap;
+  }
+  .open-hint svg { width: 13px; height: 13px; stroke: currentColor; }
+  .card:hover .open-hint { color: var(--accent); }
+
+  .empty {
+    display: none;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-faint);
+  }
+  .empty.show { display: block; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px 0 28px;
+    font-size: 12.5px;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  footer .dot { color: var(--green); }
+
+  @media (max-width: 560px) {
+    header { padding-top: 32px; }
+    h1 { font-size: 19px; }
+    .clock { display: none; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="container">
+  <div class="brand-row">
+    <div class="brand">
+      <div class="logo">R</div>
+      <div>
+        <h1>ERP Empresas</h1>
+        <small>Centro de acceso · Corporación La Roca</small>
+      </div>
+    </div>
+    <div class="clock" id="clock"></div>
+  </div>
+
+  <div class="search-wrap">
+    <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="search" id="search" placeholder="Buscar sistema… (ej. motors, danlí, mayoreo)" autocomplete="off" autofocus>
+  </div>
+
+  <div class="stats" id="stats"></div>
+</header>
+
+<main class="container">
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty">No se encontró ningún sistema con esa búsqueda.</div>
+</main>
+
+<footer class="container">
+  <span><span class="dot">●</span>&nbsp; Portal interno — acceso directo a los ERP de la corporación</span>
+  <span id="count"></span>
+</footer>
+
+<script>
+const APPS = [
+  { name: "La Roca Comercial",        cat: "Comercial", loc: "Boarriba",   url: "https://larocacomercial.boarriba.corporacionlaroca2021.com/login.php" },
+  { name: "La Roca Motors",           cat: "Motors",    loc: "Boarriba",   url: "https://larocamotors.boarriba.corporacionlaroca2021.com/login.php" },
+  { name: "La Roca Motors",           cat: "Motors",    loc: "La Libertad", url: "https://larocamotors.lalibertad.corporacionlaroca2021.com/login.php" },
+  { name: "Sumueble",                 cat: "Muebles",   loc: "Danlí",      url: "https://sumueble.danli.corporacionlaroca2021.com/facturas.php" },
+  { name: "Sumoto",                   cat: "Motors",    loc: "Danlí",      url: "https://sumoto.danli.corporacionlaroca2021.com/login.php" },
+  { name: "Mayoreo Honduras",         cat: "Mayoreo",   loc: "Honduras",   url: "https://mayoreo.honduras.corporacionlaroca2021.com/login.php" },
+];
+
+const CAT_COLORS = {
+  "Comercial": "#38bdf8",
+  "Motors":    "#f59e0b",
+  "Muebles":   "#a78bfa",
+  "Mayoreo":   "#34d399",
+};
+
+function initials(name) {
+  return name.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
+}
+
+const grid = document.getElementById("grid");
+const stats = document.getElementById("stats");
+const empty = document.getElementById("empty");
+const count = document.getElementById("count");
+
+APPS.forEach((app, i) => {
+  const a = document.createElement("a");
+  a.className = "card";
+  a.href = app.url;
+  a.target = "_blank";
+  a.rel = "noopener";
+  a.dataset.search = (app.name + " " + app.cat + " " + app.loc).toLowerCase();
+  a.dataset.cat = app.cat;
+  a.innerHTML = `
+    <div class="card-top">
+      <div class="app-icon" style="background:${CAT_COLORS[app.cat]}22;color:${CAT_COLORS[app.cat]};border:1px solid ${CAT_COLORS[app.cat]}44">${initials(app.name)}</div>
+      <div>
+        <div class="card-title">${app.name}</div>
+        <div class="card-sub">${app.loc}</div>
+      </div>
+    </div>
+    <div class="card-meta">
+      <span class="tag">${new URL(app.url).hostname.split(".")[0]}</span>
+      <span class="open-hint">Abrir <svg fill="none" viewBox="0 0 24 24" stroke-width="2"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+    </div>`;
+  grid.appendChild(a);
+});
+
+// Filtros por categoría
+const cats = ["Todos", ...new Set(APPS.map(a => a.cat))];
+cats.forEach((c, i) => {
+  const n = c === "Todos" ? APPS.length : APPS.filter(a => a.cat === c).length;
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "stat" + (i === 0 ? " active" : "");
+  el.textContent = `${c} (${n})`;
+  el.addEventListener("click", () => {
+    document.querySelectorAll(".stat").forEach(s => s.classList.remove("active"));
+    el.classList.add("active");
+    applyFilter(c === "Todos" ? "" : null, c);
+  });
+  stats.appendChild(el);
+});
+
+let query = "";
+let activeCat = "Todos";
+function applyFilter(q, cat) {
+  if (q !== null) query = q.toLowerCase();
+  activeCat = cat ?? activeCat;
+  let visible = 0;
+  document.querySelectorAll(".card").forEach(card => {
+    const matchQ = !query || card.dataset.search.includes(query);
+    const matchC = activeCat === "Todos" || card.dataset.cat === activeCat;
+    const show = matchQ && matchC;
+    card.style.display = show ? "" : "none";
+    if (show) visible++;
+  });
+  empty.classList.toggle("show", visible === 0);
+  count.textContent = `${visible} de ${APPS.length} sistemas`;
+}
+applyFilter("", "Todos");
+
+const searchInput = document.getElementById("search");
+searchInput.addEventListener("input", e => applyFilter(e.target.value, null));
+
+// Reloj
+function tick() {
+  const d = new Date();
+  const opts = { weekday: "short", day: "numeric", month: "short" };
+  document.getElementById("clock").innerHTML =
+    d.toLocaleDateString("es-HN", opts) + " · <b>" +
+    d.toLocaleTimeString("es-HN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + "</b>";
+}
+tick();
+setInterval(tick, 1000);
+
+// Atajo: "/" enfoca búsqueda
+document.addEventListener("keydown", e => {
+  if (e.key === "/" && document.activeElement !== searchInput) {
+    e.preventDefault();
+    searchInput.focus();
+  }
+});
+</script>
+</body>
+</html>
