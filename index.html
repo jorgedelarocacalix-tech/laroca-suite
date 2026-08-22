@@ -40,13 +40,19 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
   position:relative;
   overflow:hidden;
 }
-.app-card::before{
-  content:'';
+.app-card::before{  content:'';
   position:absolute;
   top:0;left:0;right:0;
   height:3px;
   opacity:0;
   transition:opacity .15s;
+}
+.hub-badge{
+  position:absolute;top:14px;right:14px;
+  min-width:22px;height:22px;border-radius:999px;
+  background:#E53E3E;color:#fff;font-size:12px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;padding:0 7px;z-index:5;
+  box-shadow:0 2px 10px rgba(229,62,62,.45);
 }
 .app-card:hover{border-color:#2A2A2A;background:#181818;transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
 .app-card:hover::before{opacity:1}
@@ -251,6 +257,27 @@ function aplicarSesion(s){
   var pers={'ADMIN':'jorge','v_joh':'isis','v_mil':'milagro'}[s.codigo];
   nb.style.display=pers?'flex':'none';
   if(pers)document.getElementById('notifPersona').value=pers;
+  refreshNotifs();
+}
+/* ── Burbujas de notificaciones en los tiles (pendientes por app) ── */
+var ARQ_URL='https://larocaarqueos-production.up.railway.app';
+var VALE_KEY='fd016a8791ef42ac2774f1a6bd6c03bd2dfda4fc608a611b';
+async function refreshNotifs(){
+  var s=sesSuite();if(!s||!s.codigo)return;
+  try{
+    var r=await fetch(ARQ_URL+'/api/integra/notificaciones?codigo='+encodeURIComponent(s.codigo)+'&pin='+encodeURIComponent(s.pin||''),{headers:{'x-vale-key':VALE_KEY}});
+    if(!r.ok)return;
+    var d=await r.json();
+    var n=d.notificaciones||{};
+    setBadge('rrhh',n.rrhh||0);
+    setBadge('arqueos',n.arqueos||0);
+  }catch(e){}
+}
+function setBadge(app,n){
+  var c=document.querySelector('.app-card[data-app="'+app+'"]');if(!c)return;
+  var b=c.querySelector('.hub-badge');
+  if(n>0){if(!b){b=document.createElement('span');b.className='hub-badge';c.appendChild(b);}b.textContent=n;b.style.display='flex';}
+  else if(b)b.style.display='none';
 }
 async function suiteLogin(){
   var cod=document.getElementById('g-cod').value.trim();
@@ -275,6 +302,8 @@ document.getElementById('g-cod').addEventListener('keydown',function(e){if(e.key
 document.getElementById('g-pin').addEventListener('keydown',function(e){if(e.key==='Enter')suiteLogin();});
 var _s=sesSuite();
 if(_s){document.getElementById('gate').style.display='none';aplicarSesion(_s);}
+setInterval(refreshNotifs,60000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshNotifs();});
 </script>
 
 <script>
