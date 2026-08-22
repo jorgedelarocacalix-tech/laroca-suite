@@ -311,7 +311,8 @@ function cerrarLogout(){ sessionStorage.removeItem('cierre_sesion'); location.re
 function pintarSesion(){
   const el=document.getElementById('sesionChip');
   if(el&&SESION) el.innerHTML='👤 '+SESION.nombre+' &middot; '+SESION.sucursales.join(', ')
-    +' <button onclick="cerrarLogout()" style="margin-left:6px;background:none;border:none;color:#f0b429;cursor:pointer;font-weight:700;text-decoration:underline;font-size:11px;padding:0">Salir</button>';
+    +' <a href="https://laroca-suite-production.up.railway.app/" style="margin-left:6px;color:#5B9CEA;text-decoration:underline;font-size:11px">&#x2302; Inicio</a>'
+    +' <button onclick="cerrarLogout()" style="margin-left:4px;background:none;border:none;color:#f0b429;cursor:pointer;font-weight:700;text-decoration:underline;font-size:11px;padding:0">Salir</button>';
 }
 function mostrarLogin(){
   document.body.insertAdjacentHTML('beforeend','<div id="gate" style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center">'

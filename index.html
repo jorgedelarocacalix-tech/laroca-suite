@@ -88,6 +88,18 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
 
 .footer{margin-top:40px;font-size:10px;color:#222;text-align:center}
 
+.gate{position:fixed;inset:0;background:#0D0D0D;display:flex;align-items:center;justify-content:center;z-index:99;padding:20px}
+.gate-card{background:#141414;border:1px solid #1E1E1E;border-radius:16px;padding:34px 28px;width:100%;max-width:340px;text-align:center}
+.gate-card h2{font-size:18px;margin-bottom:4px}
+.gate-card .gp{font-size:12px;color:#444;margin-bottom:18px}
+.gate-card input{width:100%;background:#0D0D0D;border:1px solid #262626;color:#fff;border-radius:10px;padding:12px;font-size:14px;text-align:center;margin-bottom:10px;font-family:inherit}
+.gate-card input:focus{outline:none;border-color:#C6285A}
+.gate-err{color:#E07070;font-size:12px;min-height:16px;margin-bottom:8px}
+.gate-btn{width:100%;background:#C6285A;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit}
+.chip{position:fixed;top:14px;right:16px;background:#141414;border:1px solid #1E1E1E;border-radius:999px;padding:7px 14px;font-size:11px;color:#888;z-index:9;display:none}
+.chip b{color:#fff}
+.chip button{margin-left:8px;background:none;border:none;color:#C6285A;font-weight:700;cursor:pointer;text-decoration:underline;font-size:11px;padding:0}
+
 @media(max-width:480px){
   .grid{grid-template-columns:1fr}
   body{padding:28px 16px}
@@ -96,6 +108,20 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
 </style>
 </head>
 <body>
+
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div style="font-size:36px;margin-bottom:6px">🏢</div>
+    <h2>Corporación La Roca</h2>
+    <p class="gp">Ingresa tu código y PIN de asociado</p>
+    <input id="g-cod" placeholder="Código (ej. v_kar)" autocomplete="username" autocapitalize="none"/>
+    <input id="g-pin" type="password" placeholder="PIN" inputmode="numeric"/>
+    <div class="gate-err" id="g-err"></div>
+    <button class="gate-btn" onclick="suiteLogin()">Ingresar</button>
+  </div>
+</div>
+
+<div class="chip" id="chip"></div>
 
 <div class="brand">
   <div class="brand-ic"><img src="icons/icon-192.png" alt="CaliFon App"/></div>
@@ -109,7 +135,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
 
 <div class="grid">
 
-  <a class="app-card card-crm" href="https://la-roca-crm-production.up.railway.app" target="_blank" rel="noopener">
+  <a data-app="crm" class="app-card card-crm" href="crm/" target="_blank" rel="noopener">
     <span class="app-arrow">↗</span>
     <div class="app-ic">👥</div>
     <div class="app-name">CRM</div>
@@ -117,7 +143,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
     <span class="app-btn btn-crm">Abrir CRM →</span>
   </a>
 
-  <a class="app-card card-cob" href="https://cobranza-app-production-f653.up.railway.app" target="_blank" rel="noopener">
+  <a data-app="cobranza" class="app-card card-cob" href="https://cobranza-app-production-f653.up.railway.app" target="_blank" rel="noopener">
     <span class="app-arrow">↗</span>
     <div class="app-ic">💰</div>
     <div class="app-name">Cobranza</div>
@@ -125,7 +151,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
     <span class="app-btn btn-cob">Abrir Cobranza →</span>
   </a>
 
-  <a class="app-card card-cie" href="https://analisis-cierre-production.up.railway.app" target="_blank" rel="noopener">
+  <a data-app="cierre" class="app-card card-cie" href="https://analisis-cierre-production.up.railway.app" target="_blank" rel="noopener">
     <span class="app-arrow">↗</span>
     <div class="app-ic">📊</div>
     <div class="app-name">Análisis de Cierre</div>
@@ -133,7 +159,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
     <span class="app-btn btn-cie">Abrir Cierre →</span>
   </a>
 
-  <a class="app-card card-arq" href="https://larocaarqueos-production.up.railway.app/auditor" target="_blank" rel="noopener">
+  <a data-app="arqueos" class="app-card card-arq" href="https://larocaarqueos-production.up.railway.app/auditor" target="_blank" rel="noopener">
     <span class="app-arrow">↗</span>
     <div class="app-ic">📋</div>
     <div class="app-name">Arqueos</div>
@@ -141,7 +167,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
     <span class="app-btn btn-arq">Abrir Arqueos →</span>
   </a>
 
-  <a class="app-card card-fin" href="fintrack/" target="_blank" rel="noopener">
+  <a data-app="fintrack" class="app-card card-fin" href="fintrack/" target="_blank" rel="noopener">
     <span class="app-arrow">↗</span>
     <div class="app-ic">💳</div>
     <div class="app-name">Proveedores</div>
@@ -149,7 +175,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
     <span class="app-btn btn-fin">Abrir Proveedores →</span>
   </a>
 
-  <a class="app-card card-rrhh" href="https://laroca-rrhh-production.up.railway.app" target="_blank" rel="noopener">
+  <a data-app="rrhh" class="app-card card-rrhh" href="https://laroca-rrhh-production.up.railway.app" target="_blank" rel="noopener">
     <span class="app-arrow">↗</span>
     <div class="app-ic">🧑‍💼</div>
     <div class="app-name">RRHH</div>
@@ -157,7 +183,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
     <span class="app-btn btn-rrhh">Abrir RRHH →</span>
   </a>
 
-  <a class="app-card card-eqp" href="equipos/" target="_blank" rel="noopener">
+  <a data-app="equipos" class="app-card card-eqp" href="equipos/" target="_blank" rel="noopener">
     <span class="app-arrow">↗</span>
     <div class="app-ic">📈</div>
     <div class="app-name">Análisis por Equipo</div>
@@ -165,7 +191,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
     <span class="app-btn btn-eqp">Abrir Análisis →</span>
   </a>
 
-  <a class="app-card card-erp" href="erp/" target="_blank" rel="noopener">
+  <a data-app="erp" class="app-card card-erp" href="erp/" target="_blank" rel="noopener">
     <span class="app-arrow">↗</span>
     <div class="app-ic">🏢</div>
     <div class="app-name">ERP Empresas</div>
@@ -199,6 +225,56 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
 .notif-roles-label{font-size:11px;color:#555;margin-top:6px}
 .notif-select{background:#141414;border:1px solid #1E1E1E;color:#fff;font-size:12px;padding:8px 12px;border-radius:8px}
 </style>
+
+<script>
+// ══ Acceso al menú: código + PIN de RRHH; solo se ven los apps permitidos ══
+var RRHH_URL='https://upaenjotkocmdvfuobii.supabase.co';
+var RRHH_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+
+function sesSuite(){try{return JSON.parse(sessionStorage.getItem('suite_sesion')||'null');}catch(e){return null;}}
+function salir(){sessionStorage.removeItem('suite_sesion');sessionStorage.removeItem('equipos_sesion');location.reload();}
+function aplicarSesion(s){
+  var acc=s.accesos_apps||{};
+  document.querySelectorAll('.app-card[data-app]').forEach(function(c){
+    c.style.display=acc[c.getAttribute('data-app')]===true?'':'none';
+  });
+  var arq=document.getElementById('arqLink');
+  if(arq)arq.href='https://larocaarqueos-production.up.railway.app'+(acc.arqueos_rol==='auditor'?'/auditor':'/');
+  if(acc.equipos===true){
+    try{sessionStorage.setItem('equipos_sesion',JSON.stringify({codigo:s.codigo,nombre:s.nombre,sucursales:Array.isArray(acc.sucursales)?acc.sucursales:[],auditor:acc.arqueos_rol==='auditor'}));}catch(e){}
+  }
+  var chip=document.getElementById('chip');
+  chip.innerHTML='👤 <b>'+s.nombre+'</b><button onclick="salir()">Salir</button>';
+  chip.style.display='block';
+  var nb=document.querySelector('.notif-box');
+  var pers={'ADMIN':'jorge','v_joh':'isis','v_mil':'milagro'}[s.codigo];
+  nb.style.display=pers?'flex':'none';
+  if(pers)document.getElementById('notifPersona').value=pers;
+}
+async function suiteLogin(){
+  var cod=document.getElementById('g-cod').value.trim();
+  var pin=document.getElementById('g-pin').value.trim();
+  var err=document.getElementById('g-err');
+  if(!cod||!pin){err.textContent='Escribe tu código y PIN';return;}
+  err.textContent='Verificando…';
+  try{
+    var r=await fetch(RRHH_URL+'/rest/v1/rpc/rrhh_login',{method:'POST',headers:{'Content-Type':'application/json',apikey:RRHH_KEY,Authorization:'Bearer '+RRHH_KEY},body:JSON.stringify({p_codigo:cod,p_pin:pin})});
+    if(!r.ok){err.textContent='Código o PIN incorrecto';return;}
+    var d=await r.json(),acc=d.accesos_apps||{};
+    var alguna=['rrhh','crm','cobranza','cierre','equipos','arqueos','fintrack','erp'].some(function(k){return acc[k]===true;});
+    if(!alguna){err.textContent='Tu usuario no tiene acceso a ningún sistema';return;}
+    var s={codigo:d.codigo,nombre:d.nombre,accesos_apps:acc};
+    sessionStorage.setItem('suite_sesion',JSON.stringify(s));
+    document.getElementById('gate').style.display='none';
+    err.textContent='';
+    aplicarSesion(s);
+  }catch(e){err.textContent='Error de conexión';}
+}
+document.getElementById('g-cod').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('g-pin').focus();});
+document.getElementById('g-pin').addEventListener('keydown',function(e){if(e.key==='Enter')suiteLogin();});
+var _s=sesSuite();
+if(_s){document.getElementById('gate').style.display='none';aplicarSesion(_s);}
+</script>
 
 <script>
 var SUPA_URL = 'https://ixskgawbpwwxdjnkiixt.supabase.co';
