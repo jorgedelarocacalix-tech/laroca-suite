@@ -138,6 +138,8 @@ const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // (compartido con la Suite/Cobranza), no en el de RRHH/CRM. Los admins ya estan suscritos
 // con rol 'rrhh' desde que activaron notificaciones en la Suite.
 const PUSH_URL = 'https://ixskgawbpwwxdjnkiixt.supabase.co';
+const ARQUEOS_URL = 'https://larocaarqueos-production.up.railway.app';
+const VALE_KEY = 'fd016a8791ef42ac2774f1a6bd6c03bd2dfda4fc608a611b';
 const PUSH_KEY = 'sb_publishable_-JUaSYPPkq8n4wJIKPtXGw_XMyj3EE7';
 function notificarAdminsRRHH(title, body){
   fetch(PUSH_URL + '/functions/v1/send-push', {
@@ -324,6 +326,9 @@ function renderShell(bodyHtml){
     </div>
     <div class="main" id="main">${bodyHtml}</div>
   </div>`;
+  if((state.session?.accesos_apps||{}).solo_lectura===true){
+    app.querySelectorAll('[data-resolve],[data-editar-empleado],[data-editar-accesos],[data-cambiar-pin],[data-nuevo],[btn-crear]').forEach(el=>el.remove());
+  }
   app.querySelectorAll('[data-nav]').forEach(el=>{
     el.onclick = () => { state.view = el.getAttribute('data-nav'); state.capAbierta=null; state.examen=null; state.examenRespuestas={}; render(); };
   });
@@ -610,7 +615,7 @@ function viewEmpleadosAdmin(){
       <td style="font-size:12px">${APPS_SUITE.filter(([k])=>e.accesos_apps&&e.accesos_apps[k]===true).map(([,l])=>l).join(', ')||'—'}${e.accesos_apps&&Array.isArray(e.accesos_apps.sucursales)&&e.accesos_apps.sucursales.length?`<div style="color:var(--slate);font-size:11px">${e.accesos_apps.sucursales.join(' &middot; ')}</div>`:''}</td>
       <td>${e.identidad_url?`<a href="${e.identidad_url}" target="_blank">Ver</a>`:'—'}</td>
       <td><span class="stamp ${e.activo?'aprobado':'rechazado'}">${e.activo?'activo':'inactivo'}</span></td>
-      <td><button class="link" data-editar-empleado="${e.id}">Editar datos</button> · <button class="link" data-editar-accesos="${e.id}">Editar accesos</button> · <button class="link" data-cambiar-pin="${e.id}">Cambiar PIN</button></td></tr>`).join('') || `<tr><td colspan="11" class="empty">Aún no hay asociados — crea el primero</td></tr>`}</tbody></table></div>`;
+      <td><button class="link" data-expediente="${e.id}">📋 Expediente</button> · <button class="link" data-editar-empleado="${e.id}">Editar datos</button> · <button class="link" data-editar-accesos="${e.id}">Editar accesos</button> · <button class="link" data-cambiar-pin="${e.id}">Cambiar PIN</button></td></tr>`).join('') || `<tr><td colspan="11" class="empty">Aún no hay asociados — crea el primero</td></tr>`}</tbody></table></div>`;
 }
 
 function viewVacacionesAdmin(){
@@ -1268,6 +1273,9 @@ function bindEmpleadosAdmin(){
       if(emp) modalEditarEmpleado(emp);
     };
   });
+  document.querySelectorAll('[data-expediente]').forEach(btn=>{
+    btn.onclick = () => modalExpediente(btn.getAttribute('data-expediente'));
+  });
   document.querySelectorAll('[data-editar-accesos]').forEach(btn=>{
     btn.onclick = () => {
       const emp = (state.empleados||[]).find(e=>e.id===btn.getAttribute('data-editar-accesos'));
@@ -1530,6 +1538,79 @@ function modalDocumentoMemo(memo, esEmpleado){
     else { state.adminData = null; await loadAdminDashboard(); render(); }
   };
 }
+async function enviarValeArqueos(ad){
+  try{
+    const r = await fetch(ARQUEOS_URL+'/api/integra/vale', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-vale-key':VALE_KEY},
+      body: JSON.stringify({
+        codigo: ad.codigo, nombre: ad.empleado, sucursal: ad.sucursal,
+        monto: ad.monto, motivo: ad.motivo,
+        autorizado_por: state.session.nombre || 'RRHH', ref: ad.id
+      })
+    });
+    const j = await r.json();
+    if(!r.ok || !j.ok){ toast('⚠️ El adelanto quedó aprobado pero no se pudo generar en Arqueos'); return; }
+    const ga = 'GA-'+String(j.correlativo).padStart(6,'0');
+    toast('✅ Vale '+ga+' generado en Arqueos — listo para pagar');
+    try{
+      const c = JSON.parse(localStorage.getItem('rrhh_vales_arq')||'{}');
+      c[ad.id] = {correlativo:j.correlativo, url:j.pdf_url, fecha:new Date().toISOString()};
+      localStorage.setItem('rrhh_vales_arq', JSON.stringify(c));
+    }catch(e){}
+    if(j.pdf_url) window.open(j.pdf_url,'_blank');
+  }catch(e){ toast('⚠️ Arqueos no disponible; el adelanto quedó aprobado igual'); }
+}
+
+async function modalExpediente(empId){
+  openModal(`<h3>📋 Expediente</h3><p class="empty">Cargando expediente…</p>`);
+  const {data, error} = await sb.rpc('rrhh_admin_expediente', {
+    p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: empId
+  });
+  if(error){ openModal(`<h3>📋 Expediente</h3><p class="empty">Error: ${error.message}</p>`); return; }
+  const e = data.empleado;
+  const mesActual = new Date().toISOString().slice(0,7);
+  const anuales   = Number(e.dias_vacaciones_anuales||0);
+  const vacAprob  = data.vacaciones.filter(v=>v.estado==='aprobado');
+  const diasTom   = vacAprob.reduce((s,v)=>s+Number(v.dias||0),0);
+  const diasPend  = Math.max(anuales - diasTom, 0);
+  const incMes    = data.incapacidades.filter(i=>String(i.fecha_inicio||'').startsWith(mesActual));
+  const stamp = est => `<span class="stamp ${est}">${est}</span>`;
+  const filas = (arr, fn) => arr.length ? arr.map(fn).join('') : '<div class="empty" style="padding:6px 0">Sin registros</div>';
+
+  openModal(`
+  <h3>📋 Expediente — ${e.nombre} <span class="mono">(${e.codigo})</span></h3>
+  <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
+    ${e.foto_url?`<img src="${e.foto_url}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">`:`<div style="width:56px;height:56px;border-radius:50%;background:var(--stone-line);display:flex;align-items:center;justify-content:center;font-size:22px">👤</div>`}
+    <div style="font-size:13px;line-height:1.7">
+      <b>${e.puesto||'—'}</b> · ${e.sucursal||'—'}<br>
+      Ingreso: ${e.fecha_ingreso?fmtDate(e.fecha_ingreso):'—'} · Salario: ${fmtL(e.salario_base)}<br>
+      Cumpleaños: ${e.fecha_nacimiento?fmtDate(e.fecha_nacimiento):'—'}
+    </div>
+  </div>
+  <div class="grid cols-4" style="margin-bottom:14px">
+    <div class="card stat-card"><div class="label">Vacaciones/año</div><div class="value">${anuales}</div></div>
+    <div class="card stat-card"><div class="label">Tomadas</div><div class="value">${diasTom}</div></div>
+    <div class="card stat-card"><div class="label">Disponibles</div><div class="value">${diasPend}</div></div>
+    <div class="card stat-card"><div class="label">Incapac. este mes</div><div class="value">${incMes.length}${incMes.length?' · '+incMes.reduce((s,i)=>s+Number(i.dias||0),0)+'d':''}</div></div>
+  </div>
+
+  <details open><summary style="cursor:pointer;font-weight:700;font-size:13px">🏖️ Vacaciones (${data.vacaciones.length})</summary>
+    <div style="font-size:12.5px">${filas(data.vacaciones, v=>`<div style="padding:6px 0;border-bottom:1px solid var(--stone-line)">${fmtDate(v.fecha_inicio)} → ${fmtDate(v.fecha_fin)} · ${v.dias}d · ${v.motivo||''} ${stamp(v.estado)}</div>`)}</div></details>
+  <details><summary style="cursor:pointer;font-weight:700;font-size:13px">📝 Permisos otorgados (${data.permisos.length})</summary>
+    <div style="font-size:12.5px">${filas(data.permisos, p=>`<div style="padding:6px 0;border-bottom:1px solid var(--stone-line)">${fmtDate(p.fecha)} · ${p.tipo} · ${p.horas||'—'}h ${stamp(p.estado)}</div>`)}</div></details>
+  <details><summary style="cursor:pointer;font-weight:700;font-size:13px">🤒 Incapacidades (${data.incapacidades.length})</summary>
+    <div style="font-size:12.5px">${filas(data.incapacidades, i=>`<div style="padding:6px 0;border-bottom:1px solid var(--stone-line)">${fmtDate(i.fecha_inicio)} → ${fmtDate(i.fecha_fin)} · ${i.dias}d ${stamp(i.estado)}</div>`)}</div></details>
+  <details><summary style="cursor:pointer;font-weight:700;font-size:13px">📞 Llamados de atención (${data.llamadas.length})</summary>
+    <div style="font-size:12.5px">${filas(data.llamadas, l=>`<div style="padding:6px 0;border-bottom:1px solid var(--stone-line)">${fmtDate(l.fecha)} · ${l.tipo} · ${l.motivo||''}</div>`)}</div></details>
+  <details><summary style="cursor:pointer;font-weight:700;font-size:13px">💵 Adelantos (${data.adelantos.length}) y Préstamos (${data.prestamos.length})</summary>
+    <div style="font-size:12.5px">
+      ${filas(data.adelantos, a=>`<div style="padding:6px 0;border-bottom:1px solid var(--stone-line)">Adelanto ${fmtL(a.monto)} · ${fmtDate(String(a.created_at||'').slice(0,10))} ${stamp(a.estado)}</div>`)}
+      ${filas(data.prestamos, pr=>`<div style="padding:6px 0;border-bottom:1px solid var(--stone-line)">Préstamo ${fmtL(pr.monto)} · ${pr.plazo_meses}m ${stamp(pr.estado)}</div>`)}
+    </div></details>
+  <div class="row-end" style="margin-top:14px"><button class="btn gold sm" onclick="window.print()">🖨️ Imprimir</button><button class="link" onclick="closeModal()">Cerrar</button></div>`);
+}
+
 function modalComprobanteAdelanto(ad, esEmpleado){
   openModal(`
   <h3>📄 Comprobante de adelanto — ${ad.empleado}</h3>
@@ -1596,7 +1677,7 @@ function bindSolicitudesAdmin(){
       if(tabla==='vacaciones') state.vacacionesAdmin = null;
       await loadAdminDashboard(); render();
       if(tabla==='vacaciones' && estado==='aprobado' && vacRef) modalHojaVacacion(vacRef);
-      if(tabla==='adelantos' && estado==='aprobado' && adRef) modalComprobanteAdelanto(adRef, false);
+      if(tabla==='adelantos' && estado==='aprobado' && adRef){ enviarValeArqueos(adRef); modalComprobanteAdelanto(adRef, false); }
     };
   });
 }
