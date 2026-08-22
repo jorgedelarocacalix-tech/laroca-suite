@@ -259,6 +259,19 @@ async function loadAdminDashboard(){
   if(error){ toast('Error: '+error.message); return; }
   state.adminData = data;
 }
+async function loadDashEmpleados(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_admin_dashboard_empleados', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
+  if(error){ toast('Error: '+error.message); return; }
+  state.dashEmp = data || [];
+}
+function dashEmpFiltrados(){
+  const suc = (document.getElementById('de-suc')||{}).value || '';
+  const q   = ((document.getElementById('de-buscar')||{}).value || '').trim().toLowerCase();
+  return (state.dashEmp||[]).filter(e =>
+    (!suc || e.sucursal===suc) &&
+    (!q || (e.nombre||'').toLowerCase().includes(q) || (e.codigo||'').toLowerCase().includes(q)));
+}
 async function loadVacacionesAdmin(){
   const {session} = state;
   const {data, error} = await sb.rpc('rrhh_admin_listar_vacaciones', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
@@ -283,6 +296,7 @@ function navItemsFor(rol){
   if(rol==='admin'){
     return [
       ['dashboard','Panel general'],
+      ['dashboard-empleados','Dashboard empleados'],
       ['empleados','Asociados'],
       ['vacaciones-admin','Vacaciones'],
       ['asistencias-admin','Asistencias'],
@@ -603,6 +617,59 @@ function viewDashboardAdmin(){
     ${d.memos_recientes.map(m=>`<div style="padding:7px 0;border-bottom:1px solid var(--stone-line);font-size:14px">${m.titulo} · ${m.empleado} · ${fmtDate(m.fecha)}</div>`).join('') || '<div class="empty">Sin memorándums recientes</div>'}</div>`;
 }
 
+function dashFila(e){
+  return `<tr>
+    <td>${avatarHtml(e.nombre, e.foto_url, 'sm')} ${e.nombre}<div class="mono" style="font-size:11px;color:var(--slate)">${e.codigo}</div></td>
+    <td>${e.puesto||'—'}<div style="font-size:11px;color:var(--slate)">${(SUCURSALES.find(x=>x[0]===e.sucursal)||[,'—'])[1]||e.sucursal||'—'}</div></td>
+    <td class="mono">${fmtL(e.salario_base)}</td>
+    <td style="text-align:center"><b>${e.dias_pendientes}</b><div style="font-size:11px;color:var(--slate)">${e.dias_tomadas} tomados / ${e.dias_anuales} año</div></td>
+    <td style="text-align:center">${e.pagos_count||'—'}</td>
+    <td class="mono">${e.promedio_pago!=null?fmtL(e.promedio_pago):'—'}${e.ultimo_pago?`<div style="font-size:11px;color:var(--slate)">últ. ${fmtDate(e.ultimo_pago)}</div>`:''}</td>
+    <td class="mono">${e.comisiones_promedio!=null?fmtL(e.comisiones_promedio):'—'}${Number(e.comisiones_total)?`<div style="font-size:11px;color:var(--slate)">total ${fmtL(e.comisiones_total)}</div>`:''}</td>
+    <td class="mono">${e.bonos_promedio!=null&&Number(e.bonos_promedio)>0?fmtL(e.bonos_promedio):'—'}</td>
+    <td>${e.adelantos_pend?`<span class="stamp pendiente">${e.adelantos_pend} · ${fmtL(e.adelantos_monto_pend)}</span>`:'<span style="color:var(--slate)">—</span>'}</td>
+    <td>${Number(e.prestamos_monto_pend)?`<span class="stamp pendiente">${fmtL(e.prestamos_monto_pend)}</span>`:'<span style="color:var(--slate)">—</span>'}</td>
+    <td><button class="link" data-expediente="${e.id}">📋 Expediente</button></td>
+  </tr>`;
+}
+function viewDashboardEmpleados(){
+  const list = state.dashEmp || [];
+  const nomina = list.reduce((a,e)=>a+Number(e.salario_base||0),0);
+  const conPago = list.filter(e=>e.pagos_count>0);
+  const promGlobal = conPago.length ? conPago.reduce((a,e)=>a+Number(e.promedio_pago||0),0)/conPago.length : null;
+  const promCom = conPago.length ? conPago.reduce((a,e)=>a+Number(e.comisiones_promedio||0),0)/conPago.length : null;
+  const diasPend = list.reduce((a,e)=>a+Number(e.dias_pendientes||0),0);
+  const pendAdel = list.filter(e=>e.adelantos_pend>0).length;
+  const sucs = [...new Set(list.map(e=>e.sucursal).filter(Boolean))];
+  return `<h1 class="page-title">Dashboard de empleados</h1><p class="page-sub">Vacaciones, pagos, comisiones y pendientes por asociado</p>
+  <div class="grid cols-4">
+    <div class="card stat-card"><div class="label">Activos</div><div class="value">${list.length}</div></div>
+    <div class="card stat-card"><div class="label">Nómina mensual</div><div class="value gold">${fmtL(nomina)}</div></div>
+    <div class="card stat-card"><div class="label">Promedio pago (global)</div><div class="value">${promGlobal!=null?fmtL(promGlobal):'—'}</div><div style="font-size:11px;color:var(--slate)">Comisiones prom: ${promCom!=null?fmtL(promCom):'—'}</div></div>
+    <div class="card stat-card"><div class="label">Días de vacaciones pendientes</div><div class="value">${diasPend}</div><div style="font-size:11px;color:var(--slate)">${pendAdel} con adelanto pendiente</div></div>
+  </div>
+  <div style="height:14px"></div>
+  <div style="display:flex;gap:10px;margin-bottom:10px">
+    <select id="de-suc" style="max-width:220px"><option value="">Todas las sucursales</option>${sucs.map(v=>`<option value="${v}">${v}</option>`).join('')}</select>
+    <input id="de-buscar" placeholder="Buscar nombre o código…" style="flex:1">
+  </div>
+  <div class="card"><table><thead><tr>
+    <th>Empleado</th><th>Puesto / Sucursal</th><th>Salario base</th><th>Vacac. pendientes</th><th>Pagos</th><th>Promedio pago</th><th>Comisiones (prom)</th><th>Bonos (prom)</th><th>Adelantos pend.</th><th>Préstamos pend.</th><th></th>
+  </tr></thead><tbody id="de-tbody">${
+    list.map(dashFila).join('') || '<tr><td colspan="11" class="empty">Sin asociados activos</td></tr>'
+  }</tbody></table></div>`;
+}
+function bindDashboardEmpleados(){
+  const suc=document.getElementById('de-suc'), bus=document.getElementById('de-buscar');
+  const refresca=()=>{
+    const fil=dashEmpFiltrados();
+    document.getElementById('de-tbody').innerHTML = fil.map(dashFila).join('') || '<tr><td colspan="11" class="empty">Sin resultados</td></tr>';
+    document.querySelectorAll('#de-tbody [data-expediente]').forEach(b=>{ b.onclick=()=>modalExpediente(b.getAttribute('data-expediente')); });
+  };
+  if(suc) suc.onchange=refresca;
+  if(bus) bus.oninput=refresca;
+  document.querySelectorAll('#de-tbody [data-expediente]').forEach(b=>{ b.onclick=()=>modalExpediente(b.getAttribute('data-expediente')); });
+}
 function viewEmpleadosAdmin(){
   const list = state.empleados || [];
   return `<div style="display:flex;justify-content:space-between;align-items:center">
@@ -1140,6 +1207,7 @@ async function render(){
 
   if(rol === 'admin'){
     if(state.view==='dashboard'){ if(!state.adminData) await loadAdminDashboard(); renderShell(viewDashboardAdmin()); }
+    else if(state.view==='dashboard-empleados'){ if(!state.dashEmp) await loadDashEmpleados(); renderShell(viewDashboardEmpleados()); bindDashboardEmpleados(); }
     else if(state.view==='empleados'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewEmpleadosAdmin()); bindEmpleadosAdmin(); }
     else if(state.view==='vacaciones-admin'){ await loadVacacionesAdmin(); renderShell(viewVacacionesAdmin()); bindVacacionesAdmin(); }
     else if(state.view==='asistencias-admin'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewAsistenciasAdmin()); bindAsistenciasAdmin(); }
