@@ -349,6 +349,9 @@ function renderShell(bodyHtml){
   if((state.session?.accesos_apps||{}).sin_autorizar===true){
     app.querySelectorAll('[data-resolve^="adelantos"]').forEach(el=>el.remove());
   }
+  if((state.session?.accesos_apps||{}).solo_fichas===true){
+    app.querySelectorAll('[data-resolve],[data-nuevo],[btn-crear],#btn-nuevo-empleado,#btn-guardar-asistencia,#btn-guardar-pago,#btn-guardar-incapacidad,#btn-guardar-llamada,#btn-guardar-memo,#btn-guardar-capacitacion,[data-hoja],[data-doc]').forEach(el=>el.remove());
+  }
   app.querySelectorAll('[data-nav]').forEach(el=>{
     el.onclick = () => { state.view = el.getAttribute('data-nav'); state.capAbierta=null; state.examen=null; state.examenRespuestas={}; render(); };
   });
