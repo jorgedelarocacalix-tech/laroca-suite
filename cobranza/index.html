@@ -438,6 +438,7 @@ tr:hover td{background:#f5f8ff}
     <div class="hdate" id="hdate">LUN, 15 JUN 2026</div>
     <div class="user-chip" id="user-chip" onclick="logout()"><span id="user-lbl">👤 Administrador</span> <span style="color:var(--text3)">✕</span></div>
     <button class="hbtn" id="back-btn" style="" onclick="goHome()">↩ Inicio</button>
+    <button class="hbtn" onclick="irASuite()" title="Volver al menú principal de La Roca">🏠 Menú</button>
   </div>
 </header>
 <div id="home-zone" style="display: none;">
@@ -661,7 +662,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260822-26';
+var APP_VERSION='20260822-28';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -669,6 +670,11 @@ var PIN_VAL='', CAL_Y=HOY.getFullYear(), CAL_M=HOY.getMonth();
 var MODAL_AC=null, ECG_DATA={}, SHOWN_ALERTS={}, SYNC_T=null;
 var LAST_ALERT_CHECK=new Date(Date.now()-24*60*60*1000).toISOString();
 var REP_SORT={col:'dia_pago',dir:1};
+var _AUTOR={};   // 'cartId::cliente' -> gestor del último comentario humano
+function autorLinea(cartId,nombre){
+  var g=_AUTOR[cartId+'::'+nombre];
+  return g?'<span style="color:var(--text3);font-size:10px"> ✍ '+ibEsc(g)+'</span>':'';
+}
 
 document.getElementById('hdate').textContent=HOY.toLocaleDateString('es-HN',{weekday:'short',year:'numeric',month:'short',day:'numeric'}).toUpperCase();
 
@@ -706,13 +712,39 @@ function usuarioDesdeSuite(){
     if(s.nivel_admin||s.codigo==='ADMIN')return {nombre:s.nombre,rol:'gerente',carteras:[],codigo:s.codigo};
     var equipo=RRHH_EQUIPO[s.codigo];
     if(equipo)return {nombre:s.nombre,rol:'cobrador',carteras:RRHH_CARTERAS[equipo],codigo:s.codigo};
-    return null;
+    return {__validar:true,s:s};   // codigo no mapeado — validar contra RRHH
   }catch(e){return null;}
 }
+async function ssoDesdeSuite(){
+  var u=usuarioDesdeSuite();
+  if(!u)return false;
+  if(!u.__validar){entrarConUsuario(u);return true;}
+  // Validar codigo+pin de la sesion de suite contra RRHH (usuarios nuevos no mapeados)
+  try{
+    var s=u.s;
+    var r=await fetch(RRHH_URL+'/rest/v1/rpc/rrhh_login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json',apikey:RRHH_KEY,Authorization:'Bearer '+RRHH_KEY},
+      body:JSON.stringify({p_codigo:s.codigo,p_pin:s.pin})
+    });
+    if(r.ok){
+      var d=await r.json();
+      if(d&&d.accesos_apps&&d.accesos_apps.cobranza===true){
+        var eq=RRHH_EQUIPO[d.codigo];
+        entrarConUsuario({nombre:d.nombre||s.nombre,rol:'cobrador',
+          carteras:eq?RRHH_CARTERAS[eq]:[].concat(RRHH_CARTERAS.roca,RRHH_CARTERAS.mueble),
+          codigo:d.codigo});
+        return true;
+      }
+    }
+  }catch(e){}
+  return false;
+}
+function irASuite(){location.href='/';}
 window.addEventListener('load',async function(){
   await loadLibs();
-  var _su=usuarioDesdeSuite();
-  if(_su){entrarConUsuario(_su);return;}
+  var ok=await ssoDesdeSuite();
+  if(ok)return;
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('main-header').style.display='none';
   document.getElementById('home-zone').style.display='none';
@@ -821,8 +853,24 @@ async function loadData(){
     if(r2.error)throw r2.error;
     PROMESAS={};
     (r2.data||[]).forEach(function(p){PROMESAS[p.cartera_id+'::'+p.cliente_nombre]={estado:p.estado,fecha:p.fecha,monto:p.monto,nota:p.nota,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,ts:p.updated_at};});
+    await loadAutores();
     DB_OK=true;setConn(true,'Conectado');
   }catch(e){DB_OK=false;setConn(false,'Sin conexión');console.error('loadData:',e);}
+}
+// Mapa de último autor de comentario por cliente (de historial_clientes)
+async function loadAutores(){
+  if(!supa)return;
+  try{
+    var r=await supa.from('historial_clientes').select('cartera_id,cliente_nombre,gestor,created_at')
+      .neq('gestor','Sistema').order('created_at',{ascending:false}).limit(800);
+    if(r.error)throw r.error;
+    _AUTOR={};
+    (r.data||[]).forEach(function(h){
+      if(!h.gestor)return;
+      var k=h.cartera_id+'::'+h.cliente_nombre;
+      if(!_AUTOR[k])_AUTOR[k]=h.gestor;
+    });
+  }catch(e){console.error('loadAutores:',e);}
 }
 async function syncNow(){
   setConn(null,'Sincronizando...');
@@ -1936,7 +1984,7 @@ function cliRow(cartId,c,diasLbl){
     ?'<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">💳 '+c.ultimo_pago+'</span>'
     :'<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">💳 Sin pago</span>';
   return '<div class="cli-row"><div><div class="cli-name nombre-link" onclick="irAHistorialCliente(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">'+c.nombre+dn+'</div>'
-    +'<div class="cli-detail">Cuota: L '+fmt(c.cuota)+' · Saldo: L '+fmt(c.saldo)+(p&&p.nota?' · '+p.nota:'')+'</div>'
+    +'<div class="cli-detail">Cuota: L '+fmt(c.cuota)+' · Saldo: L '+fmt(c.saldo)+(p&&p.nota?' · '+p.nota:'')+autorLinea(cartId,c.nombre)+'</div>'
     +'<div style="display:flex;gap:10px;margin-top:2px;align-items:center">'+mb+upago+'</div>'
     +'</div>'
     +'<div class="cli-right">'+pBadge+vBtn+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')">💬</span><span class="add-p" onclick="openAccion('+qc+')">📋</span></div></div>';
@@ -2120,7 +2168,7 @@ function buildRepTabla(cartId, pendientes, G){
       r+='<td><span class="tramo-badge '+tramoCls+'">'+tramoLabel+'</span></td>';
       r+='<td>'+promBadgeStr+'</td>';
       r+='<td>'+fechaVisita+'</td>';
-      r+='<td style="font-size:11px;color:var(--text2);max-width:120px;white-space:normal">'+(p&&p.nota?p.nota:'')+'</td>';
+      r+='<td style="font-size:11px;color:var(--text2);max-width:120px;white-space:normal">'+(p&&p.nota?p.nota:'')+autorLinea(cartId,c.nombre)+'</td>';
       r+='<td style="display:flex;gap:3px"><span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span><span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">📋</span></td>';
       r+='</tr>';
     });
@@ -2868,7 +2916,7 @@ function buildPromeTab(cartId,cl,modo){
     html+='<td class="mono">'+(p.monto?'L '+fmt(p.monto):'—')+'</td>';
     if(modo==='incumplidas') html+=diasVencida;
     html+='<td>'+scoreHtml+'</td>';
-    html+='<td style="max-width:140px;white-space:normal;font-size:11px">'+(p.nota||'—')+'</td>';
+    html+='<td style="max-width:140px;white-space:normal;font-size:11px">'+(p.nota||'—')+autorLinea(cartId,r.nombre)+'</td>';
     html+='<td style="display:flex;gap:3px;flex-wrap:wrap">'+moverBtn+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span><span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">📋</span>'+dB+'</td>';
     html+='</tr>';
   });
@@ -3509,6 +3557,7 @@ async function quickComentarioGuardar(cartId,nombre){
   // Actualizar estado en PROMESAS para que aparezca en el dashboard
   var key=cartId+'::'+nombre;
   PROMESAS[key]=Object.assign({},PROMESAS[key]||{},{estado:'nota',nota:texto.trim(),ts:new Date().toISOString()});
+  if(USER&&USER.nombre)_AUTOR[key]=USER.nombre;
   await dbSaveProm(cartId,nombre);
   setConn(true,'💬 Comentario guardado ✓');
   setTimeout(function(){setConn(true,'Conectado');},2500);
