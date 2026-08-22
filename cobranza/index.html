@@ -661,7 +661,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260822-25';
+var APP_VERSION='20260822-26';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -696,8 +696,23 @@ async function loadLibs(){
 }
 
 // ══ INIT ══
+// SSO desde la Suite (misma pestaña = misma sessionStorage): si el usuario ya
+// inició sesion en la suite y tiene acceso a cobranza, entra directo sin PIN.
+function usuarioDesdeSuite(){
+  try{
+    var s=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
+    if(!s||!s.codigo)return null;
+    if(!s.accesos_apps||s.accesos_apps.cobranza!==true)return null;
+    if(s.nivel_admin||s.codigo==='ADMIN')return {nombre:s.nombre,rol:'gerente',carteras:[],codigo:s.codigo};
+    var equipo=RRHH_EQUIPO[s.codigo];
+    if(equipo)return {nombre:s.nombre,rol:'cobrador',carteras:RRHH_CARTERAS[equipo],codigo:s.codigo};
+    return null;
+  }catch(e){return null;}
+}
 window.addEventListener('load',async function(){
   await loadLibs();
+  var _su=usuarioDesdeSuite();
+  if(_su){entrarConUsuario(_su);return;}
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('main-header').style.display='none';
   document.getElementById('home-zone').style.display='none';
