@@ -247,14 +247,16 @@ button{cursor:pointer}
 <!-- LOGIN -->
 <div id="s-login" class="scr on">
   <div class="lbox">
-    <div class="llogo"><div class="llogo-ic">🏢</div><h1>La Roca CRM</h1><p>Ingresa tu PIN para continuar</p></div>
-    <div class="pdots"><div class="pd" id="pd0">·</div><div class="pd" id="pd1">·</div><div class="pd" id="pd2">·</div><div class="pd" id="pd3">·</div></div>
+    <div class="llogo"><div class="llogo-ic">🏢</div><h1>La Roca CRM</h1><p>Ingresa tu código y PIN de RRHH para continuar</p></div>
+    <div style="margin:0 auto 12px;max-width:280px;"><input id="l-cod" type="text" placeholder="Código (ej. v_ale)" autocomplete="username" autocapitalize="none" style="width:100%;box-sizing:border-box;padding:11px 14px;border:2px solid #d7dee8;border-radius:12px;font-size:15px;text-align:center;background:#fff;color:#222;font-family:inherit;" /></div>
+    <div class="pdots"><div class="pd" id="pd0">·</div><div class="pd" id="pd1">·</div><div class="pd" id="pd2">·</div><div class="pd" id="pd3">·</div><div class="pd" id="pd4">·</div><div class="pd" id="pd5">·</div></div>
     <div class="numpad">
       <button class="nb" onclick="pi('1')">1</button><button class="nb" onclick="pi('2')">2</button><button class="nb" onclick="pi('3')">3</button>
       <button class="nb" onclick="pi('4')">4</button><button class="nb" onclick="pi('5')">5</button><button class="nb" onclick="pi('6')">6</button>
       <button class="nb" onclick="pi('7')">7</button><button class="nb" onclick="pi('8')">8</button><button class="nb" onclick="pi('9')">9</button>
       <button class="nb sm" onclick="pinClr()">Borrar</button><button class="nb" onclick="pi('0')">0</button><button class="nb sm" onclick="pinDel()">&#9003;</button>
     </div>
+    <button onclick="doLogin()" style="display:block;margin:14px auto 0;padding:12px 34px;border:none;border-radius:12px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;">Ingresar</button>
     <div class="lerr" id="lerr"></div>
     <div style="text-align:center;margin-top:16px;">
       <button onclick="limpiarCache()" style="background:none;border:none;color:var(--t3);font-size:12px;cursor:pointer;text-decoration:underline;padding:4px 8px;">🔄 ¿Problemas para entrar? Toca aquí</button>
@@ -656,30 +658,35 @@ function limpiarCache(){
   setTimeout(function(){location.reload(true);},1200);
 }
 function initLogin(){
-  pinBuf='';renderPD();document.getElementById('lerr').textContent='';
+  pinBuf='';renderPD();document.getElementById('lerr').textContent='';var lc=document.getElementById('l-cod');if(lc&&!lc.value)lc.focus();
   // Precarga usuarios desde Supabase para que nuevos dispositivos puedan iniciar sesión
   sbF('usuarios','GET',null,'?select=*').then(function(us){
     if(us&&us.length)us.forEach(function(su){_mergeSupabaseUser(su);});
   }).catch(function(){});
 }
-function pi(d){if(pinBuf.length>=4)return;pinBuf+=d;renderPD();if(pinBuf.length===4)setTimeout(doLogin,350);}
+function pi(d){if(pinBuf.length>=6)return;pinBuf+=d;renderPD();}
 function pinDel(){pinBuf=pinBuf.slice(0,-1);renderPD();}
 function pinClr(){pinBuf='';renderPD();}
-function renderPD(){for(var i=0;i<4;i++){var d=document.getElementById('pd'+i);d.textContent=i<pinBuf.length?'●':'·';d.classList.toggle('on',i<pinBuf.length);}}
+function renderPD(){for(var i=0;i<6;i++){var d=document.getElementById('pd'+i);d.textContent=i<pinBuf.length?'●':'·';d.classList.toggle('on',i<pinBuf.length);}}
 function shk(){document.querySelectorAll('.pd').forEach(function(d){d.classList.add('shk');setTimeout(function(){d.classList.remove('shk');},350);});}
 function doLogin(){
   var err=document.getElementById('lerr');
-  var u=DB.users.find(function(x){return String(x.pin)===pinBuf;});
-  if(u){err.textContent='';CU=u;pinBuf='';renderPD();document.getElementById('s-login').classList.remove('on');launchApp();return;}
-  // Fallback: buscar en Supabase si no está en caché local
+  var cod=(document.getElementById('l-cod')?document.getElementById('l-cod').value:'').trim();
+  var pb=pinBuf;
+  if(!cod){err.textContent='Escribe tu código de asociado';document.getElementById('l-cod').focus();return;}
+  if(pb.length<4){err.textContent='PIN incompleto';shk();return;}
   err.textContent='Verificando...';
-  var pb=pinBuf;pinBuf='';renderPD();
-  sbF('usuarios','GET',null,'?pin=eq.'+pb+'&select=*').then(function(rows){
-    if(!rows||!rows.length){err.textContent='PIN incorrecto';shk();return;}
-    var nu=_mergeSupabaseUser(rows[0]);
-    if(!nu){err.textContent='PIN incorrecto';shk();return;}
-    err.textContent='';CU=nu;document.getElementById('s-login').classList.remove('on');launchApp();
-  }).catch(function(){err.textContent='PIN incorrecto';shk();});
+  fetch(SB_URL+'/rest/v1/rpc/rrhh_login',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:JSON.stringify({p_codigo:cod,p_pin:pb})}).then(function(r){return r.ok?r.json():null;}).then(function(rr){
+    if(!rr){err.textContent='Código o PIN incorrecto';shk();pinBuf='';renderPD();return null;}
+    var acc=rr.accesos_apps||{};
+    if(!acc.crm){err.textContent='Tu usuario no tiene acceso al CRM';shk();pinBuf='';renderPD();return null;}
+    return sbF('usuarios','GET',null,'?id=eq.'+encodeURIComponent(rr.codigo)+'&select=*').then(function(rows){
+      var nu=null;
+      if(rows&&rows.length){nu=_mergeSupabaseUser(rows[0]);}
+      if(!nu){nu={id:rr.codigo,name:rr.nombre,pin:'-',role:'vendedor',cartera:[]};DB.users.push(nu);saveDB();}
+      err.textContent='';CU=nu;pinBuf='';renderPD();document.getElementById('s-login').classList.remove('on');launchApp();
+    });
+  }).catch(function(){err.textContent='Error de conexión';shk();});
 }
 
 

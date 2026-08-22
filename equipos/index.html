@@ -71,7 +71,8 @@ body{padding:24px 16px 60px}
       <h1>📈 Análisis por Equipo</h1>
       <p>Ventas · Cobro vs. Proyectado · Mora · Inventario · Recompra</p>
     </div>
-    <a class="back" href="../">← Volver a la Suite</a>
+<span id="sesionChip" style="font-size:11px;color:#555;background:#fff;border:1px solid #E0DDD7;padding:4px 10px;border-radius:6px"></span>
+        <a class="back" href="../">← Volver a la Suite</a>
   </div>
 
   <div class="controls" id="mesButtons"></div>
@@ -90,6 +91,53 @@ var SUPA2_URL='https://upaenjotkocmdvfuobii.supabase.co'; // CRM
 var SUPA2_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
 var sbA=window.supabase.createClient(SUPA1_URL,SUPA1_KEY);
 var sbC=window.supabase.createClient(SUPA2_URL,SUPA2_KEY);
+
+// ══ Acceso: código + PIN de RRHH ══
+var SUCS_TODAS=['R1','R2','R3','R4','R5'];
+var SESION=null;
+try{SESION=JSON.parse(sessionStorage.getItem('equipos_sesion')||'null');}catch(e){}
+function eqAplicarSesion(){
+  if(!SESION)return false;
+  var sucs=SESION.auditor?SUCS_TODAS.slice():SESION.sucursales.filter(function(s){return SUCS_TODAS.indexOf(s)>=0;});
+  if(!sucs.length)return false;
+  TIENDAS=TIENDAS.filter(function(t){return sucs.indexOf(t.ventas)>=0;});
+  var chip=document.getElementById('sesionChip');
+  if(chip)chip.innerHTML='👤 '+SESION.nombre+' &middot; '+TIENDAS.map(function(t){return t.nombre;}).join(', ')
+    +' <button onclick="eqLogout()" style="margin-left:6px;background:none;border:none;color:#f0b429;cursor:pointer;font-weight:700;text-decoration:underline;font-size:11px;padding:0">Salir</button>';
+  return true;
+}
+function eqLogout(){sessionStorage.removeItem('equipos_sesion');location.reload();}
+async function eqLogin(codigo,pin){
+  var r=await sbC.rpc('rrhh_login',{p_codigo:codigo,p_pin:pin});
+  if(r.error)return{error:'Código o PIN incorrecto'};
+  var d=r.data,acc=d.accesos_apps||{};
+  if(acc.equipos!==true)return{error:'Tu usuario no tiene acceso al Análisis por Equipo'};
+  var auditor=acc.arqueos_rol==='auditor';
+  var sucs=Array.isArray(acc.sucursales)?acc.sucursales:[];
+  SESION={codigo:d.codigo,nombre:d.nombre,sucursales:sucs,auditor:auditor};
+  sessionStorage.setItem('equipos_sesion',JSON.stringify(SESION));
+  if(!eqAplicarSesion())return{error:'No tienes tiendas asignadas. Habla con administración.'};
+  return{ok:true};
+}
+function eqMostrarLogin(){
+  document.body.insertAdjacentHTML('beforeend','<div id="gate" style="position:fixed;inset:0;background:#F4F1EA;z-index:9999;display:flex;align-items:center;justify-content:center">'
+   +'<div style="background:#fff;border:1px solid #E0DDD7;border-radius:12px;padding:28px;width:330px;box-shadow:0 8px 30px rgba(0,0,0,.09)">'
+   +'<div style="font-weight:800;font-size:16px;margin-bottom:2px">📈 Análisis por Equipo</div>'
+   +'<div style="font-size:12px;color:#6B6965;margin-bottom:16px">Entra con tu código y PIN de asociado</div>'
+   +'<input id="g-cod" placeholder="Código (ej. v_kar)" autocomplete="off" style="width:100%;padding:9px 11px;border:1px solid #E0DDD7;border-radius:7px;margin-bottom:8px;font-size:14px">'
+   +'<input id="g-pin" type="password" placeholder="PIN" autocomplete="off" style="width:100%;padding:9px 11px;border:1px solid #E0DDD7;border-radius:7px;margin-bottom:10px;font-size:14px">'
+   +'<button id="g-btn" style="width:100%;padding:10px;background:#1E7A50;color:#fff;border:none;border-radius:7px;font-weight:700;cursor:pointer">Entrar</button>'
+   +'<div id="g-err" style="color:#C0392B;font-size:12px;margin-top:8px;min-height:15px"></div></div></div>');
+  var doIt=async function(){
+    var b=document.getElementById('g-btn');b.disabled=true;b.textContent='Verificando...';
+    var r=await eqLogin(document.getElementById('g-cod').value.trim(),document.getElementById('g-pin').value.trim());
+    if(r.error){document.getElementById('g-err').textContent=r.error;b.disabled=false;b.textContent='Entrar';return;}
+    document.getElementById('gate').remove();
+    initMeses().then(cargarTodo);
+  };
+  document.getElementById('g-btn').onclick=doIt;
+  document.getElementById('g-pin').addEventListener('keydown',function(e){if(e.key==='Enter')doIt();});
+}
 
 var NOMBRES_CARTERA={LA_ROCA_COMERCIAL_1:'La Roca Comercial',LA_ROCA_MOTORS_BARRIO_ARRIBA_1:'Motors Barrio Arriba',LA_ROCA_MOTORS_LA_LIBERTAD_2:'Motors La Libertad',SU_MOTO_DANLI:'Su Moto Danlí',SU_MUEBLE:'Su Mueble'};
 
@@ -567,7 +615,8 @@ function selMes(mk){
   cargarTodo();
 }
 
-initMeses().then(cargarTodo);
+if(SESION && eqAplicarSesion()){ initMeses().then(cargarTodo); }
+else { SESION=null; sessionStorage.removeItem('equipos_sesion'); eqMostrarLogin(); }
 </script>
 </body>
 </html>

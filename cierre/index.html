@@ -135,6 +135,7 @@ tr.suc-r5 td:first-child{border-left:3px solid #E67E22}
   </div>
   <div class="hdr-right">
     <span style="font-size:11px;color:#aaa;background:#2C2C2A;padding:4px 10px;border-radius:6px">Cierre Junio 2026</span>
+    <span id="sesionChip" style="font-size:11px;color:#ddd;background:#2C2C2A;padding:4px 10px;border-radius:6px"></span>
     <button class="ctl" id="btnCargar" onclick="cargarTodo()">↺ Cargar datos</button>
   </div>
 </div>
@@ -286,12 +287,60 @@ const SB_URL = 'https://ixskgawbpwwxdjnkiixt.supabase.co';
 const SB_KEY = 'sb_publishable_-JUaSYPPkq8n4wJIKPtXGw_XMyj3EE7';
 const sb = supabase.createClient(SB_URL, SB_KEY);
 
+// ── Acceso: código + PIN de RRHH ─────────────────────────────
+const RRHH_URL = 'https://upaenjotkocmdvfuobii.supabase.co';
+const RRHH_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+const sbR = supabase.createClient(RRHH_URL, RRHH_KEY);
+const SUCS_TODAS = ['R1','R2','R3','R4','R5'];
+let SESION = null;
+try{ SESION = JSON.parse(sessionStorage.getItem('cierre_sesion')||'null'); }catch(e){}
+async function cerrarLogin(codigo,pin){
+  const {data,error} = await sbR.rpc('rrhh_login',{p_codigo:codigo,p_pin:pin});
+  if(error) return {error:'Código o PIN incorrecto'};
+  const acc = data.accesos_apps||{};
+  if(acc.cierre!==true) return {error:'Tu usuario no tiene acceso al Análisis de Cierre'};
+  const auditor = acc.arqueos_rol==='auditor';
+  let sucs = Array.isArray(acc.sucursales)?acc.sucursales:[];
+  sucs = auditor ? SUCS_TODAS.slice() : sucs.filter(s=>SUCS_TODAS.includes(s));
+  if(!sucs.length) return {error:'No tienes sucursales asignadas. Habla con administración.'};
+  SESION = {codigo:data.codigo,nombre:data.nombre,sucursales:sucs,auditor};
+  sessionStorage.setItem('cierre_sesion',JSON.stringify(SESION));
+  return {ok:true};
+}
+function cerrarLogout(){ sessionStorage.removeItem('cierre_sesion'); location.reload(); }
+function pintarSesion(){
+  const el=document.getElementById('sesionChip');
+  if(el&&SESION) el.innerHTML='👤 '+SESION.nombre+' &middot; '+SESION.sucursales.join(', ')
+    +' <button onclick="cerrarLogout()" style="margin-left:6px;background:none;border:none;color:#f0b429;cursor:pointer;font-weight:700;text-decoration:underline;font-size:11px;padding:0">Salir</button>';
+}
+function mostrarLogin(){
+  document.body.insertAdjacentHTML('beforeend','<div id="gate" style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center">'
+   +'<div style="background:#fff;border:1px solid var(--borde);border-radius:12px;padding:28px;width:330px;box-shadow:0 8px 30px rgba(0,0,0,.09)">'
+   +'<div style="font-weight:800;font-size:16px;margin-bottom:2px">La Roca — Análisis de Cierre</div>'
+   +'<div style="font-size:12px;color:var(--texto2);margin-bottom:16px">Entra con tu código y PIN de asociado</div>'
+   +'<input id="g-cod" placeholder="Código (ej. v_kar)" autocomplete="off" style="width:100%;padding:9px 11px;border:1px solid var(--borde);border-radius:7px;margin-bottom:8px;font-size:14px">'
+   +'<input id="g-pin" type="password" placeholder="PIN" autocomplete="off" style="width:100%;padding:9px 11px;border:1px solid var(--borde);border-radius:7px;margin-bottom:10px;font-size:14px">'
+   +'<button id="g-btn" style="width:100%;padding:10px;background:var(--verde);color:#fff;border:none;border-radius:7px;font-weight:700;cursor:pointer">Entrar</button>'
+   +'<div id="g-err" style="color:var(--rojo);font-size:12px;margin-top:8px;min-height:15px"></div></div></div>');
+  const doIt=async()=>{
+    const b=document.getElementById('g-btn'); b.disabled=true; b.textContent='Verificando...';
+    const r=await cerrarLogin(document.getElementById('g-cod').value.trim(),document.getElementById('g-pin').value.trim());
+    if(r.error){document.getElementById('g-err').textContent=r.error;b.disabled=false;b.textContent='Entrar';return;}
+    document.getElementById('gate').remove();
+    SUCORDER = SESION.sucursales;
+    pintarSesion();
+    cargarTodo();
+  };
+  document.getElementById('g-btn').onclick=doIt;
+  document.getElementById('g-pin').addEventListener('keydown',e=>{if(e.key==='Enter')doIt();});
+}
+
 // ── Helpers ──────────────────────────────────────────────────
 const fmt  = n => n==null?'—':'L '+Number(n).toLocaleString('es-HN',{minimumFractionDigits:0,maximumFractionDigits:0});
 const fmtN = n => n==null?'—':Number(n).toLocaleString('es-HN',{minimumFractionDigits:0,maximumFractionDigits:0});
 const pct  = (a,b) => b ? Math.round(a/b*100) : 0;
 const SNAMES = {R1:'La Roca Comercial',R2:'Roca 1 Inverca',R3:'La Roca Motor 2',R4:'Su Mueble Danlí',R5:'Su Moto Danlí'};
-const SUCORDER = ['R1','R2','R3','R4','R5'];
+let SUCORDER = ['R1','R2','R3','R4','R5'];
 // Metas por sucursal y vendedor (sincronizadas con CRM)
 const METAS_SUC = {
   R1: [
@@ -653,7 +702,7 @@ function renderResumen(){
 
       for(const item of proyeccion){
         const suc = CARTERA_TO_SUC[item.cartera_id];
-        if(!suc) continue;
+        if(!suc || !dataSuc[suc]) continue;
         for(const c of (item.datos||[])){
           const t = TRAMOS.includes(String(c.mora||'').toUpperCase()) ? String(c.mora).toUpperCase() : 'MES';
           const saldo = Number(c.saldo||0), mora = Number(c.moraVal||0), saldoE = Number(c.saldoEsperado||0);
@@ -1629,7 +1678,12 @@ function findCol(headers,candidates){
 }
 
 // ── Init ──────────────────────────────────────────────────────
-window.onload = () => cargarTodo();
+window.onload = () => {
+  if(SESION && Array.isArray(SESION.sucursales)){
+    SUCORDER = SESION.sucursales.filter(s=>SUCS_TODAS.includes(s));
+    pintarSesion(); cargarTodo();
+  } else mostrarLogin();
+};
 </script>
 </body>
 </html>
