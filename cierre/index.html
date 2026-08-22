@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>La Roca — Análisis de Cierre Junio 2026</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -320,7 +321,7 @@ async function cerrarLogin(codigo,pin){
   sessionStorage.setItem('cierre_sesion',JSON.stringify(SESION));
   return {ok:true};
 }
-function cerrarLogout(){ sessionStorage.removeItem('cierre_sesion'); sessionStorage.removeItem('equipos_sesion'); sessionStorage.removeItem('suite_sesion'); location.href='https://laroca-suite-production.up.railway.app/'; }
+function cerrarLogout(){ sessionStorage.removeItem('cierre_sesion'); location.href='/'; }
 function pintarSesion(){
   const el=document.getElementById('sesionChip');
   if(el&&SESION) el.innerHTML='👤 '+SESION.nombre+' &middot; '+SESION.sucursales.join(', ')

@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RRHH · La Roca</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -165,7 +166,7 @@ let state = {
 };
 
 function saveSession(s){ state.session = s; sessionStorage.setItem('rrhh_session', JSON.stringify(s)); }
-function logout(){ sessionStorage.removeItem('rrhh_session'); sessionStorage.removeItem('equipos_sesion'); sessionStorage.removeItem('suite_sesion'); state.session=null; location.href='https://laroca-suite-production.up.railway.app/'; }
+function logout(){ sessionStorage.removeItem('rrhh_session'); state.session=null; location.href='/'; }
 async function ssoDesdeMenu(){
   try{
     var ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
@@ -319,7 +320,7 @@ function renderShell(bodyHtml){
       </div>
       <div style="height:14px"></div>
       ${items.map(([k,label])=>`<div class="navitem ${state.view===k?'active':''}" data-nav="${k}">${label}</div>`).join('')}
-      <div class="sidebar-foot"><button class="link" id="btn-logout" style="color:#B7BCC3">Cerrar sesión</button></div>
+      <div class="sidebar-foot"><a class="link" href="/" style="color:#B7BCC3;display:block;margin-bottom:10px;text-decoration:none">⌂ Apps</a><button class="link" id="btn-logout" style="color:#B7BCC3">Cerrar sesión</button></div>
     </div>
     <div class="main" id="main">${bodyHtml}</div>
   </div>`;

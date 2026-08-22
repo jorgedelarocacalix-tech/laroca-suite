@@ -741,7 +741,7 @@ function launchApp(){
 }
 
 
-function doLogout(){sessionStorage.removeItem('suite_sesion');sessionStorage.removeItem('equipos_sesion');if(_rtChannel){try{_rtChannel.close();}catch(e){}}_rtChannel=null;CU=null;CCI=null;activeCart=null;kbActiveCart=null;kbSelVend=null;dashCart=null;dashSelVend=null;segCart=null;segSelVend=null;location.href='https://laroca-suite-production.up.railway.app/';}
+function doLogout(){if(_rtChannel){try{_rtChannel.close();}catch(e){}}_rtChannel=null;CU=null;CCI=null;activeCart=null;kbActiveCart=null;kbSelVend=null;dashCart=null;dashSelVend=null;segCart=null;segSelVend=null;location.href='https://laroca-suite-production.up.railway.app/';}
 
 function buildSB(){
   document.getElementById('sb-av').textContent=CU.name[0].toUpperCase();

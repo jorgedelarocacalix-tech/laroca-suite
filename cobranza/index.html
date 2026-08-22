@@ -753,7 +753,6 @@ function entrarCobranza(u){
 }
 function logout(){
   if(!confirm('¿Cerrar sesión?'))return;
-  sessionStorage.removeItem('suite_sesion');sessionStorage.removeItem('equipos_sesion');
   stopSync();USER=null;CARTERAS={};PROMESAS={};CURRENT=null;CURRENT_TAB=null;PIN_VAL='';renderPin();
   document.getElementById('pin-err').textContent='';
   document.getElementById('main-header').style.display='none';

@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>La Roca — Análisis por Equipo</title>
 <style>
@@ -106,7 +107,7 @@ function eqAplicarSesion(){
     +' <button onclick="eqLogout()" style="margin-left:6px;background:none;border:none;color:#f0b429;cursor:pointer;font-weight:700;text-decoration:underline;font-size:11px;padding:0">Salir</button>';
   return true;
 }
-function eqLogout(){sessionStorage.removeItem('equipos_sesion');sessionStorage.removeItem('suite_sesion');location.href='https://laroca-suite-production.up.railway.app/';}
+function eqLogout(){sessionStorage.removeItem('equipos_sesion');location.href='/';}
 async function eqLogin(codigo,pin){
   var r=await sbC.rpc('rrhh_login',{p_codigo:codigo,p_pin:pin});
   if(r.error)return{error:'Código o PIN incorrecto'};
