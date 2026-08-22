@@ -1133,6 +1133,7 @@ function modalEditarEmpleado(emp){
       <div class="field"><label>Salario base</label><input type="number" id="ee-salario" value="${emp.salario_base||0}"></div>
       <div class="field"><label>Días vacación/año</label><input type="number" id="ee-dias" value="${emp.dias_vacaciones_anuales||10}"></div>
     </div>
+    <div class="field"><label>Cuenta bancaria de depósito (banco y número)</label><input id="ee-cuenta" value="${emp.cuenta_banco||''}" placeholder="Ej. BAC · 123456789"></div>
     <div class="field">
       <label>Documento de identidad</label>
       ${emp.identidad_url ? `<div style="margin-bottom:8px;font-size:13px"><a href="${emp.identidad_url}" target="_blank">Ver documento actual</a></div>` : `<div style="margin-bottom:8px;font-size:13px;color:var(--slate)">Aún no tiene identidad subida</div>`}
@@ -1151,7 +1152,8 @@ function modalEditarEmpleado(emp){
       p_sucursal: document.getElementById('ee-sucursal').value,
       p_salario_base: Number(document.getElementById('ee-salario').value||0),
       p_dias_vacaciones_anuales: Number(document.getElementById('ee-dias').value||10),
-      p_identidad_url: identidadUrl
+      p_identidad_url: identidadUrl,
+      p_cuenta_banco: document.getElementById('ee-cuenta').value.trim()
     });
     if(error){ toast('Error: '+error.message); return; }
     closeModal(); toast('Datos actualizados'); state.empleados=null; await loadAdminEmpleados(); render();
@@ -1650,7 +1652,7 @@ async function modalExpediente(empId){
     ${e.foto_url?`<img src="${e.foto_url}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">`:`<div style="width:56px;height:56px;border-radius:50%;background:var(--stone-line);display:flex;align-items:center;justify-content:center;font-size:22px">👤</div>`}
     <div style="font-size:13px;line-height:1.7">
       <b>${e.puesto||'—'}</b> · ${e.sucursal||'—'}<br>
-      Ingreso: ${e.fecha_ingreso?fmtDate(e.fecha_ingreso):'—'} · Salario: ${fmtL(e.salario_base)}<br>
+      Ingreso: ${e.fecha_ingreso?fmtDate(e.fecha_ingreso):'—'} · Salario: ${fmtL(e.salario_base)}${e.cuenta_banco?` · 🏦 ${e.cuenta_banco}`:''}<br>
       Cumpleaños: ${e.fecha_nacimiento?fmtDate(e.fecha_nacimiento):'—'}
     </div>
   </div>
