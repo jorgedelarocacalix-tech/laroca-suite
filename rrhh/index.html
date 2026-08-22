@@ -343,6 +343,9 @@ function renderShell(bodyHtml){
   if((state.session?.accesos_apps||{}).solo_lectura===true){
     app.querySelectorAll('[data-resolve],[data-editar-empleado],[data-editar-accesos],[data-cambiar-pin],[data-nuevo],[btn-crear]').forEach(el=>el.remove());
   }
+  if((state.session?.accesos_apps||{}).sin_cambio_pins===true){
+    app.querySelectorAll('[data-cambiar-pin]').forEach(el=>el.remove());
+  }
   app.querySelectorAll('[data-nav]').forEach(el=>{
     el.onclick = () => { state.view = el.getAttribute('data-nav'); state.capAbierta=null; state.examen=null; state.examenRespuestas={}; render(); };
   });
