@@ -109,6 +109,7 @@
   .btn-chat{color:var(--gold);font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-soft);border:1.5px solid var(--gold);border-radius:4px;padding:6px 12px;white-space:nowrap;}
   .btn-chat:hover{background:var(--gold);color:#fff;}
   .badge-role{font-size:11px;font-weight:700;text-transform:uppercase;background:var(--gold-soft);color:#7a5e1e;padding:3px 8px;border-radius:3px;margin-left:8px;}
+  .nav-badge-roja{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:999px;background:#E53E3E;color:#fff;font-size:12px;font-weight:800;padding:0 6px;margin-left:8px;}
   .avatar{border-radius:50%;object-fit:cover;background:var(--gold-soft);}
   .avatar-ph{border-radius:50%;background:var(--charcoal-soft);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;flex-shrink:0;}
   .avatar-sm{width:36px;height:36px;font-size:14px;}
@@ -335,7 +336,15 @@ function renderShell(bodyHtml){
         <div class="who" style="padding:0">Sesión activa<b>${session.nombre}${session.rol==='admin'?'<span class="badge-role">Admin</span>':''}</b></div>
       </div>
       <div style="height:14px"></div>
-      ${items.map(([k,label])=>`<div class="navitem ${state.view===k?'active':''}" data-nav="${k}">${label}</div>`).join('')}
+      ${items.map(([k,label])=>{
+        let extra='';
+        if(k==='solicitudes'&&state.adminData){
+          const a=state.adminData;
+          const tot=(a.adelantos_pendientes||[]).length+(a.vacaciones_pendientes||[]).length+(a.permisos_pendientes||[]).length+(a.prestamos_pendientes||[]).length+(a.incapacidades_pendientes||[]).length;
+          if(tot>0)extra=` <span class="nav-badge-roja">${tot}</span>`;
+        }
+        return `<div class="navitem ${state.view===k?'active':''}" data-nav="${k}">${label}${extra}</div>`;
+      }).join('')}
       <div class="sidebar-foot"><a class="link" href="/" style="color:#B7BCC3;display:block;margin-bottom:10px;text-decoration:none">⌂ Apps</a><button class="link" id="btn-logout" style="color:#B7BCC3">Cerrar sesión</button></div>
     </div>
     <div class="main" id="main">${bodyHtml}</div>
