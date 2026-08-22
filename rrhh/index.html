@@ -165,7 +165,7 @@ let state = {
 };
 
 function saveSession(s){ state.session = s; sessionStorage.setItem('rrhh_session', JSON.stringify(s)); }
-function logout(){ sessionStorage.removeItem('rrhh_session'); sessionStorage.removeItem('suite_sesion'); sessionStorage.removeItem('equipos_sesion'); state.session=null; state.view='resumen'; render(); }
+function logout(){ sessionStorage.removeItem('rrhh_session'); sessionStorage.removeItem('equipos_sesion'); sessionStorage.removeItem('suite_sesion'); state.session=null; location.href='https://laroca-suite-production.up.railway.app/'; }
 async function ssoDesdeMenu(){
   try{
     var ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');

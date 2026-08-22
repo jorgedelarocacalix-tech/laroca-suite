@@ -293,6 +293,7 @@
     <div class="brand">
       <div class="logo">R</div>
       <div>
+<a href="https://laroca-suite-production.up.railway.app/" style="position:absolute;top:18px;right:18px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;color:#111;text-decoration:none;box-shadow:0 1px 3px rgba(0,0,0,.06)">⌂ Apps</a>
         <h1>ERP Empresas</h1>
         <small>Centro de acceso · Corporación La Roca</small>
       </div>
@@ -319,6 +320,12 @@
 </footer>
 
 <script>
+// Acceso solo desde el menu de la suite
+(function(){
+  let ok=false;
+  try{const ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');ok=!!(ss&&ss.accesos_apps&&ss.accesos_apps.erp===true);}catch(err){}
+  if(!ok){location.replace('/');}
+})();
 const APPS = [
   { name: "La Roca Comercial",        cat: "Comercial", loc: "Boarriba",   url: "https://larocacomercial.boarriba.corporacionlaroca2021.com/login.php" },
   { name: "La Roca Motors",           cat: "Motors",    loc: "Boarriba",   url: "https://larocamotors.boarriba.corporacionlaroca2021.com/login.php" },

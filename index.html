@@ -239,7 +239,7 @@ function aplicarSesion(s){
     c.style.display=acc[c.getAttribute('data-app')]===true?'':'none';
   });
   var arq=document.getElementById('arqLink');
-  if(arq)arq.href='https://larocaarqueos-production.up.railway.app'+(acc.arqueos_rol==='auditor'?'/auditor':'/');
+  if(arq){try{arq.href='https://larocaarqueos-production.up.railway.app/#sso='+encodeURIComponent(btoa(JSON.stringify({codigo:s.codigo,pin:s.pin})));}catch(e){arq.href='https://larocaarqueos-production.up.railway.app/';}}
   if(acc.equipos===true){
     try{sessionStorage.setItem('equipos_sesion',JSON.stringify({codigo:s.codigo,nombre:s.nombre,sucursales:Array.isArray(acc.sucursales)?acc.sucursales:[],auditor:acc.arqueos_rol==='auditor'}));}catch(e){}
   }
