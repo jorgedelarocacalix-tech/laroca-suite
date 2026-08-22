@@ -1550,7 +1550,7 @@ async function enviarValeArqueos(ad){
       })
     });
     const j = await r.json();
-    if(!r.ok || !j.ok){ toast('⚠️ El adelanto quedó aprobado pero no se pudo generar en Arqueos'); return; }
+    if(!r.ok || !j.ok){ toast('⚠️ El adelanto quedó aprobado pero no se pudo generar en Arqueos'); return null; }
     const ga = 'GA-'+String(j.correlativo).padStart(6,'0');
     toast('✅ Vale '+ga+' generado en Arqueos — listo para pagar');
     try{
@@ -1558,8 +1558,8 @@ async function enviarValeArqueos(ad){
       c[ad.id] = {correlativo:j.correlativo, url:j.pdf_url, fecha:new Date().toISOString()};
       localStorage.setItem('rrhh_vales_arq', JSON.stringify(c));
     }catch(e){}
-    if(j.pdf_url) window.open(j.pdf_url,'_blank');
-  }catch(e){ toast('⚠️ Arqueos no disponible; el adelanto quedó aprobado igual'); }
+    return {ga, url: j.pdf_url};
+  }catch(e){ toast('⚠️ Arqueos no disponible; el adelanto quedó aprobado igual'); return null; }
 }
 
 async function modalExpediente(empId){
@@ -1631,7 +1631,7 @@ function modalComprobanteAdelanto(ad, esEmpleado){
       <div style="text-align:center;width:45%"><div style="border-top:1px solid #333;padding-top:4px">Firma RRHH</div></div>
     </div>
   </div>
-  <div style="margin-bottom:16px"><button class="btn gold sm" id="adel-print">🖨️ Imprimir / Descargar PDF</button></div>
+  <div style="margin-bottom:16px"><button class="btn gold sm" id="adel-print">🖨️ Imprimir / Descargar PDF</button>${ad.vale_arq ? `<a href='"${ad.vale_arq.url}"' target="_blank" class="btn sm" style="background:var(--green);color:#fff;margin-left:8px;text-decoration:none">📄 Vale oficial ${ad.vale_arq.ga} (Arqueos)</a>` : ''}</div>
   <div class="field"><label>Subir comprobante firmado (foto o escaneo)</label><input type="file" id="adel-file" accept="image/*,.pdf"></div>
   <div id="adel-doc-actual" style="margin:8px 0;font-size:13px">${ad.documento_url?`<a href="${ad.documento_url}" target="_blank">Ver documento actual</a>`:'Sin documento subido aún'}</div>
   <div class="row-end"><button class="link" id="adel-cancel">Cerrar</button><button class="btn gold sm" id="adel-save">Subir documento</button></div>`);
@@ -1677,7 +1677,7 @@ function bindSolicitudesAdmin(){
       if(tabla==='vacaciones') state.vacacionesAdmin = null;
       await loadAdminDashboard(); render();
       if(tabla==='vacaciones' && estado==='aprobado' && vacRef) modalHojaVacacion(vacRef);
-      if(tabla==='adelantos' && estado==='aprobado' && adRef){ enviarValeArqueos(adRef); modalComprobanteAdelanto(adRef, false); }
+      if(tabla==='adelantos' && estado==='aprobado' && adRef){ const vale=await enviarValeArqueos(adRef); modalComprobanteAdelanto({...adRef, vale_arq: vale}, false); }
     };
   });
 }
