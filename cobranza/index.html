@@ -414,12 +414,11 @@ tr:hover td{background:#f5f8ff}
   <div class="login-card">
     <div class="login-mark">LR</div>
     <div class="login-title">La Roca Cobranza</div>
-    <div class="login-sub">Ingresa tu código y PIN de asociado</div>
-    <input id="cob-cod" type="text" placeholder="Código (ej. v_kar)" autocapitalize="none" autocomplete="username" style="width:100%;max-width:240px;margin:0 auto 12px;display:block;background:#fff;border:2px solid #e0ddd7;border-radius:10px;padding:10px 12px;font-size:14px;text-align:center;color:#222;font-family:inherit"/>
+    <div class="login-sub">Ingresa tu código de acceso</div>
     <div class="pin-display">
       <div class="pin-dot filled" id="p0">●</div><div class="pin-dot filled" id="p1">●</div>
       <div class="pin-dot filled" id="p2">●</div><div class="pin-dot filled" id="p3">●</div>
-      <div class="pin-dot filled" id="p4">●</div><div class="pin-dot filled" id="p5">●</div>
+      <div class="pin-dot filled" id="p4">●</div>
     </div>
     <div class="pin-pad" id="pin-pad">
       <button class="pin-btn" data-v="1">1</button><button class="pin-btn" data-v="2">2</button><button class="pin-btn" data-v="3">3</button>
@@ -438,7 +437,6 @@ tr:hover td{background:#f5f8ff}
     <button class="hbtn" onclick="syncNow()">🔄 Sync</button>
     <div class="hdate" id="hdate">LUN, 15 JUN 2026</div>
     <div class="user-chip" id="user-chip" onclick="logout()"><span id="user-lbl">👤 Administrador</span> <span style="color:var(--text3)">✕</span></div>
-    <button class="hbtn" onclick="location.href='https://laroca-suite-production.up.railway.app/'">⌂ Apps</button>
     <button class="hbtn" id="back-btn" style="" onclick="goHome()">↩ Inicio</button>
   </div>
 </header>
@@ -627,18 +625,43 @@ Ej: Cliente en casa, dice que paga el viernes. Esposo trabaja fuera. Casa con po
 // ══ CONFIG ══
 var SUPA_URL='https://ixskgawbpwwxdjnkiixt.supabase.co';
 var SUPA_KEY='sb_publishable_-JUaSYPPkq8n4wJIKPtXGw_XMyj3EE7';
-var RRHH_URL='https://upaenjotkocmdvfuobii.supabase.co';
-var RRHH_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
-// Mapa legado solo como referencia de carteras; el acceso real ahora viene de RRHH.
 var USUARIOS={
   '12345':{nombre:'Administrador',rol:'admin',carteras:[]},
   '7777':{nombre:'Jorge',rol:'gerente',carteras:[]},
   '1111':{nombre:'Equipo Roca',rol:'cobrador',carteras:['ROCA_COMERCIAL','MOTORS','LIBERTAD','BARRIO']},
   '2222':{nombre:'Equipo Su Mueble',rol:'cobrador',carteras:['MUEBLE','MOTO','DANLI']}
 };
+// ══ LOGIN INDIVIDUAL VIA RRHH ══
+// Cada asociado entra con su propio PIN de RRHH; aquí se define qué carteras ve según su equipo.
+var RRHH_URL='https://upaenjotkocmdvfuobii.supabase.co';
+var RRHH_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+var RRHH_CARTERAS={
+  roca:['ROCA_COMERCIAL','MOTORS','LIBERTAD','BARRIO'],
+  mueble:['MUEBLE','MOTO','DANLI']
+};
+var RRHH_EQUIPO={
+  'u1784044319284':'roca',   // Erick
+  'v_ale':'roca',            // Alejandra
+  'v_jor':'roca',            // Jorge
+  'u1779318896833':'roca',   // Ana Castro
+  'v_say':'mueble'           // Sayda
+};
+function loginRRHH(pin){
+  return fetch(RRHH_URL+'/rest/v1/rpc/rrhh_login_por_pin',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','apikey':RRHH_KEY,'Authorization':'Bearer '+RRHH_KEY},
+    body:JSON.stringify({p_pin:pin})
+  }).then(function(r){return r.ok?r.json():null;}).then(function(rrhh){
+    if(!rrhh) return null;
+    if(!rrhh.accesos_apps||!rrhh.accesos_apps.cobranza) return null;
+    var equipo=RRHH_EQUIPO[rrhh.codigo];
+    if(!equipo) return null;
+    return {nombre:rrhh.nombre,rol:'cobrador',carteras:RRHH_CARTERAS[equipo]};
+  }).catch(function(){return null;});
+}
 
 // ══ STATE ══
-var APP_VERSION='20260707-23';
+var APP_VERSION='20260822-25';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -675,13 +698,6 @@ async function loadLibs(){
 // ══ INIT ══
 window.addEventListener('load',async function(){
   await loadLibs();
-  try{
-    var ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
-    if(ss&&ss.accesos_apps&&ss.accesos_apps.cobranza===true&&ss.codigo){
-      entrarCobranza(userDesdeAcceso(ss.codigo,ss.nombre,ss.accesos_apps,ss.nivel_admin));
-      return;
-    }
-  }catch(e){}
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('main-header').style.display='none';
   document.getElementById('home-zone').style.display='none';
@@ -698,48 +714,57 @@ function initPinPad(){
     var v=btn.getAttribute('data-v');
     if(v==='del'){PIN_VAL=PIN_VAL.slice(0,-1);renderPin();}
     else if(v==='ok'){pinEnter();}
-    else if(PIN_VAL.length<6){PIN_VAL+=v;renderPin();}
+    else if(PIN_VAL.length<5){PIN_VAL+=v;renderPin();if(PIN_VAL.length===5)setTimeout(pinEnter,120);}
   }
   pad.addEventListener('touchend',handle,{passive:false});
   pad.addEventListener('click',handle,{passive:false});
 }
 function renderPin(){
-  for(var i=0;i<6;i++){
+  for(var i=0;i<5;i++){
     var el=document.getElementById('p'+i);
     el.textContent=i<PIN_VAL.length?'●':'';
     el.className='pin-dot'+(i<PIN_VAL.length?' filled':'')+(i===PIN_VAL.length?' active':'');
   }
 }
-function userDesdeAcceso(codigo,nombre,acc,nivel){
-  var auditor=acc.arqueos_rol==='auditor';
-  var rol=(nivel==='senior'||auditor)?'admin':'cobrador';
-  var mapa={R1:'ROCA_COMERCIAL',R2:'BARRIO',R3:'LIBERTAD',R4:'MUEBLE',R5:'MOTO'};
-  var carteras=(rol==='admin')?[]:(Array.isArray(acc.sucursales)?acc.sucursales.map(function(x){return mapa[x]||null;}).filter(Boolean):[]);
-  return Object.assign({},{nombre:nombre,codigo:codigo,rol:rol,carteras:carteras});
+function pinEnter(){
+  var u=USUARIOS[PIN_VAL];
+  if(u){ entrarConUsuario(Object.assign({},u,{codigo:PIN_VAL})); return; }
+  document.getElementById('pin-err').textContent='Verificando...';
+  var pin=PIN_VAL; PIN_VAL='';renderPin();
+  loginRRHH(pin).then(function(u2){
+    if(!u2){document.getElementById('pin-err').textContent='Código incorrecto';return;}
+    document.getElementById('pin-err').textContent='';
+    entrarConUsuario(Object.assign({},u2,{codigo:pin}));
+  });
 }
-async function pinEnter(){
-  var codEl=document.getElementById('cob-cod');
-  var cod=(codEl?codEl.value:'').trim();
-  if(!cod){document.getElementById('pin-err').textContent='Escribe tu código de asociado';if(codEl)codEl.focus();return;}
-  if(PIN_VAL.length<4){document.getElementById('pin-err').textContent='PIN incompleto';return;}
-  document.getElementById('pin-err').textContent='Verificando…';
-  try{
-    var r=await fetch(RRHH_URL+'/rest/v1/rpc/rrhh_login',{method:'POST',headers:{'Content-Type':'application/json',apikey:RRHH_KEY,Authorization:'Bearer '+RRHH_KEY},body:JSON.stringify({p_codigo:cod,p_pin:PIN_VAL})});
-    if(!r.ok){document.getElementById('pin-err').textContent='Código o PIN incorrecto';PIN_VAL='';renderPin();return;}
-    var d=await r.json(),acc=d.accesos_apps||{};
-    if(acc.cobranza!==true){document.getElementById('pin-err').textContent='Tu usuario no tiene acceso a Cobranza';PIN_VAL='';renderPin();return;}
-    entrarCobranza(userDesdeAcceso(d.codigo,d.nombre,acc,d.nivel_admin));
-  }catch(e){document.getElementById('pin-err').textContent='Error de conexión';}
+// Deep link desde otras apps (ej. Analisis por Equipo): ?cart=SU_MOTO_DANLI&tab=REPORTE
+// Abre directo en la cartera y pestaña indicadas — el login con PIN sigue siendo manual.
+function aplicarParamsURL(){
+  var params=new URLSearchParams(location.search);
+  var cart=params.get('cart');
+  var tab=params.get('tab');
+  if(cart&&CARTERAS[cart]){
+    openCartera(cart); // openCartera resetea CURRENT_TAB a null, por eso el cambio de tab va despues
+    if(tab){
+      setTimeout(function(){
+        var btn=document.querySelector('.grp-btn[data-grp="'+tab+'"]');
+        if(btn)btn.click();
+      },50);
+    }
+    return true;
+  }
+  return false;
 }
-function entrarCobranza(u){
+function entrarConUsuario(u){
   USER=u;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-header').style.display='flex';
   document.getElementById('user-lbl').textContent='👤 '+u.nombre;
   if(USER.rol==='admin')document.getElementById('btn-alerta').style.display='';
   loadData().then(function(){
-    renderHome();startSync();
-    if(USER.rol==='gerente'||USER.rol==='admin'){
+    if(!aplicarParamsURL())renderHome();
+    startSync();
+    if(USER.rol==='gerente'){
       // Abrir burbuja IA en modo global al entrar
       var bubble=document.getElementById('ai-bubble');
       if(bubble)bubble.style.display='';
@@ -759,7 +784,7 @@ function logout(){
   document.getElementById('home-zone').style.display='none';
   document.getElementById('dash-zone').style.display='none';
   document.getElementById('back-btn').style.display='none';
-  location.href='https://laroca-suite-production.up.railway.app/';
+  document.getElementById('login-screen').style.display='flex';
 }
 
 // ══ SUPABASE ══
@@ -851,8 +876,17 @@ async function dbSaveHist(entry){
   if(!supa){console.warn('dbSaveHist: supa es null');return;}
   try{
     var r=await supa.from('historial_clientes').insert(entry);
-    if(r.error){console.error('dbSaveHist error:',r.error);alert('Error al guardar historial:\n'+r.error.message+'\n\nCódigo: '+r.error.code);}
-  }catch(e){console.error('saveHist:',e);alert('Error al guardar historial: '+e.message);}
+    if(r.error){console.error('dbSaveHist error:',r.error);showErr('Error al guardar historial: '+r.error.message);}
+  }catch(e){
+    console.error('saveHist:',e);
+    try{
+      var r2=await supa.from('historial_clientes').insert(entry);
+      if(r2.error){console.error('dbSaveHist retry error:',r2.error);showErr('Error al guardar historial: '+r2.error.message);}
+    }catch(e2){
+      console.error('saveHist retry:',e2);
+      showErr('Error de red al guardar historial (revisa tu conexión)');
+    }
+  }
 }
 
 // ══ FIX #1: dbSaveSnap excluye clientes que ya pagaron este mes ══
@@ -917,7 +951,7 @@ function parseCartera(lines){
   var nameSim=function(a,b){if(a===b)return true;var lo=a.length>=b.length?a:b,sh=a.length<b.length?a:b;if(sh.length<4)return false;if(lo.startsWith(sh))return true;if(a.length===b.length){var d=0;for(var k=0;k<a.length;k++)if(a[k]!==b[k])d++;return d<=2;}return false;};
   var pushCliente=function(nombre,allD,allN){
     if(allD.length<1||allN.length<1||nombre.length<3)return;
-    var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago||uPago===fFact;if(sinP)uPago=null;
+    var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago;if(sinP)uPago=null;
     var total=0,nCuotas=0,pagado=0,saldo=0,diaPago=0,cuota=0;
     var bI=allN.findIndex(function(n){return n>=100;});if(bI>=0)total=allN[bI];
     var nci=-1;for(var ni=bI+1;ni<allN.length;ni++){if(allN[ni]>=1&&allN[ni]<=36&&Number.isInteger(allN[ni])){nCuotas=Math.round(allN[ni]);nci=ni;break;}}
@@ -965,7 +999,7 @@ function parseCartera(lines){
           grpLines.forEach(function(dl){
             var dd=dl.match(/\b(\d{2}\/\d{2}\/\d{4})\b/g)||[];dd.forEach(function(d){if(!allD.includes(d))allD.push(d);});
             var st=dl.replace(/\b\d{2}\/\d{2}\/\d{4}\b/g,'');
-            var ns=(st.match(/[\d,]+\.?\d*/g)||[]).map(function(s){return parseFloat(s.replace(/,/g,''));}).filter(function(n){return !isNaN(n)&&n>0;});
+            var ns=(st.match(/[\d,]+\.?\d*/g)||[]).map(function(s){return parseFloat(s.replace(/,/g,''));}).filter(function(n){return !isNaN(n)&&n>=0;});
             ns.forEach(function(n){allN.push(n);});
           });
           pushCliente(nombre,allD,allN);
@@ -1173,16 +1207,15 @@ async function _renderGerentePanel(){
   var hoyStr=HOY.toISOString().split('T')[0];
   var lastDay=new Date(HOY.getFullYear(),HOY.getMonth()+1,0).getDate();
 
-  // Cargar proyecciones de todos los asesores
-  if(supa){
-    var rp=await supa.from('proyecciones').select('*');
-    if(!rp.error)(rp.data||[]).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});
-  }
-  // Cargar cierre_proyeccion (último por cartera) para columna Proyectado
+  // Cargar proyecciones de todos los asesores y cierre_proyeccion en paralelo (evita esperas en cadena)
   var cierreMap={};var totCierreGlobal=0;
   if(supa){
-    var rc=await supa.from('cierre_proyeccion').select('cartera_id,mes_key,datos').order('mes_key',{ascending:false});
-    if(!rc.error){var _vC={};(rc.data||[]).forEach(function(row){if(_vC[row.cartera_id])return;_vC[row.cartera_id]=true;var s=0;(row.datos||[]).forEach(function(c){if(c.mora!=='INACTIVO')s+=(c.montoAsesor||0);});cierreMap[row.cartera_id]=Math.round(s);});}
+    var _proyP=_withTimeout(supa.from('proyecciones').select('*'),8000).catch(function(e){console.error('_renderGerentePanel proyecciones:',e);return null;});
+    var _cierreP=_withTimeout(supa.from('cierre_proyeccion').select('cartera_id,mes_key,datos').order('mes_key',{ascending:false}),8000).catch(function(e){console.error('_renderGerentePanel cierre:',e);return null;});
+    var _res=await Promise.all([_proyP,_cierreP]);
+    var rp=_res[0],rc=_res[1];
+    if(rp&&!rp.error){(rp.data||[]).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});_rebuildProyIndex();}
+    if(rc&&!rc.error){var _vC={};(rc.data||[]).forEach(function(row){if(_vC[row.cartera_id])return;_vC[row.cartera_id]=true;var s=0;(row.datos||[]).forEach(function(c){if(c.mora!=='INACTIVO')s+=(c.montoAsesor||0);});cierreMap[row.cartera_id]=Math.round(s);});}
   }
 
   // ── Agregados globales ──
@@ -1229,8 +1262,7 @@ async function _renderGerentePanel(){
       var pagado=(pagoEsteMes(x.ultimo_pago)||pagoM)&&!(p&&p.mora_pendiente);
       if(pagado)return;
       nPendientes++;
-      var best=null;
-      Object.keys(PROYECCIONES).forEach(function(k){if(k.startsWith(id+'::'+x.nombre+'::')){ var cand=PROYECCIONES[k];if(!best||(cand.updated_at||'')>(best.updated_at||''))best=cand;}});
+      var best=_getBestProy(id,x.nombre);
       var montoExp=best&&best.monto_proyectado?best.monto_proyectado:(p&&p.monto?p.monto:null);
       if(montoExp)nEditados++;
       totalSis+=x.cuota||0;
@@ -1398,7 +1430,7 @@ function renderHome(){
   if(USER&&USER.rol==='admin'){rn.style.cssText='background:var(--greenbg);color:var(--green);border:1px solid rgba(26,122,60,.2);border-radius:5px;padding:9px 13px;font-family:var(--mono);font-size:11px;margin-bottom:16px';rn.textContent='Administrador - acceso completo. Sube PDFs y gestiona carteras.';}
   else if(USER&&USER.rol==='gerente'){rn.style.cssText='background:var(--purplebg,#f3e8ff);color:var(--purple,#7c3aed);border:1px solid rgba(124,58,237,.2);border-radius:5px;padding:9px 13px;font-family:var(--mono);font-size:11px;margin-bottom:16px';rn.textContent='Gerente — Vista global y análisis IA';}
   else{rn.style.cssText='background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.2);border-radius:5px;padding:9px 13px;font-family:var(--mono);font-size:11px;margin-bottom:16px';rn.textContent=(USER?USER.nombre:'') + ' - Registra promesas y visitas en tu cartera';}
-  if(USER&&(USER.rol==='gerente'||USER.rol==='admin')){document.getElementById('home-zone').classList.add('wide');_renderGerentePanel();}
+  if(USER&&USER.rol==='gerente'){document.getElementById('home-zone').classList.add('wide');_renderGerentePanel();}
   else{document.getElementById('home-zone').classList.remove('wide');var gp=document.getElementById('gerente-panel');if(gp)gp.style.display='none';}
   var dz=document.getElementById('drop-zone');
   dz.className='drop-zone'+(canUpload()?'':' disabled');
@@ -1440,9 +1472,9 @@ function openCartera(id){
   document.getElementById('ai-bubble').style.display='';
   // Barra de modo: solo gerente ve "Todas las carteras"
   var modeBar=document.getElementById('ai-chat-mode-bar');
-  if(modeBar) modeBar.style.display=(USER&&(USER.rol==='gerente'||USER.rol==='admin'))?'flex':'none';
+  if(modeBar) modeBar.style.display=(USER&&USER.rol==='gerente')?'flex':'none';
   // Resetear modo chat a "esta cartera" para cobradores
-  if(!(USER&&(USER.rol==='gerente'||USER.rol==='admin'))) switchChatMode('cartera');
+  if(USER&&USER.rol!=='gerente') switchChatMode('cartera');
   renderDash(id);
   showBienvenida(id);
 }
@@ -1454,6 +1486,28 @@ async function delCart(id){
   renderHome();
 }
 
+function irAPestana(id){
+  var btn=document.querySelector('.grp-btn[data-grp="'+id+'"]');
+  if(btn)btn.click();
+}
+// Guarda la mora de hoy y compara contra el ultimo dia guardado anterior
+function actualizarTendenciaMora(cartId,moraTotal,nEnMora){
+  if(!supa)return;
+  var hoyStr=HOY.toISOString().slice(0,10);
+  supa.from('mora_historial').upsert({cartera_id:cartId,fecha:hoyStr,mora_total:moraTotal,n_en_mora:nEnMora},{onConflict:'cartera_id,fecha'});
+  supa.from('mora_historial').select('fecha,mora_total').eq('cartera_id',cartId).lt('fecha',hoyStr).order('fecha',{ascending:false}).limit(1)
+    .then(function(r){
+      var el=document.getElementById('mora-trend');
+      if(!el)return;
+      var prev=r.data&&r.data[0];
+      if(!prev){el.textContent='vs. ayer: sin dato previo';return;}
+      var dif=moraTotal-prev.mora_total;
+      if(Math.abs(dif)<1){el.textContent='vs. '+prev.fecha+': igual';return;}
+      var icon=dif>0?'🔺':'🔻';
+      var color=dif>0?'var(--red)':'var(--green)';
+      el.innerHTML='<span style="color:'+color+'">'+icon+' L '+fmt(Math.abs(dif))+'</span> vs. '+prev.fecha;
+    });
+}
 // ══ DASHBOARD ══
 function renderDash(id){
   HOY=new Date(); HOY.setHours(0,0,0,0);
@@ -1474,16 +1528,23 @@ function renderDash(id){
   var activos=cl.filter(function(c){return c.tramo!=='INACTIVO';});
   var sAct=activos.reduce(function(s,c){return s+(c.saldo||0);},0);
   var nProm=cl.filter(function(c){var p=PROMESAS[id+'::'+c.nombre];return p&&p.estado==='promesa';}).length;
+  var moraTotal=0,nEnMora=0;
+  activos.forEach(function(c){
+    var m=calcMoraCliente(c,id);
+    if(m&&m.diferencia>0){moraTotal+=m.diferencia;nEnMora++;}
+  });
   document.getElementById('kpi-row').innerHTML=[
     {l:'Clientes',v:cl.length,s:'Total',c:'color:var(--text)'},
     {l:'Saldo activo',v:'L '+fmt(sAct),s:'A cobrar',c:'color:var(--blue)'},
+    {l:'Mora total',v:'L '+fmt(moraTotal),s:nEnMora+' en mora · <span id="mora-trend">vs. ayer: —</span>',c:'color:var(--red)',click:"irAPestana('REPORTE')"},
     {l:'Vencidos hoy',v:G.VENCIDO.length,s:'Cobrar hoy',c:'color:var(--orange)'},
     {l:'Pagaron',v:G.PAGARON.length,s:'Este mes',c:'color:var(--green)'},
     {l:'Promesas',v:nProm,s:'Activas',c:'color:var(--purple)'},
     {l:'Mora 60-90d',v:G['60'].length+G['90'].length,s:'Llamar',c:'color:var(--amber)'},
     {l:'Mora 120-150d',v:G['120'].length+G['150'].length,s:'Visitar',c:'color:var(--red)'},
     {l:'Inactivos',v:G.INACTIVO.length,s:'+180 dias',c:'color:var(--text3)'},
-  ].map(function(k){return '<div class="kpi-card"><div class="kpi-l">'+k.l+'</div><div class="kpi-v" style="'+k.c+'">'+k.v+'</div><div class="kpi-s">'+k.s+'</div></div>';}).join('');
+  ].map(function(k){return '<div class="kpi-card"'+(k.click?' style="cursor:pointer" onclick="'+k.click+'"':'')+'><div class="kpi-l">'+k.l+'</div><div class="kpi-v" style="'+k.c+'">'+k.v+'</div><div class="kpi-s">'+k.s+'</div></div>';}).join('');
+  actualizarTendenciaMora(id,moraTotal,nEnMora);
   // ── Clasificar promesas: activas vs incumplidas ──
   var hoyStr=HOY.toISOString().split('T')[0];
   var mesActual=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
@@ -1542,6 +1603,9 @@ function renderDash(id){
     },
     {
       id:'HISTORIAL', lbl:'📋 Historial', direct:true
+    },
+    {
+      id:'INBOX', lbl:'📥 Inbox', direct:true
     },
     {
       id:'PROYECCION', lbl:'📊 Proyeccion', color:'var(--blue)', bgColor:'var(--bluebg)',
@@ -1622,6 +1686,7 @@ function renderDash(id){
     {id:'VISITAS',   build:function(d){d.innerHTML='<div class="empty">Cargando visitas...</div>';buildVisitas(id,d);}},
     {id:'SIN_PAGO_INT',build:function(d){d.innerHTML=buildSinPagoInt(id,cl);}},
     {id:'HISTORIAL', build:function(d){d.innerHTML='<div class="empty">Cargando historial...</div>';buildHistorial(id,d);}},
+    {id:'INBOX',     build:function(d){d.innerHTML='<div class="empty">Cargando inbox...</div>';buildInbox(id,d);}},
     {id:'PROYECCION',    build:function(d){d.innerHTML='<div class="empty">Cargando proyeccion...</div>';buildProyeccion(id,d);}},
     {id:'PROY_SIGUIENTE',build:function(d){d.innerHTML='<div class="empty">Cargando...</div>';buildProySiguiente(id,d);}},
     {id:'MORA_GLOBAL',build:function(d){d.innerHTML=buildMoraGlobal(id,cl);}},
@@ -1730,17 +1795,24 @@ function refreshSoft(cartId){
     var p=PROMESAS[id+'::'+c.nombre];
     return p&&p.estado==='promesa'&&!pagoEsteMes(c.ultimo_pago);
   }).length;
+  var moraTotal=0,nEnMora=0;
+  activos.forEach(function(c){
+    var m=calcMoraCliente(c,id);
+    if(m&&m.diferencia>0){moraTotal+=m.diferencia;nEnMora++;}
+  });
   var kpiEl=document.getElementById('kpi-row');
   if(kpiEl) kpiEl.innerHTML=[
     {l:'Clientes',v:cl.length,s:'Total',c:'color:var(--text)'},
     {l:'Saldo activo',v:'L '+fmt(sAct),s:'A cobrar',c:'color:var(--blue)'},
+    {l:'Mora total',v:'L '+fmt(moraTotal),s:nEnMora+' en mora · <span id="mora-trend">vs. ayer: —</span>',c:'color:var(--red)',click:"irAPestana('REPORTE')"},
     {l:'Vencidos hoy',v:G.VENCIDO.length,s:'Cobrar hoy',c:'color:var(--orange)'},
     {l:'Pagaron',v:G.PAGARON.length,s:'Este mes',c:'color:var(--green)'},
     {l:'Promesas',v:nProm,s:'Activas',c:'color:var(--purple)'},
     {l:'Mora 60-90d',v:G['60'].length+G['90'].length,s:'Llamar',c:'color:var(--amber)'},
     {l:'Mora 120-150d',v:G['120'].length+G['150'].length,s:'Visitar',c:'color:var(--red)'},
     {l:'Inactivos',v:G.INACTIVO.length,s:'+180 dias',c:'color:var(--text3)'},
-  ].map(function(k){return '<div class="kpi-card"><div class="kpi-l">'+k.l+'</div><div class="kpi-v" style="'+k.c+'">'+k.v+'</div><div class="kpi-s">'+k.s+'</div></div>';}).join('');
+  ].map(function(k){return '<div class="kpi-card"'+(k.click?' style="cursor:pointer" onclick="'+k.click+'"':'')+'><div class="kpi-l">'+k.l+'</div><div class="kpi-v" style="'+k.c+'">'+k.v+'</div><div class="kpi-s">'+k.s+'</div></div>';}).join('');
+  actualizarTendenciaMora(id,moraTotal,nEnMora);
 
   // 2. Actualizar botones de grupos que tienen contador (MORA, GESTION, PAGARON)
   // Solo actualiza el label del botón activo sin reconstruir nada
@@ -1794,12 +1866,12 @@ function calcMoraCliente(c, cartId){
   var ov=MG_OVERRIDES&&MG_OVERRIDES[cartId+'::'+c.nombre]||{};
   var numCuotas = ov.num_cuotas_real || c.num_cuotas || 0;
   var totalCredito = ov.total_credito_real || ((c.pagado||0)+(c.saldo||0));
-  if(!totalCredito||!c.cuota||c.cuota<=0) return null;
+  if(!totalCredito||!c.cuota||c.cuota<=0||c.cuota>totalCredito) return null;
   var fFact=parseHNDate(c.fecha_factura);
   var cuotasTrans=0;
   if(fFact&&hoy>fFact){
     var meses=(hoy.getFullYear()-fFact.getFullYear())*12+(hoy.getMonth()-fFact.getMonth());
-    if(c.dia_pago>0&&hoy.getDate()>=c.dia_pago) meses+=1;
+    if(c.dia_pago>0&&hoy.getDate()<c.dia_pago) meses-=1;
     cuotasTrans=Math.max(0,Math.min(meses,numCuotas||999));
   }
   var esperado=Math.max(0,Math.round(totalCredito-cuotasTrans*c.cuota));
@@ -3038,6 +3110,105 @@ function histSetFiltro(btn, tipo){
     sec.style.display=(tipo==='todos'||s===tipo)?'':'none';
   });
 }
+
+// ══ INBOX — historial de comentarios del equipo ══
+var _IB={cart:null,data:[],gestor:null,tipo:null};
+function ibEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+async function buildInbox(cartId,container){
+  _IB.cart=cartId;_IB.gestor=null;_IB.tipo=null;_IB.data=[];
+  if(!supa){container.innerHTML='<div class="empty">Sin conexion.</div>';return;}
+  try{
+    var r=await supa.from('historial_clientes')
+      .select('*')
+      .eq('cartera_id',cartId)
+      .in('tipo',['nota','visita_realizada','visita_agenda','no_contesta','no_contesta_old'])
+      .order('created_at',{ascending:false})
+      .limit(400);
+    if(r.error)throw r.error;
+    // Solo comentarios manuales (excluir registros automáticos del Sistema)
+    _IB.data=(r.data||[]).filter(function(h){return h.gestor&&h.gestor!=='Sistema';});
+    container.innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">'
+      +'<div style="font-size:15px;font-weight:600">📥 Inbox — Comentarios del equipo</div>'
+      +'<span class="cart-meta">'+_IB.data.length+' comentarios</span></div>'
+      +'<input class="tbl-search" id="S-INBOX" onkeyup="ibRender()" placeholder="Buscar cliente o comentario...">'
+      +'<div id="ib-chips"></div><div id="ib-feed"></div>';
+    ibRender();
+  }catch(e){container.innerHTML='<div class="empty">Error: '+e.message+'</div>';console.error('buildInbox:',e);}
+}
+function ibSetG(g){_IB.gestor=g||null;ibRender();}
+function ibSetT(t){_IB.tipo=t||null;ibRender();}
+function ibDel(el){
+  var id=el.getAttribute('data-id'),cartId=el.getAttribute('data-cart');
+  if(!id||!supa)return;
+  if(!confirm('¿Borrar este comentario del historial?'))return;
+  supa.from('historial_clientes').delete().eq('id',id).then(function(){
+    _IB.data=_IB.data.filter(function(h){return h.id!=id;});
+    ibRender();refreshSoft(cartId);
+    setConn(true,'🗑 Comentario borrado');setTimeout(function(){setConn(true,'Conectado');},2000);
+  });
+}
+function ibChip(lbl,on,fn){return '<button class="rep-filter-btn'+(on?' on':'')+'" onclick="'+fn+'">'+lbl+'</button>';}
+function ibRender(){
+  var chipsEl=document.getElementById('ib-chips'),feedEl=document.getElementById('ib-feed');
+  if(!chipsEl||!feedEl)return;
+  var tipos={nota:'💬 Notas',visita_realizada:'🚗 Visitas realizadas',visita_agenda:'🗓 Visitas agendadas',no_contesta:'📵 No contesta',no_contesta_old:'📵 No contesta'};
+  // ── Chips: filtro por usuario y por tipo ──
+  var porG={};
+  _IB.data.forEach(function(h){porG[h.gestor]=(porG[h.gestor]||0)+1;});
+  var ch='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">';
+  ch+=ibChip('👥 Todos ('+_IB.data.length+')',!_IB.gestor,'ibSetG(null)');
+  Object.keys(porG).sort().forEach(function(g){
+    ch+=ibChip('👤 '+ibEsc(g)+' ('+porG[g]+')',_IB.gestor===g,'ibSetG(\''+esc(g)+'\')');
+  });
+  ch+='</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">';
+  ch+=ibChip('📋 Todos los tipos',!_IB.tipo,'ibSetT(null)');
+  Object.keys(tipos).forEach(function(t){
+    var n=_IB.data.filter(function(h){return h.tipo===t;}).length;
+    if(n)ch+=ibChip(tipos[t]+' ('+n+')',_IB.tipo===t,'ibSetT(\''+t+'\')');
+  });
+  ch+='</div>';
+  chipsEl.innerHTML=ch;
+
+  // ── Feed filtrado ──
+  var q=((document.getElementById('S-INBOX')||{}).value||'').toLowerCase();
+  var rows=_IB.data.filter(function(h){
+    if(_IB.gestor&&h.gestor!==_IB.gestor)return false;
+    if(_IB.tipo&&h.tipo!==_IB.tipo)return false;
+    if(q&&((h.cliente_nombre||'')+' '+(h.nota||'')).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+  if(!rows.length){feedEl.innerHTML='<div class="empty" style="padding:20px 0">Sin comentarios que coincidan.</div>';return;}
+
+  var icons={nota:'💬',visita_realizada:'🚗',visita_agenda:'🗓',no_contesta:'📵',no_contesta_old:'📵'};
+  var tLbl={nota:'Nota',visita_realizada:'Visita realizada',visita_agenda:'Visita agendada',no_contesta:'No contesta',no_contesta_old:'No contesta'};
+  var tCol={nota:'var(--blue)',visita_realizada:'var(--green)',visita_agenda:'var(--amber)',no_contesta:'var(--red)',no_contesta_old:'var(--red)'};
+  function puedeBorrar(h){return !!USER&&(h.gestor===USER.nombre||USER.rol==='gerente'||USER.rol==='admin');}
+  var html='',lastDay='';
+  rows.forEach(function(h){
+    var d=new Date(h.created_at),ok=!isNaN(d.getTime());
+    var dia=ok?d.toLocaleDateString('es-HN',{weekday:'short',day:'numeric',month:'short'}):String(h.created_at||'').substring(0,10);
+    var hora=ok?d.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'}):'';
+    if(dia!==lastDay){
+      lastDay=dia;
+      html+='<div style="font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--text3);text-transform:uppercase;padding:8px 0 4px;text-align:center">— '+ibEsc(dia)+' —</div>';
+    }
+    var txt=String(h.nota||'').replace(/^💬\s*/,'');
+    html+='<div class="vis-card" style="cursor:pointer;margin-bottom:4px"'
+      +' onclick="quickComentario(\''+h.cartera_id+'\',\''+esc(h.cliente_nombre||'')+'\')">'
+      +'<div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;background:'+tCol[h.tipo]+'22;color:'+tCol[h.tipo]+'">'+icons[h.tipo]+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:12.5px;line-height:1.35">'+ibEsc(txt||'(sin texto)')+'</div>'
+      +'<div class="cart-meta" style="margin-top:3px"><span style="color:'+tCol[h.tipo]+';font-weight:600">'+tLbl[h.tipo]+'</span> · 👤 '+ibEsc(h.cliente_nombre)+' · '+hora+'</div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+      +'<span class="b" style="background:var(--bg3);color:var(--text2);font-size:9.5px;padding:2px 8px">✍ '+ibEsc(h.gestor)+'</span>'
+      +'<span class="add-p" style="background:var(--bluebg);color:var(--blue);border-style:solid" onclick="event.stopPropagation();quickComentario(\''+h.cartera_id+'\',\''+esc(h.cliente_nombre||'')+'\')">💬</span>'
+      +(puedeBorrar(h)?'<span class="add-p" style="background:transparent;color:var(--red)" onclick="event.stopPropagation();ibDel(this)" data-id="'+h.id+'" data-cart="'+(h.cartera_id||'')+'">🗑</span>':'')
+      +'</div></div>';
+  });
+  feedEl.innerHTML=html;
+}
 async function loadClientHist(cartId,nombre,cuota,saldo){
   var detEl=document.getElementById('hist-detail');if(!detEl)return;
   if(!supa){detEl.innerHTML='<div class="empty">Sin conexion.</div>';return;}
@@ -3218,27 +3389,24 @@ async function marcarVisitaRealizada(cartId,nombre){
 }
 
 function quickComentario(cartId,nombre){
+  var cl=(CARTERAS[cartId]||{}).clientes||[];
+  var c=cl.find(function(x){return x.nombre===nombre;})||{cuota:0,saldo:0};
   var old=document.getElementById('qcom-overlay');if(old)old.remove();
-  var hoyStr=new Date().toISOString().split('T')[0];
   var div=document.createElement('div');
   div.id='qcom-overlay';
   div.className='overlay show';
+  // ── Layout de chat: header + hilo de mensajes + barra de entrada fija abajo ──
   div.innerHTML=
-    '<div class="modal-card" style="max-width:400px">'
+    '<div class="modal-card" style="max-width:460px;width:100%;height:min(640px,88vh);padding:0;display:flex;flex-direction:column;overflow:hidden">'
     +'<button class="modal-x" onclick="document.getElementById(\'qcom-overlay\').remove()">×</button>'
-    +'<div class="modal-title" style="color:var(--blue)">💬 Comentario</div>'
-    +'<div class="modal-sub" style="margin-bottom:14px">'+nombre+'</div>'
-    +'<div class="form-row">'
-    +'<label class="form-lbl">Fecha</label>'
-    +'<input type="date" class="form-inp" id="qcom-fecha" value="'+hoyStr+'">'
+    +'<div style="padding:14px 46px 10px 20px;border-bottom:1px solid var(--border);flex-shrink:0">'
+    +'<div style="font-size:15px;font-weight:700">💬 '+ibEsc(nombre)+'</div>'
+    +'<div class="cart-meta" style="margin-top:2px">Cuota: L '+fmt(c.cuota||0)+' · Saldo: L '+fmt(c.saldo||0)+'</div>'
     +'</div>'
-    +'<div class="form-row">'
-    +'<label class="form-lbl">Comentario <span style="color:var(--text3);font-size:10px">(Enter para guardar)</span></label>'
-    +'<textarea class="form-inp" id="qcom-texto" rows="3" style="resize:vertical;font-family:var(--mono);font-size:12px" placeholder="Ej: no contesta · prometió llamar mañana · visita pendiente..."></textarea>'
-    +'</div>'
-    +'<div class="form-actions">'
-    +'<button class="btn btn-ghost" onclick="document.getElementById(\'qcom-overlay\').remove()">Cancelar</button>'
-    +'<button class="btn btn-g" onclick="quickComentarioGuardar(\''+cartId+'\',\''+esc(nombre)+'\')">💾 Guardar</button>'
+    +'<div id="qcom-hist" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:5px"><div class="cart-meta" style="text-align:center">Cargando historial...</div></div>'
+    +'<div style="border-top:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;align-items:flex-end;flex-shrink:0">'
+    +'<textarea class="form-inp" id="qcom-texto" rows="1" placeholder="Escribe un comentario para el equipo..." style="flex:1;resize:none;font-size:12.5px;line-height:1.3;padding:9px 13px;border-radius:18px"></textarea>'
+    +'<button class="btn btn-g" title="Enviar" style="width:38px;height:38px;padding:0;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px" onclick="quickComentarioGuardar(\''+cartId+'\',\''+esc(nombre)+'\')">➤</button>'
     +'</div>'
     +'</div>';
   document.body.appendChild(div);
@@ -3251,29 +3419,89 @@ function quickComentario(cartId,nombre){
       };
     }
   },60);
+  quickComentarioHist(cartId,nombre);
+}
+
+var _QC_ICON={promesa:'📅',posponer:'⏭',pago:'✅',abono:'💰',visita_agenda:'🗓',visita_realizada:'🚗',no_contesta:'📵',no_contesta_old:'📵',nota:'',promesa_cumplida:'🤝',promesa_incumplida:'🚨',arreglo_pago:'🤝',cero_prima:'🆕',extension_plazo:'📅'};
+var _QC_COL={promesa:'var(--purple)',posponer:'var(--purple)',pago:'var(--green)',abono:'var(--orange)',visita_agenda:'var(--amber)',visita_realizada:'var(--green)',no_contesta:'var(--red)',no_contesta_old:'var(--red)',nota:'var(--blue)',promesa_cumplida:'var(--green)',promesa_incumplida:'var(--red)',arreglo_pago:'var(--green)',cero_prima:'var(--purple)',extension_plazo:'var(--blue)'};
+
+async function quickComentarioHist(cartId,nombre){
+  var el=document.getElementById('qcom-hist');if(!el)return;
+  if(!supa){el.innerHTML='<div class="empty">Sin conexion.</div>';return;}
+  try{
+    var r=await supa.from('historial_clientes').select('*').eq('cartera_id',cartId).eq('cliente_nombre',nombre).order('created_at',{ascending:true}).limit(100);
+    if(r.error)throw r.error;
+    var rows=r.data||[];
+    if(!rows.length){el.innerHTML='<div class="empty">Sin comentarios aún — escribe el primero abajo.</div>';return;}
+    function puedeBorrar(h){return !!USER&&(h.gestor===USER.nombre||USER.rol==='gerente'||USER.rol==='admin');}
+    var html='',lastDay='';
+    rows.forEach(function(h){
+      var d=new Date(h.created_at),ok=!isNaN(d.getTime());
+      var dia=ok?d.toLocaleDateString('es-HN',{weekday:'short',day:'numeric',month:'short'}):String(h.created_at||'').substring(0,10);
+      var hora=ok?d.toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'}):'';
+      if(dia!==lastDay){
+        lastDay=dia;
+        html+='<div style="align-self:center;background:var(--bg3);color:var(--text3);font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;padding:3px 10px;border-radius:10px;margin:4px 0">'+ibEsc(dia)+'</div>';
+      }
+      var txt=String(h.nota||'(sin texto)').replace(/^💬\s*/,'');
+      var ic=_QC_ICON[h.tipo];
+      if(ic)txt=ic+' '+txt;
+      var col=_QC_COL[h.tipo]||'var(--text3)';
+      var sistema=h.gestor==='Sistema';
+      if(sistema){
+        // Eventos automáticos: línea centrada discreta
+        html+='<div style="align-self:center;max-width:85%;text-align:center;font-family:var(--mono);font-size:9.5px;color:var(--text3);padding:2px 10px;line-height:1.4">'+ibEsc(txt)+' · '+ibEsc(dia)+(hora?' '+hora:'')+'</div>';
+        return;
+      }
+      var mine=!!USER&&h.gestor===USER.nombre;
+      html+='<div style="display:flex;justify-content:'+(mine?'flex-end':'flex-start')+';padding:1px 0">'
+        +'<div style="max-width:80%;background:'+(mine?'var(--greenbg)':'var(--bg3)')+';border:1px solid '+(mine?'rgba(34,160,80,.25)':'var(--border)')+';border-radius:14px;'+(mine?'border-bottom-right-radius:4px':'border-bottom-left-radius:4px')+';padding:7px 11px">'
+        +(mine?'':'<div style="font-size:9.5px;font-weight:700;color:'+col+';margin-bottom:2px">'+ibEsc(h.gestor)+'</div>')
+        +'<div style="font-size:12.5px;line-height:1.35;white-space:pre-wrap">'+ibEsc(txt)+'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px">'
+        +'<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">'+hora+(h.monto?' · L '+fmt(h.monto):'')+'</span>'
+        +(puedeBorrar(h)?'<span style="cursor:pointer;font-size:9px;opacity:.45" onclick="qcomDel(this)" data-id="'+h.id+'" data-cart="'+(h.cartera_id||'')+'" data-nom="'+ibEsc(nombre)+'">🗑</span>':'')
+        +'</div>'
+        +'</div></div>';
+    });
+    el.innerHTML=html;
+    el.scrollTop=el.scrollHeight;   // chat siempre muestra lo último
+  }catch(e){el.innerHTML='<div class="empty">Error: '+e.message+'</div>';console.error('quickComentarioHist:',e);}
+}
+function qcomDel(el){
+  var id=el.getAttribute('data-id'),cartId=el.getAttribute('data-cart'),nombre=el.getAttribute('data-nom');
+  if(!id||!supa)return;
+  if(!confirm('¿Borrar este registro del historial?'))return;
+  supa.from('historial_clientes').delete().eq('id',id).then(function(){
+    quickComentarioHist(cartId,nombre);refreshSoft(cartId);
+  });
 }
 
 async function quickComentarioGuardar(cartId,nombre){
   var texto=(document.getElementById('qcom-texto')||{}).value||'';
-  var fecha=(document.getElementById('qcom-fecha')||{}).value||new Date().toISOString().split('T')[0];
-  var ov=document.getElementById('qcom-overlay');if(ov)ov.remove();
   if(!texto.trim())return;
   if(!supa){setConn(false,'Sin conexión — comentario no guardado');return;}
   // Guardar en historial
   await dbSaveHist({
     cartera_id:cartId, cliente_nombre:nombre, tipo:'nota',
     nota:'💬 '+texto.trim(),
-    monto:null, fecha_accion:fecha, fecha_visita:null,
+    monto:null, fecha_accion:new Date().toISOString().split('T')[0], fecha_visita:null,
     gestor:(USER&&USER.nombre)||'—', created_at:new Date().toISOString()
   });
+  // Limpiar y recargar historial dentro del mismo modal
+  var t=document.getElementById('qcom-texto');
+  if(t){t.value='';t.focus();}
   // Actualizar estado en PROMESAS para que aparezca en el dashboard
   var key=cartId+'::'+nombre;
   PROMESAS[key]=Object.assign({},PROMESAS[key]||{},{estado:'nota',nota:texto.trim(),ts:new Date().toISOString()});
   await dbSaveProm(cartId,nombre);
   setConn(true,'💬 Comentario guardado ✓');
   setTimeout(function(){setConn(true,'Conectado');},2500);
+  quickComentarioHist(cartId,nombre);
   if(CURRENT&&CARTERAS[CURRENT])refreshSoft(CURRENT);
 }
+
+// ══ ECG ══
 
 // ══ ECG ══
 function descargarExcelSnapshots(cartId,tramoId){
@@ -5574,11 +5802,11 @@ function parseBloqueCliente(nombre,lineas,clientes){
     grp.forEach(function(dl){
       var dd=dl.match(/\b(\d{2}\/\d{2}\/\d{4})\b/g)||[];dd.forEach(function(d){if(!allD.includes(d))allD.push(d);});
       var st=dl.replace(/\b\d{2}\/\d{2}\/\d{4}\b/g,'');
-      var ns=(st.match(/[\d,]+\.?\d*/g)||[]).map(function(s){return parseFloat(s.replace(/,/g,''));}).filter(function(n){return !isNaN(n)&&n>0;});
+      var ns=(st.match(/[\d,]+\.?\d*/g)||[]).map(function(s){return parseFloat(s.replace(/,/g,''));}).filter(function(n){return !isNaN(n)&&n>=0;});
       ns.forEach(function(n){allN.push(n);});
     });
     if(allD.length<1||allN.length<1)return;
-    var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago||uPago===fFact;if(sinP)uPago=null;
+    var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago;if(sinP)uPago=null;
     var bI=allN.findIndex(function(n){return n>=100;});var total=bI>=0?allN[bI]:0;
     var nci=-1,nCuotas=0;for(var ni=bI+1;ni<allN.length;ni++){if(allN[ni]>=1&&allN[ni]<=36&&Number.isInteger(allN[ni])){nCuotas=Math.round(allN[ni]);nci=ni;break;}}
     var pi=-1,pagado=0;for(var ni2=Math.max(nci,bI)+1;ni2<allN.length;ni2++){if(allN[ni2]>=0){pagado=allN[ni2];pi=ni2;break;}}
@@ -5632,6 +5860,12 @@ function showInforme(data,existing){
 function confirmarInforme(){document.getElementById('modal-informe').classList.remove('show');if(_informeResolve){_informeResolve(true);_informeResolve=null;}}
 function cancelarInforme(){document.getElementById('modal-informe').classList.remove('show');if(_informeResolve){_informeResolve(false);_informeResolve=null;}}
 function showErr(msg){var b=document.getElementById('err-box');b.style.display='block';b.textContent='⚠ '+msg;setTimeout(function(){b.style.display='none';},5000);}
+function _withTimeout(promise,ms){
+  return Promise.race([
+    promise,
+    new Promise(function(_,rej){setTimeout(function(){rej(new Error('timeout'));},ms);})
+  ]);
+}
 function setProg(pct,lbl){document.getElementById('prog-wrap').style.display='block';document.getElementById('prog-fill').style.width=pct+'%';document.getElementById('prog-lbl').textContent=lbl;}
 function copyMsg(id,btn){navigator.clipboard.writeText(document.getElementById(id).textContent).then(function(){btn.textContent='✓ copiado';setTimeout(function(){btn.textContent='⧉ copiar';},2000);});}
 function promBadge(p){var m={promesa:'<span class="b bp">📅 '+(p.fecha||'—')+'</span>',pago:'<span class="b bg">✅ Pago</span>','no-contesta':'<span class="b bx">📵 No contesta</span>','no_contesta':'<span class="b bx">📵 No contesta</span>','numero-mal':'<span class="b bx">❌ Num. mal</span>',negociacion:'<span class="b ba">🤝 Negocia</span>',visita:'<span class="b bb">🚗 Visita</span>'};return m[p.estado]||'';}
@@ -5643,6 +5877,16 @@ document.getElementById('modal-alerta').addEventListener('click',function(e){if(
 // ██  PROYECCIÓN SEMANAL  (pestaña dentro de cartera)
 // ══════════════════════════════════════════════════════
 var PROYECCIONES={};      // key: cartId+'::'+nombre+'::'+semanaInicio
+var _PROY_INDEX={};       // key: cartId+'::'+nombre -> mejor proyeccion (evita re-escanear PROYECCIONES completo por cliente)
+function _rebuildProyIndex(){
+  var idx={};
+  Object.keys(PROYECCIONES).forEach(function(k){
+    var c=PROYECCIONES[k];
+    var sk=c.cartera_id+'::'+c.cliente_nombre;
+    if(!idx[sk]||(c.updated_at||'')>(idx[sk].updated_at||''))idx[sk]=c;
+  });
+  _PROY_INDEX=idx;
+}
 var _PROY_ITEMS=[];       // lista plana del render actual (para ver notas por index)
 var _PROY_VIEW='todos';   // 'todos' | 'semana' | 'mes' | 'mora'
 var CIERRE_MES={};        // {cartId: {cartera_id,mes_key,cerrado_por,cerrado_at,datos}}
@@ -5678,6 +5922,7 @@ async function saveProyeccion(cartId,nombre,semanaStr,changes){
   var upd=Object.assign({},ex,changes,{cartera_id:cartId,cliente_nombre:nombre,semana_inicio:semanaStr,gestor:(USER&&USER.nombre)||'--',updated_at:new Date().toISOString()});
   delete upd.id;
   PROYECCIONES[k]=upd;
+  _rebuildProyIndex();
   if(!supa)return;
   var r=await supa.from('proyecciones').upsert(Object.assign({},upd),{onConflict:'cartera_id,cliente_nombre,semana_inicio'});
   if(r.error){console.error('saveProy:',r.error);alert('Error:\n'+r.error.message);}
@@ -5685,8 +5930,14 @@ async function saveProyeccion(cartId,nombre,semanaStr,changes){
 async function buildProyeccion(cartId,container){
   HOY=new Date();HOY.setHours(0,0,0,0);
   if(supa){
-    var r=await supa.from('proyecciones').select('*').eq('cartera_id',cartId);
-    if(!r.error)(r.data||[]).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});
+    try{
+      var r=await _withTimeout(supa.from('proyecciones').select('*').eq('cartera_id',cartId),8000);
+      if(!r.error){(r.data||[]).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});_rebuildProyIndex();}
+      else showErr('Error al cargar proyecciones: '+r.error.message);
+    }catch(e){
+      console.error('buildProyeccion:',e);
+      showErr('Error de red al cargar proyecciones (revisa tu conexión)');
+    }
   }
   container._proySemOffset=container._proySemOffset||0;
   _renderProyTab(cartId,container,container._proySemOffset);
@@ -5726,10 +5977,7 @@ function _renderProyTab(cartId,container,weekOff){
     var pagado=(pagoEsteMes(c.ultimo_pago)||pagoManual)&&!(p&&p.mora_pendiente);
     var mora=calcMora(c.ultimo_pago,c.dia_pago,c.sin_ultimo_pago,c.fecha_factura);
     if(c.tramo==='INACTIVO')return;
-    var bestProy=null;
-    Object.keys(PROYECCIONES).forEach(function(k){
-      if(k.startsWith(cartId+'::'+c.nombre+'::')){var cand=PROYECCIONES[k];if(!bestProy||(cand.updated_at||'')>(bestProy.updated_at||''))bestProy=cand;}
-    });
+    var bestProy=_getBestProy(cartId,c.nombre);
     var fechaProy=bestProy&&bestProy.fecha_proyectada?bestProy.fecha_proyectada:(p&&(p.estado==='promesa'||p.estado==='abono')&&p.fecha?p.fecha:null);
     var montoProy=bestProy&&bestProy.monto_proyectado?bestProy.monto_proyectado:(p&&p.monto?p.monto:null);
     var comentario=bestProy&&bestProy.comentario?bestProy.comentario:'';
@@ -5857,7 +6105,8 @@ function _renderProyTab(cartId,container,weekOff){
     items.forEach(function(it){
       var idx=_PROY_ITEMS.length;_PROY_ITEMS.push(it);
       var c=it.c,p=it.p,mora=it.mora;
-      var moraVal=mora&&mora.dias&&mora.dias>0?Math.min(Math.round(mora.dias*(c.cuota/30)),c.saldo):0;
+      var _mc=calcMoraCliente(c,it.cartId||cartId);
+      var moraVal=_mc&&_mc.diferencia>0?_mc.diferencia:0;
       var moraStr=moraVal>0?'<span style="color:var(--red);font-weight:600">L '+fmt(moraVal)+'</span>':'<span style="color:var(--text3)">--</span>';
       var promInfo='';
       if(p&&p.estado==='promesa'&&p.fecha)promInfo='<div style="font-family:var(--mono);font-size:9px;color:var(--purple);margin-top:1px">Promesa: '+p.fecha+(p.monto?' L '+fmt(p.monto):'')+'</div>';
@@ -6060,9 +6309,7 @@ function _buildTodosView(cartId,cl,mesActualStr){
   return h;
 }
 function _getBestProy(cartId,nombre){
-  var best=null;
-  Object.keys(PROYECCIONES).forEach(function(k){if(k.startsWith(cartId+'::'+nombre+'::')){ var c=PROYECCIONES[k];if(!best||(c.updated_at||'')>(best.updated_at||''))best=c;}});
-  return best;
+  return _PROY_INDEX[cartId+'::'+nombre]||null;
 }
 function _buildMesView(cartId,cl,mesActualStr){
   var hoyStr=_d2s(HOY);
@@ -6178,7 +6425,7 @@ function _buildMoraView(cartId,cl,mesActualStr){
     var totalSaldo=items.reduce(function(s,it){return s+(it.c.saldo||0);},0);
     var h2='<div class="sec-card" style="margin-bottom:14px;border-left:3px solid '+color+'">';
     h2+='<div class="sec-title" style="color:'+color+'">'+title+' ('+items.length+') &middot; Saldo global L '+fmt(totalSaldo)+'</div>';
-    if(!isPagaron)h2+='<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:8px">Mora estimada = dias atrasados × cuota / 30 &nbsp;|&nbsp; Saldo global = deuda total segun sistema</div>';
+    if(!isPagaron)h2+='<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:8px">Mora estimada = saldo real − saldo esperado segun cuotas transcurridas &nbsp;|&nbsp; Saldo global = deuda total segun sistema</div>';
     h2+='<div style="overflow-x:auto"><table class="proy-tbl"><thead><tr>';
     h2+='<th style="min-width:150px">Cliente</th>';
     h2+='<th>Tipo de mora</th>';
@@ -6189,7 +6436,8 @@ function _buildMoraView(cartId,cl,mesActualStr){
     h2+='</tr></thead><tbody>';
     items.forEach(function(it){
       var c=it.c,mora=it.mora,p=it.p;
-      var moraEstimada=mora.dias&&c.cuota?Math.round(mora.dias*c.cuota/30):0;
+      var _mc=calcMoraCliente(c,cartId);
+      var moraEstimada=_mc&&_mc.diferencia>0?_mc.diferencia:0;
       var estadoStr=p&&p.estado?promBadge(p):'<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">Sin gestion</span>';
       h2+='<tr>';
       h2+='<td><div style="font-weight:600;font-size:12px">'+esc2(c.nombre)+'</div></td>';
@@ -6292,14 +6540,28 @@ async function buildProySiguiente(cartId,container){
   if(!PROY_SIG_MES[cartId])PROY_SIG_MES[cartId]=_curMesKey();
   var mesKey=PROY_SIG_MES[cartId];
   var semKey='NEXT-'+mesKey;
-  if(supa){
-    var r=await supa.from('proyecciones').select('*').eq('cartera_id',cartId);
-    if(!r.error)(r.data||[]).filter(function(p){return p.semana_inicio&&p.semana_inicio.startsWith('NEXT-');}).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});
-  }
   var ck=cartId+'::'+mesKey;
-  if(supa&&CIERRE_MES[ck]===undefined){
-    var rc=await supa.from('cierre_proyeccion').select('*').eq('cartera_id',cartId).eq('mes_key',mesKey);
-    CIERRE_MES[ck]=(!rc.error&&rc.data&&rc.data.length)?rc.data[0]:null;
+  if(supa){
+    var _proyP=_withTimeout(supa.from('proyecciones').select('*').eq('cartera_id',cartId),8000)
+      .then(function(r){return {ok:true,r:r};})
+      .catch(function(e){return {ok:false,e:e};});
+    var _needCierre=CIERRE_MES[ck]===undefined;
+    var _cierreP=_needCierre?_withTimeout(supa.from('cierre_proyeccion').select('*').eq('cartera_id',cartId).eq('mes_key',mesKey),8000)
+      .then(function(r){return {ok:true,r:r};})
+      .catch(function(e){return {ok:false,e:e};}):null;
+    var _res=await Promise.all([_proyP,_cierreP]);
+    var pr=_res[0],cr=_res[1];
+    if(pr.ok){
+      if(!pr.r.error){(pr.r.data||[]).filter(function(p){return p.semana_inicio&&p.semana_inicio.startsWith('NEXT-');}).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});_rebuildProyIndex();}
+      else showErr('Error al cargar proyecciones: '+pr.r.error.message);
+    }else{
+      console.error('buildProySiguiente:',pr.e);
+      showErr('Error de red al cargar proyecciones (revisa tu conexión)');
+    }
+    if(_needCierre){
+      if(cr.ok)CIERRE_MES[ck]=(!cr.r.error&&cr.r.data&&cr.r.data.length)?cr.r.data[0]:null;
+      else{console.error('buildProySiguiente cierre:',cr.e);CIERRE_MES[ck]=null;}
+    }
   }
   _renderProySiguiente(cartId,container,mesKey,semKey);
 }
@@ -6359,7 +6621,8 @@ function _renderProySiguiente(cartId,container,mesKey,semKey){
     var isUltimaCuota=c.num_cuotas>0&&cuotasTrans!==null&&cuotasTrans>=c.num_cuotas-1&&c.saldo>0;
     var pagoEsperado=montoAsesor||(isUltimaCuota?c.saldo:c.cuota)||0;
     var saldoEsperado=Math.max(0,c.saldo-pagoEsperado);
-    var moraVal=isUltimaCuota&&mora&&mora.dias>0?c.saldo:mora&&mora.dias>0?Math.min(Math.round(mora.dias*(c.cuota/30)),c.saldo):0;
+    var _mc=calcMoraCliente(c,cartId);
+    var moraVal=_mc&&_mc.diferencia>0?_mc.diferencia:0;
     var esAdelantado=p&&p.adelantado===true;
     items.push({c:c,p:p,proy:proy,mora:mora,moraVal:moraVal,esAdelantado:esAdelantado,diaAsesor:diaAsesor,montoAsesor:montoAsesor,cuotasTrans:cuotasTrans,saldoEsperado:saldoEsperado,pagoEsperado:pagoEsperado});
   });
@@ -6539,9 +6802,16 @@ var PROY_PIN_UNLOCK={};  // {cartId: true} — acceso temporal por PIN esta sesi
 
 async function cerrarMes(cartId,mesKey,semKey){
   var nextNom=_mesKeyToNom(mesKey);
-  if(!confirm('¿Guardar la Proyección de '+nextNom+'?\n\nUna vez guardada quedará bloqueada.\nPuedes compartir la clave de acceso con asesores autorizados.'))return;
-  var pin=String(Math.floor(100000+Math.random()*900000));
   var items=PROY_SIG_ITEMS[cartId]||[];
+  var activos=items.filter(function(it){return !it.mora||it.mora.tramo!=='INACTIVO';});
+  var faltanDia=activos.filter(function(it){return !it.diaAsesor;}).length;
+  var faltanMonto=activos.filter(function(it){return !it.montoAsesor;}).length;
+  var avisoFaltantes='';
+  if(faltanDia>0||faltanMonto>0){
+    avisoFaltantes='\n\n⚠️ ATENCIÓN: '+faltanDia+' de '+activos.length+' clientes sin día proyectado, '+faltanMonto+' sin monto proyectado.\nEsos clientes NO van a aparecer en el reporte de Cobros CXC del mes.\n¿Cerrar de todas formas?';
+  }
+  if(!confirm('¿Guardar la Proyección de '+nextNom+'?'+avisoFaltantes+'\n\nUna vez guardada quedará bloqueada.\nPuedes compartir la clave de acceso con asesores autorizados.'))return;
+  var pin=String(Math.floor(100000+Math.random()*900000));
   var snap=items.map(function(it){return {nombre:it.c.nombre,saldo:it.c.saldo,cuota:it.c.cuota,cuotasTrans:it.cuotasTrans,saldoEsperado:it.saldoEsperado,diaAsesor:it.diaAsesor,montoAsesor:it.montoAsesor,mora:it.mora?it.mora.tramo:null,moraVal:it.moraVal};});
   if(supa){
     var r=await supa.from('cierre_proyeccion').upsert({cartera_id:cartId,mes_key:mesKey,cerrado_por:(USER&&USER.nombre)||'admin',cerrado_at:new Date().toISOString(),datos:snap,pin_editor:pin},{onConflict:'cartera_id,mes_key'});
