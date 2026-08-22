@@ -562,7 +562,7 @@ var VENDOR_POOLS=[
 var METAS={
   'v_fer':      {'roca1':{unidades:25,monto:375000},'roca1motors':{unidades:3}},
   'v_ale':      {'roca1':{unidades:30,monto:375000},'roca1motors':{unidades:3}},
-  'u1779318896833':{'roca1':{unidades:30,monto:375000},'roca1motors':{unidades:3}},
+  'v_ana':{'roca1':{unidades:30,monto:375000},'roca1motors':{unidades:3}},
   'v_mil':      {'roca1':{unidades:3,monto:100000}},
   'v_den':      {'roca2motors':{unidades:30}},
   'v_gab':      {'roca2motors':{unidades:20}},
@@ -675,7 +675,7 @@ function entrarComo(rr){
   var nu;
   if(local){if(rr.nombre)local.name=rr.nombre;nu=local;}
   else{nu={id:codigo,name:rr.nombre,pin:'-',role:(rr.nivel_admin?'admin':'vendedor'),cartera:[]};DB.users.push(nu);saveDB();}
-  CU=nu;pinBuf='';renderPD();document.getElementById('s-login').classList.remove('on');launchApp();
+  CU=nu;CU.crmMonitor=!!(rr.accesos_apps&&rr.accesos_apps.crm_monitor===true);pinBuf='';renderPD();document.getElementById('s-login').classList.remove('on');launchApp();
 }
 function doLogin(){
   var err=document.getElementById('lerr');
@@ -762,6 +762,7 @@ function buildSB(){
   } else {
     ni('clientes','👥','Mis clientes','clientes');ni('kanban','⊞','Mi Kanban','kanban');ni('seguimiento','📅','Seguimiento','seguimiento');ni('whatsapp','💬','WhatsApp','whatsapp');
     ni('mensajes','💬','Mensajes','mensajes');ni('recursos','📁','Recursos','recursos');
+    if(CU.crmMonitor)ni('monitor','📡','Monitor de mi equipo','monitor');
     if(METAS[CU.id])ni('meta','🎯','Mi Meta','meta');
   }
 }
@@ -1281,11 +1282,22 @@ function _vendStats(vn,hoy,poolCarteras){
 }
 
 // Helpers de entradas manuales de meta (localStorage)
+var LEGACY_UID={'v_ana':'u1779318896833','v_eri':'u1784044319284'};
 function _mvKey(uid,cid,mes){return'mv_'+uid+'_'+cid+'_'+mes;}
-function _getMV(uid,cid,mes){try{return JSON.parse(localStorage.getItem(_mvKey(uid,cid,mes))||'[]');}catch(e){return[];}}
+function _getMV(uid,cid,mes){
+  var arr=[];
+  [uid,LEGACY_UID[uid]].forEach(function(u){if(!u)return;try{arr=arr.concat(JSON.parse(localStorage.getItem(_mvKey(u,cid,mes))||'[]'));}catch(e){}});
+  return arr;
+}
 function _saveMV(uid,cid,mes,arr){try{localStorage.setItem(_mvKey(uid,cid,mes),JSON.stringify(arr));}catch(e){}}
-function _addMV(uid,cid,mes,unidades,monto){var arr=_getMV(uid,cid,mes);arr.push({ts:Date.now(),unidades:unidades||0,monto:monto||0});_saveMV(uid,cid,mes,arr);}
-function _delMV(uid,cid,mes,ts){_saveMV(uid,cid,mes,_getMV(uid,cid,mes).filter(function(e){return e.ts!=ts;}));}
+function _addMV(uid,cid,mes,unidades,monto){var arr=_getMV(uid,cid,mes).filter(function(e){return !LEGACY_UID[uid]||e._u!==LEGACY_UID[uid];});arr.push({ts:Date.now(),unidades:unidades||0,monto:monto||0});_saveMV(uid,cid,mes,arr);if(LEGACY_UID[uid])localStorage.removeItem(_mvKey(LEGACY_UID[uid],cid,mes));}
+function _delMV(uid,cid,mes,ts){
+  var keep=[],legKeep=[];
+  [uid,LEGACY_UID[uid]].forEach(function(u){if(!u)return;var a=[];try{a=JSON.parse(localStorage.getItem(_mvKey(u,cid,mes))||'[]');}catch(e){}
+    a.forEach(function(e){if(e.ts!=ts){(u===uid?keep:legKeep).push(e);}});});
+  _saveMV(uid,cid,mes,keep);
+  if(LEGACY_UID[uid])localStorage.setItem(_mvKey(LEGACY_UID[uid],cid,mes),JSON.stringify(legKeep));
+}
 
 // Calcula ventas y monto vendido de un vendedor en una cartera (auto desde gestiones + manuales)
 function _metaStats(userId,userName,carteraId,mes){
@@ -1296,7 +1308,7 @@ function _metaStats(userId,userName,carteraId,mes){
     if(c.carteraId!==carteraId)return false;
     if(c.estado!=='pago')return false;
     if(!(c.dateISO||'').startsWith(mes))return false;
-    return c.userId===userId||(c.userName||'').trim().toLowerCase()===vn;
+    return c.userId===userId||c.userId===LEGACY_UID[userId]||(c.userName||'').trim().toLowerCase()===vn;
   });
   var vendIds=[];
   pagoG.forEach(function(g){if(g.clientId&&vendIds.indexOf(g.clientId)<0)vendIds.push(g.clientId);});
@@ -2786,10 +2798,17 @@ async function loadMonitor(){
   }
 
   var _eqSeen=new Set();
+  var MON_TODO=CU.role==='admin'||CU.role==='subadmin';
+  var MON_CARTS=(Array.isArray(CU.cartera)?CU.cartera:[CU.cartera||'']).filter(Boolean);
   var EQUIPO=DB.users.filter(function(u){
     if(u.role!=='vendedor'&&u.role!=='subadmin')return false;
     if(!u.name)return false;var k=u.name.trim().toLowerCase();
-    if(_eqSeen.has(k))return false;_eqSeen.add(k);return true;
+    if(_eqSeen.has(k))return false;_eqSeen.add(k);
+    if(MON_TODO)return true;
+    // Vendedor con permiso de monitoreo: solo compañeros que comparten su cartera (y él mismo)
+    var uc=Array.isArray(u.cartera)?u.cartera:[u.cartera||''];
+    var mismo=uc.some(function(c){return MON_CARTS.indexOf(c)>=0;});
+    return mismo||u.id===CU.id;
   }).map(function(u){return{name:u.name.trim()};});
   var LEAD_LABEL={nn:'Nuevo',nl:'Llamado',nc:'Contactado',ni2:'Interesado',nv:'Vendido'};
   var KB_LABEL={prospecto:'Prospecto',contactado:'Contactado',interesado:'Interesado',negociando:'Negociando',credito:'Crédito',vendido:'Vendido'};
@@ -2993,6 +3012,7 @@ async function loadMonitor(){
     var mes2=monFechaHN(0).slice(0,7);
     var poolHtml='';
     VENDOR_POOLS.forEach(function(pool){
+      if(!MON_TODO&&!(pool.carteras.some(function(c){return MON_CARTS.indexOf(c)>=0;})))return;
       // Vendedores de este pool que tienen meta definida
       var pUsers=DB.users.filter(function(u){
         if(!METAS[u.id])return false;
@@ -3138,7 +3158,7 @@ window.addEventListener('DOMContentLoaded',function(){
     try{
       var ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
       if(ss&&ss.accesos_apps&&ss.accesos_apps.crm===true&&ss.codigo&&!CU){
-        entrarComo({codigo:ss.codigo,nombre:ss.nombre,nivel_admin:ss.nivel_admin});
+        entrarComo({codigo:ss.codigo,nombre:ss.nombre,nivel_admin:ss.nivel_admin,accesos_apps:ss.accesos_apps});
       }
     }catch(e){}
   });
