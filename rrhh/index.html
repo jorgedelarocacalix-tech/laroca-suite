@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RRHH · La Roca</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --stone-bg:#F3F1EA;
+    --stone-card:#FFFFFF;
+    --charcoal:#20242A;
+    --charcoal-soft:#3A4048;
+    --stone-line:#DEDACD;
+    --gold:#B8912E;
+    --gold-soft:#F3E7C8;
+    --brick:#9A3F2E;
+    --brick-soft:#F3DDD5;
+    --green:#3F6B47;
+    --green-soft:#DCEBDE;
+    --slate:#6B6E63;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--stone-bg);color:var(--charcoal);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-0.01em;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  #app{min-height:100vh;}
+
+  /* ---- LOGIN ---- */
+  .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+    background:radial-gradient(circle at 20% 20%, #2b3038 0%, var(--charcoal) 55%, #171a1f 100%);}
+  .login-card{background:var(--stone-card);border-radius:6px;padding:40px 36px;width:100%;max-width:380px;
+    box-shadow:0 30px 60px rgba(0,0,0,.35);position:relative;}
+  .login-card::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;border-radius:6px 6px 0 0;
+    background:linear-gradient(90deg,var(--gold),#8a6a1f);}
+  .login-brand{display:flex;align-items:baseline;gap:8px;margin-bottom:4px;}
+  .login-brand .mark{width:14px;height:14px;background:var(--gold);display:inline-block;transform:rotate(45deg);}
+  .login-title{font-size:22px;font-weight:700;margin:0;}
+  .login-sub{color:var(--slate);font-size:13px;margin:2px 0 28px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--charcoal-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}
+  .field input{width:100%;padding:12px 14px;border:1.5px solid var(--stone-line);border-radius:4px;font-size:15px;font-family:'JetBrains Mono',monospace;background:#FAF9F5;}
+  .field input:focus{outline:none;border-color:var(--gold);}
+  .btn{width:100%;padding:13px;border:none;border-radius:4px;background:var(--charcoal);color:#fff;font-weight:600;font-size:14px;
+    cursor:pointer;font-family:'Inter',sans-serif;transition:background .15s;}
+  .btn:hover{background:#111418;}
+  .btn.gold{background:var(--gold);color:#241c05;}
+  .btn.gold:hover{background:#a17d27;}
+  .btn.outline{background:transparent;border:1.5px solid var(--stone-line);color:var(--charcoal);}
+  .btn.sm{width:auto;padding:8px 14px;font-size:13px;}
+  .err{color:var(--brick);font-size:13px;margin-top:10px;min-height:16px;}
+
+  /* ---- SHELL ---- */
+  .shell{display:flex;min-height:100vh;}
+  .sidebar{width:230px;background:var(--charcoal);color:#EAE7DD;flex-shrink:0;display:flex;flex-direction:column;padding:22px 0;}
+  .sidebar .brand{padding:0 22px 20px;border-bottom:1px solid #33383F;margin-bottom:14px;}
+  .sidebar .brand .mark{width:12px;height:12px;background:var(--gold);display:inline-block;transform:rotate(45deg);margin-right:8px;}
+  .sidebar .brand-name{font-family:'Space Grotesk';font-weight:700;font-size:17px;}
+  .sidebar .who{padding:0 22px;font-size:12px;color:#9298A0;margin-bottom:6px;}
+  .sidebar .who b{color:#fff;display:block;font-size:14px;margin-top:2px;}
+  .navitem{padding:11px 22px;font-size:14px;cursor:pointer;color:#B7BCC3;border-left:3px solid transparent;font-weight:500;}
+  .navitem:hover{color:#fff;background:#282D34;}
+  .navitem.active{color:#fff;border-left-color:var(--gold);background:#282D34;}
+  .sidebar-foot{margin-top:auto;padding:16px 22px 0;}
+
+  .main{flex:1;padding:30px 36px;max-width:1180px;}
+  .page-title{font-size:24px;font-weight:700;margin:0 0 4px;}
+  .page-sub{color:var(--slate);font-size:14px;margin:0 0 24px;}
+
+  .grid{display:grid;gap:16px;}
+  .grid.cols-4{grid-template-columns:repeat(4,1fr);}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .grid.cols-2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:900px){.grid.cols-4,.grid.cols-3,.grid.cols-2{grid-template-columns:1fr;}}
+
+  .card{background:var(--stone-card);border:1px solid var(--stone-line);border-radius:6px;padding:20px;}
+  .stat-card .label{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--slate);font-weight:600;}
+  .stat-card .value{font-family:'JetBrains Mono';font-size:26px;font-weight:700;margin-top:8px;}
+  .stat-card .value.gold{color:var(--gold);}
+
+  .tabs{display:flex;gap:4px;border-bottom:1.5px solid var(--stone-line);margin-bottom:20px;flex-wrap:wrap;}
+  .tab{padding:10px 16px;font-size:14px;font-weight:600;color:var(--slate);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;}
+  .tab.active{color:var(--charcoal);border-bottom-color:var(--gold);}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);padding:8px 10px;border-bottom:1.5px solid var(--stone-line);}
+  td{padding:10px 10px;border-bottom:1px solid var(--stone-line);}
+  tr:last-child td{border-bottom:none;}
+
+  .stamp{display:inline-block;font-family:'Space Grotesk';font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+    padding:4px 10px;border-radius:3px;border:1.5px solid; transform:rotate(-2deg);}
+  .stamp.pendiente{color:var(--gold);border-color:var(--gold);background:var(--gold-soft);}
+  .stamp.aprobado, .stamp.presente{color:var(--green);border-color:var(--green);background:var(--green-soft);}
+  .stamp.rechazado, .stamp.ausente, .stamp.escrita{color:var(--brick);border-color:var(--brick);background:var(--brick-soft);}
+  .stamp.verbal, .stamp.tarde{color:var(--charcoal-soft);border-color:var(--stone-line);background:#F1EFE7;}
+
+  .empty{color:var(--slate);font-size:14px;padding:24px;text-align:center;}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .form-row.x3{grid-template-columns:1fr 1fr 1fr;}
+  select, textarea{width:100%;padding:11px 12px;border:1.5px solid var(--stone-line);border-radius:4px;font-size:14px;font-family:'Inter';background:#FAF9F5;}
+  select:focus, textarea:focus{outline:none;border-color:var(--gold);}
+  .modal-bg{position:fixed;inset:0;background:rgba(20,22,25,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal{background:#fff;border-radius:6px;padding:26px;width:100%;max-width:480px;max-height:88vh;overflow:auto;}
+  .modal h3{margin:0 0 18px;}
+  .row-end{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  .link{color:var(--charcoal-soft);font-size:13px;text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;}
+  .btn-chat{color:var(--gold);font-size:13px;font-weight:600;cursor:pointer;background:var(--gold-soft);border:1.5px solid var(--gold);border-radius:4px;padding:6px 12px;white-space:nowrap;}
+  .btn-chat:hover{background:var(--gold);color:#fff;}
+  .badge-role{font-size:11px;font-weight:700;text-transform:uppercase;background:var(--gold-soft);color:#7a5e1e;padding:3px 8px;border-radius:3px;margin-left:8px;}
+  .avatar{border-radius:50%;object-fit:cover;background:var(--gold-soft);}
+  .avatar-ph{border-radius:50%;background:var(--charcoal-soft);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;flex-shrink:0;}
+  .avatar-sm{width:36px;height:36px;font-size:14px;}
+  .avatar-md{width:44px;height:44px;font-size:16px;}
+  .avatar-lg{width:64px;height:64px;font-size:22px;}
+  .avatar-wrap{position:relative;display:inline-block;cursor:pointer;}
+  .avatar-wrap .cam{position:absolute;bottom:-2px;right:-2px;width:20px;height:20px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;border:2px solid #fff;}
+  .who-head{display:flex;align-items:center;gap:10px;}
+  .resumen-head{display:flex;align-items:center;gap:16px;margin-bottom:4px;}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--charcoal);color:#fff;padding:13px 18px;border-radius:5px;font-size:14px;z-index:100;box-shadow:0 10px 30px rgba(0,0,0,.3);}
+  .search-input{padding:9px 12px;border:1.5px solid var(--stone-line);border-radius:4px;font-size:13px;width:220px;}
+  ::placeholder{color:#A8A296;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const { createClient } = supabase;
+
+const SUPABASE_URL = 'https://upaenjotkocmdvfuobii.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Push de solicitudes: el envio de notificaciones vive en el proyecto Supabase principal
+// (compartido con la Suite/Cobranza), no en el de RRHH/CRM. Los admins ya estan suscritos
+// con rol 'rrhh' desde que activaron notificaciones en la Suite.
+const PUSH_URL = 'https://ixskgawbpwwxdjnkiixt.supabase.co';
+const PUSH_KEY = 'sb_publishable_-JUaSYPPkq8n4wJIKPtXGw_XMyj3EE7';
+function notificarAdminsRRHH(title, body){
+  fetch(PUSH_URL + '/functions/v1/send-push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: PUSH_KEY, Authorization: 'Bearer ' + PUSH_KEY },
+    body: JSON.stringify({ title, body, role: 'rrhh', url: 'https://laroca-rrhh-production.up.railway.app/' })
+  }).catch(function(err){ console.error('notificarAdminsRRHH', err); });
+}
+
+const SUCURSALES = [['roca1','Roca 1'],['roca1motors','Roca Motors 1'],['roca2motors','Roca Motors 2'],['sumotodanli','Su Moto Danlí'],['sumuebledanli','Su Mueble Danlí']];
+
+let state = {
+  session: JSON.parse(sessionStorage.getItem('rrhh_session') || 'null'), // {empleado_id, nombre, rol, sucursal, puesto, codigo, pin}
+  view: 'resumen',
+  expediente: null,
+  adminData: null,
+  empleados: null,
+  vacacionesAdmin: null,
+  loading: false,
+  capacitaciones: null,
+  capacitacionesAdmin: null,
+  capAbierta: null, // curso abierto en detalle (empleado)
+  examen: null, // preguntas del examen activo
+  examenRespuestas: {},
+  nuevasPreguntas: [], // borrador de preguntas al crear capacitación (admin)
+};
+
+function saveSession(s){ state.session = s; sessionStorage.setItem('rrhh_session', JSON.stringify(s)); }
+function logout(){ sessionStorage.removeItem('rrhh_session'); sessionStorage.removeItem('suite_sesion'); sessionStorage.removeItem('equipos_sesion'); state.session=null; state.view='resumen'; render(); }
+async function ssoDesdeMenu(){
+  try{
+    var ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
+    if(ss&&ss.codigo&&ss.pin&&ss.accesos_apps&&ss.accesos_apps.rrhh===true&&!state.session){
+      var r=await doLogin(ss.codigo, ss.pin);
+      if(r&&r.ok)render();
+    }
+  }catch(e){}
+}
+function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3200); }
+function fmtL(n){ return 'L ' + Number(n||0).toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtDate(d){ if(!d) return '—'; const dt=new Date(d+'T00:00:00'); return dt.toLocaleDateString('es-HN',{day:'2-digit',month:'short',year:'numeric'}); }
+function rangoFechasValido(inicio, fin){
+  if(!inicio || !fin) return 'Completa fecha inicio y fin';
+  const anioInicio = Number(inicio.slice(0,4)), anioFin = Number(fin.slice(0,4));
+  if(anioInicio < 2000 || anioInicio > 2100 || anioFin < 2000 || anioFin > 2100) return 'Revisa el año de las fechas, se ve incorrecto';
+  if(new Date(fin+'T00:00:00') < new Date(inicio+'T00:00:00')) return 'La fecha "hasta" no puede ser anterior a "desde"';
+  return null;
+}
+function initials(nombre){ return (nombre||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function avatarHtml(nombre, fotoUrl, size){
+  const cls = 'avatar-'+size;
+  if(fotoUrl) return `<img class="avatar ${cls}" src="${fotoUrl}" alt="${nombre}">`;
+  return `<div class="avatar-ph ${cls}">${initials(nombre)}</div>`;
+}
+
+async function uploadDoc(file){
+  if(!file) return null;
+  const path = `${Date.now()}_${file.name}`.replace(/\s+/g,'_');
+  const {error} = await sb.storage.from('rrhh-documentos').upload(path, file);
+  if(error){ toast('Error subiendo archivo: '+error.message); return null; }
+  const {data} = sb.storage.from('rrhh-documentos').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/* ============ LOGIN ============ */
+async function doLogin(codigo, pin){
+  const {data, error} = await sb.rpc('rrhh_login', {p_codigo: codigo, p_pin: pin});
+  if(error){ return {error: 'Código o PIN incorrecto'}; }
+  saveSession({...data, pin});
+  return {ok:true};
+}
+
+function renderLogin(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand"><span class="mark"></span><span class="login-title">La Roca · RRHH</span></div>
+      <p class="login-sub">Portal de asociados · Corporación La Roca</p>
+      <div class="field"><label>Código de asociado</label><input id="in-codigo" placeholder="ej. R1-014" autocomplete="off"></div>
+      <div class="field"><label>PIN</label><input id="in-pin" type="password" placeholder="••••" autocomplete="off"></div>
+      <button class="btn gold" id="btn-login">Entrar</button>
+      <div class="err" id="login-err"></div>
+    </div>
+  </div>`;
+  const doIt = async () => {
+    const codigo = document.getElementById('in-codigo').value.trim();
+    const pin = document.getElementById('in-pin').value.trim();
+    const errEl = document.getElementById('login-err');
+    if(!codigo || !pin){ errEl.textContent = 'Completa código y PIN.'; return; }
+    errEl.textContent = 'Verificando...';
+    const r = await doLogin(codigo, pin);
+    if(r.error){ errEl.textContent = r.error; } else { errEl.textContent=''; render(); }
+  };
+  document.getElementById('btn-login').onclick = doIt;
+  document.getElementById('in-pin').addEventListener('keydown', e=>{ if(e.key==='Enter') doIt(); });
+}
+
+/* ============ EMPLOYEE DATA ============ */
+async function loadExpediente(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_mi_expediente', {p_empleado_id: session.empleado_id, p_pin: session.pin});
+  if(error){ toast('Error cargando expediente'); return; }
+  state.expediente = data;
+}
+
+/* ============ ADMIN DATA ============ */
+async function loadAdminEmpleados(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_admin_listar_empleados', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
+  if(error){ toast('Error: '+error.message); return; }
+  state.empleados = data;
+}
+async function loadAdminDashboard(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_admin_dashboard', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
+  if(error){ toast('Error: '+error.message); return; }
+  state.adminData = data;
+}
+async function loadVacacionesAdmin(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_admin_listar_vacaciones', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
+  if(error){ toast('Error: '+error.message); return; }
+  state.vacacionesAdmin = data;
+}
+async function loadCapacitacionesEmpleado(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_listar_capacitaciones', {p_empleado_id: session.empleado_id, p_pin: session.pin});
+  if(error){ toast('Error: '+error.message); return; }
+  state.capacitaciones = data;
+}
+async function loadCapacitacionesAdmin(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_admin_listar_capacitaciones', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
+  if(error){ toast('Error: '+error.message); return; }
+  state.capacitacionesAdmin = data;
+}
+
+/* ============ SHELL / NAV ============ */
+function navItemsFor(rol){
+  if(rol==='admin'){
+    return [
+      ['dashboard','Panel general'],
+      ['empleados','Asociados'],
+      ['vacaciones-admin','Vacaciones'],
+      ['asistencias-admin','Asistencias'],
+      ['pagos-admin','Pagos y bonos'],
+      ['incapacidades-admin','Incapacidades'],
+      ['llamadas-admin','Llamadas de atención'],
+      ['memos-admin','Memorándums'],
+      ['capacitaciones-admin','Capacitaciones'],
+      ['solicitudes','Solicitudes pendientes'],
+    ];
+  }
+  return [
+    ['resumen','Mi resumen'],
+    ['perfil','Mi perfil'],
+    ['vacaciones','Vacaciones'],
+    ['permisos','Permisos'],
+    ['adelantos','Adelantos de pago'],
+    ['prestamos','Préstamos'],
+    ['incapacidades','Incapacidades'],
+    ['llamadas','Llamadas de atención'],
+    ['memorandos','Memorándums'],
+    ['capacitaciones','Capacitaciones'],
+  ];
+}
+
+function renderShell(bodyHtml){
+  const {session} = state;
+  const items = navItemsFor(session.rol);
+  const app = document.getElementById('app');
+  app.innerHTML = `
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand"><span class="mark"></span><span class="brand-name">La Roca</span></div>
+      <div class="who-head" style="padding:0 22px 12px">
+        ${avatarHtml(session.nombre, session.foto_url, 'md')}
+        <div class="who" style="padding:0">Sesión activa<b>${session.nombre}${session.rol==='admin'?'<span class="badge-role">Admin</span>':''}</b></div>
+      </div>
+      <div style="height:14px"></div>
+      ${items.map(([k,label])=>`<div class="navitem ${state.view===k?'active':''}" data-nav="${k}">${label}</div>`).join('')}
+      <div class="sidebar-foot"><button class="link" id="btn-logout" style="color:#B7BCC3">Cerrar sesión</button></div>
+    </div>
+    <div class="main" id="main">${bodyHtml}</div>
+  </div>`;
+  app.querySelectorAll('[data-nav]').forEach(el=>{
+    el.onclick = () => { state.view = el.getAttribute('data-nav'); state.capAbierta=null; state.examen=null; state.examenRespuestas={}; render(); };
+  });
+  document.getElementById('btn-logout').onclick = logout;
+}
+
+/* ============ EMPLOYEE VIEWS ============ */
+function viewResumen(){
+  const e = state.expediente;
+  if(!e) return '<div class="empty">Cargando...</div>';
+  const diasTomados = e.vacaciones.filter(v=>v.estado==='aprobado').reduce((s,v)=>s+Number(v.dias_solicitados),0);
+  const diasDisp = Number(e.empleado.dias_vacaciones_anuales) - diasTomados;
+  return `
+    <div class="resumen-head">
+      ${avatarHtml(e.empleado.nombre, e.empleado.foto_url, 'lg')}
+      <div>
+        <h1 class="page-title" style="margin-bottom:0">Hola, ${e.empleado.nombre.split(' ')[0]}</h1>
+        <p class="page-sub" style="margin-bottom:0">${e.empleado.puesto || ''} · ${e.empleado.sucursal || ''} · Desde ${fmtDate(e.empleado.fecha_ingreso)}</p>
+      </div>
+    </div>
+    <div style="height:8px"></div>
+    <div class="grid cols-4">
+      <div class="card stat-card"><div class="label">Días de vacación disponibles</div><div class="value gold">${diasDisp}</div></div>
+      <div class="card stat-card"><div class="label">Promedio pagado (6 meses)</div><div class="value">${fmtL(e.promedio_pago_6m)}</div></div>
+      <div class="card stat-card"><div class="label">Solicitudes pendientes</div><div class="value">${e.vacaciones.filter(v=>v.estado==='pendiente').length + e.permisos.filter(p=>p.estado==='pendiente').length}</div></div>
+      <div class="card stat-card"><div class="label">Llamadas de atención</div><div class="value">${e.llamadas_atencion.length}</div></div>
+    </div>
+    <div style="height:22px"></div>
+    <div class="grid cols-2">
+      <div class="card">
+        <h3 style="margin-top:0">Bonificaciones</h3>
+        ${e.pagos.filter(p=>Number(p.bonos)>0).slice(0,4).map(p=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--stone-line);font-size:14px">
+          <span>${p.periodo}</span><span class="mono" style="font-weight:600">${fmtL(p.bonos)}</span></div>`).join('') || '<div class="empty">Sin bonificaciones registradas</div>'}
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Próximas / recientes vacaciones</h3>
+        ${e.vacaciones.slice(0,4).map(v=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--stone-line);font-size:14px">
+          <span>${fmtDate(v.fecha_inicio)} → ${fmtDate(v.fecha_fin)} (${v.dias_solicitados}d)</span><span class="stamp ${v.estado}">${v.estado}</span></div>`).join('') || '<div class="empty">Sin solicitudes aún</div>'}
+      </div>
+    </div>`;
+}
+
+function viewVacaciones(){
+  const e = state.expediente;
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><h1 class="page-title">Vacaciones</h1><p class="page-sub">${e.empleado.dias_vacaciones_anuales} días anuales asignados</p></div>
+      <button class="btn gold sm" id="btn-solicitar-vac">Solicitar vacaciones</button>
+    </div>
+    <div class="card">
+      <table><thead><tr><th>Desde</th><th>Hasta</th><th>Días</th><th>Motivo</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${e.vacaciones.map(v=>`<tr><td>${fmtDate(v.fecha_inicio)}</td><td>${fmtDate(v.fecha_fin)}</td><td>${v.dias_solicitados}</td><td>${v.motivo||'—'}</td><td><span class="stamp ${v.estado}">${v.estado}</span></td><td><button class="btn-chat" data-chat="vacaciones|${v.id}">💬 Comentarios</button>${v.estado==='aprobado'?` <button class="btn-chat" data-hoja-emp="${v.id}">📄 Hoja</button>`:''}</td></tr>`).join('') || `<tr><td colspan="6" class="empty">Aún no has solicitado vacaciones</td></tr>`}</tbody></table>
+    </div>`;
+}
+
+function viewPermisos(){
+  const e = state.expediente;
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><h1 class="page-title">Permisos</h1><p class="page-sub">Solicitudes de tiempo libre</p></div>
+      <button class="btn gold sm" id="btn-solicitar-permiso">Solicitar permiso</button>
+    </div>
+    <div class="card">
+      <table><thead><tr><th>Fecha</th><th>Tipo</th><th>Horas</th><th>Motivo</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${e.permisos.map(p=>`<tr><td>${fmtDate(p.fecha)}</td><td>${p.tipo}</td><td>${p.horas??'—'}</td><td>${p.motivo||'—'}</td><td><span class="stamp ${p.estado}">${p.estado}</span></td><td><button class="btn-chat" data-chat="permisos|${p.id}">💬 Comentarios</button></td></tr>`).join('') || `<tr><td colspan="6" class="empty">Sin permisos registrados</td></tr>`}</tbody></table>
+    </div>`;
+}
+
+function viewAsistenciasEmpleado(){
+  const e = state.expediente;
+  return `<h1 class="page-title">Mis asistencias</h1><p class="page-sub">Últimos registros</p>
+    <div class="card"><table><thead><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Estado</th></tr></thead>
+    <tbody>${e.asistencias.map(a=>`<tr><td>${fmtDate(a.fecha)}</td><td>${a.hora_entrada||'—'}</td><td>${a.hora_salida||'—'}</td><td><span class="stamp ${a.estado}">${a.estado}</span></td></tr>`).join('') || `<tr><td colspan="4" class="empty">Sin asistencias registradas todavía</td></tr>`}</tbody></table></div>`;
+}
+
+function viewPagosEmpleado(){
+  const e = state.expediente;
+  return `<h1 class="page-title">Mis pagos</h1><p class="page-sub">Promedio 6 meses: <b>${fmtL(e.promedio_pago_6m)}</b></p>
+    <div class="card"><table><thead><tr><th>Periodo</th><th>Salario base</th><th>Bonos</th><th>Comisiones</th><th>Descuentos</th><th>Total</th></tr></thead>
+    <tbody>${e.pagos.map(p=>`<tr><td>${p.periodo}</td><td class="mono">${fmtL(p.salario_base)}</td><td class="mono">${fmtL(p.bonos)}</td><td class="mono">${fmtL(p.comisiones)}</td><td class="mono">${fmtL(p.descuentos)}</td><td class="mono" style="font-weight:700">${fmtL(p.total)}</td></tr>`).join('') || `<tr><td colspan="6" class="empty">Sin pagos registrados todavía</td></tr>`}</tbody></table></div>`;
+}
+
+function viewIncapacidadesEmpleado(){
+  const e = state.expediente;
+  return `<div style="display:flex;justify-content:space-between;align-items:center">
+    <div><h1 class="page-title">Incapacidades</h1><p class="page-sub">Reporta una enfermedad o adjunta tu constancia médica</p></div>
+    <button class="btn gold sm" id="btn-nueva-incapacidad">+ Nueva incapacidad</button></div>
+    <div class="card"><table><thead><tr><th>Tipo</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Comentario</th><th>Documento</th><th>Estado</th></tr></thead>
+    <tbody>${e.incapacidades.map(i=>`<tr><td style="text-transform:capitalize">${i.tipo}</td><td>${fmtDate(i.fecha_inicio)}</td><td>${fmtDate(i.fecha_fin)}</td><td>${i.dias}</td><td>${i.notas||'—'}</td><td>${i.documento_url?`<a href="${i.documento_url}" target="_blank">Ver documento</a>`:'—'}</td><td><span class="stamp ${i.estado}">${i.estado}</span>${i.estado==='rechazado'&&i.dias_descuento>0?`<div style="font-size:11px;color:var(--brick);margin-top:2px">-${i.dias_descuento}d próxima quincena</div>`:''}</td></tr>`).join('') || `<tr><td colspan="7" class="empty">Sin incapacidades registradas</td></tr>`}</tbody></table></div>`;
+}
+function modalNuevaIncapacidad(){
+  openModal(`
+    <h3>Reportar incapacidad</h3>
+    <div class="form-row">
+      <div class="field"><label>Tipo</label><select id="mi-tipo"><option value="ihss">IHSS</option><option value="comun">Enfermedad común</option><option value="maternidad">Maternidad</option><option value="laboral">Riesgo laboral</option><option value="otro">Otro</option></select></div>
+      <div></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Desde</label><input type="date" id="mi-inicio"></div>
+      <div class="field"><label>Hasta</label><input type="date" id="mi-fin"></div>
+    </div>
+    <div class="field"><label>Comentario sobre la enfermedad</label><textarea id="mi-notas" rows="3" placeholder="Describe brevemente qué tenés"></textarea></div>
+    <div class="field"><label>Documento / constancia médica (opcional)</label><input type="file" id="mi-file" accept="image/*,.pdf"></div>
+    <div class="row-end"><button class="link" id="mi-cancel">Cancelar</button><button class="btn gold sm" id="mi-save">Enviar</button></div>`);
+  document.getElementById('mi-cancel').onclick = closeModal;
+  document.getElementById('mi-save').onclick = async () => {
+    const tipo = document.getElementById('mi-tipo').value;
+    const inicio = document.getElementById('mi-inicio').value, fin = document.getElementById('mi-fin').value;
+    const notas = document.getElementById('mi-notas').value.trim();
+    const errFecha = rangoFechasValido(inicio, fin);
+    if(errFecha){ toast(errFecha); return; }
+    const file = document.getElementById('mi-file').files[0];
+    const url = file ? await uploadDoc(file) : null;
+    const {error} = await sb.rpc('rrhh_crear_incapacidad', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_tipo: tipo, p_fecha_inicio: inicio, p_fecha_fin: fin, p_documento_url: url, p_notas: notas});
+    if(error){ toast('Error: '+error.message); return; }
+    notificarAdminsRRHH('🤒 Nueva incapacidad reportada', (state.session.nombre||'Un asociado')+' reportó incapacidad ('+tipo+') del '+fmtDate(inicio)+' al '+fmtDate(fin));
+    closeModal(); toast('Incapacidad enviada — RRHH la va a revisar'); await loadExpediente(); render();
+  };
+}
+
+function viewLlamadasEmpleado(){
+  const e = state.expediente;
+  return `<h1 class="page-title">Llamadas de atención</h1><p class="page-sub">Historial disciplinario</p>
+    <div class="card"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Motivo</th><th>Documento</th></tr></thead>
+    <tbody>${e.llamadas_atencion.map(l=>`<tr><td>${fmtDate(l.fecha)}</td><td><span class="stamp ${l.tipo}">${l.tipo}</span></td><td>${l.motivo}</td><td>${l.documento_url?`<a href="${l.documento_url}" target="_blank">Ver documento</a>`:'—'}</td></tr>`).join('') || `<tr><td colspan="4" class="empty">Sin llamadas de atención — buen historial</td></tr>`}</tbody></table></div>`;
+}
+
+function viewAdelantosEmpleado(){
+  const e = state.expediente;
+  return `<div style="display:flex;justify-content:space-between;align-items:center">
+    <div><h1 class="page-title">Adelantos de pago</h1><p class="page-sub">Solicita un adelanto sobre tu salario</p></div>
+    <button class="btn gold sm" id="btn-solicitar-adelanto">Solicitar adelanto</button></div>
+    <div class="card"><table><thead><tr><th>Fecha</th><th>Monto</th><th>Motivo</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${e.adelantos.map(a=>`<tr><td>${fmtDate(a.created_at?.slice(0,10))}</td><td class="mono">${fmtL(a.monto)}</td><td>${a.motivo||'—'}</td><td><span class="stamp ${a.estado==='pagado'?'aprobado':a.estado}">${a.estado}</span></td><td><button class="btn-chat" data-chat="adelantos|${a.id}">💬 Comentarios</button>${a.estado==='aprobado'?` <button class="btn-chat" data-comprobante-emp="${a.id}">📄 Comprobante</button>`:''}</td></tr>`).join('') || `<tr><td colspan="5" class="empty">Sin solicitudes de adelanto</td></tr>`}</tbody></table></div>`;
+}
+
+function viewPrestamosEmpleado(){
+  const e = state.expediente;
+  return `<div style="display:flex;justify-content:space-between;align-items:center">
+    <div><h1 class="page-title">Préstamos</h1><p class="page-sub">Solicita un préstamo a pagar en cuotas</p></div>
+    <button class="btn gold sm" id="btn-solicitar-prestamo">Solicitar préstamo</button></div>
+    <div class="card"><table><thead><tr><th>Fecha</th><th>Monto</th><th>Plazo</th><th>Motivo</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${e.prestamos.map(p=>`<tr><td>${fmtDate(p.created_at?.slice(0,10))}</td><td class="mono">${fmtL(p.monto)}</td><td>${p.plazo_meses} meses</td><td>${p.motivo||'—'}</td><td><span class="stamp ${p.estado==='pagado'?'aprobado':p.estado}">${p.estado}</span></td><td><button class="btn-chat" data-chat="prestamos|${p.id}">💬 Comentarios</button></td></tr>`).join('') || `<tr><td colspan="6" class="empty">Sin solicitudes de préstamo</td></tr>`}</tbody></table></div>`;
+}
+
+function embedVideo(url){
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]+)/);
+  if(yt) return `<iframe width="100%" height="360" style="border:none;border-radius:6px" src="https://www.youtube.com/embed/${yt[1]}" allowfullscreen></iframe>`;
+  const vm = url.match(/vimeo\.com\/(\d+)/);
+  if(vm) return `<iframe width="100%" height="360" style="border:none;border-radius:6px" src="https://player.vimeo.com/video/${vm[1]}" allowfullscreen></iframe>`;
+  return `<video id="training-video" width="100%" style="border-radius:6px;max-height:400px;background:#000" controls src="${url}"></video>`;
+}
+
+function viewCapacitacionesEmpleado(){
+  if(state.capAbierta) return viewCapacitacionDetalle();
+  const list = state.capacitaciones || [];
+  return `<h1 class="page-title">Capacitaciones</h1><p class="page-sub">Videos de entrenamiento con examen al final</p>
+  <div class="grid cols-3">${list.map(c=>`
+    <div class="card" style="cursor:pointer" data-open-curso="${c.id}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <h3 style="margin:0 0 6px;font-size:16px">${c.titulo}</h3>
+        ${c.aprobado?`<span class="stamp aprobado">aprobado</span>`:c.video_visto?`<span class="stamp pendiente">examen pendiente</span>`:''}
+      </div>
+      <p style="font-size:13px;color:var(--slate);margin:0 0 10px">${c.descripcion||''}</p>
+      <div style="font-size:12px;color:var(--slate)">${c.num_preguntas} preguntas · ${c.duracion_min||'—'} min ${c.aprobado?`· puntaje: ${c.mejor_puntaje}%`:''}</div>
+    </div>`).join('') || '<div class="empty">No hay capacitaciones disponibles todavía</div>'}</div>`;
+}
+
+function viewCapacitacionDetalle(){
+  const c = (state.capacitaciones||[]).find(x=>x.id===state.capAbierta);
+  if(!c) return '<div class="empty">Curso no encontrado</div>';
+  if(state.examen) return viewExamenEmpleado(c);
+  return `<button class="link" id="btn-volver-cap" style="margin-bottom:14px">← Volver a capacitaciones</button>
+  <h1 class="page-title">${c.titulo}</h1><p class="page-sub">${c.descripcion||''}</p>
+  <div class="card">
+    ${embedVideo(c.video_url)}
+    <div style="margin-top:16px;display:flex;align-items:center;gap:12px">
+      ${c.video_visto
+        ? `<span class="stamp aprobado">video visto</span>`
+        : `<button class="btn gold sm" id="btn-marcar-visto">Marcar video como visto</button>`}
+      ${c.aprobado
+        ? `<span class="stamp aprobado">examen aprobado · ${c.mejor_puntaje}%</span>`
+        : c.video_visto ? `<button class="btn sm" id="btn-tomar-examen">${c.intentos>0?'Reintentar examen':'Tomar examen'}</button>` : ''}
+    </div>
+    ${c.intentos>0 && !c.aprobado ? `<p style="font-size:13px;color:var(--brick);margin-top:10px">Tu mejor puntaje: ${c.mejor_puntaje}% (mínimo para aprobar: ${c.puntaje_minimo}%)</p>` : ''}
+  </div>`;
+}
+
+function viewExamenEmpleado(c){
+  return `<button class="link" id="btn-volver-detalle" style="margin-bottom:14px">← Volver al curso</button>
+  <h1 class="page-title">Examen: ${c.titulo}</h1><p class="page-sub">Necesitas ${c.puntaje_minimo}% para aprobar</p>
+  <div class="card">
+    ${state.examen.map((q,i)=>`
+      <div style="padding:14px 0;border-bottom:1px solid var(--stone-line)">
+        <div style="font-weight:600;margin-bottom:8px">${i+1}. ${q.pregunta}</div>
+        ${q.opciones.map((op,oi)=>`
+          <label style="display:block;padding:6px 0;font-size:14px;cursor:pointer">
+            <input type="radio" name="preg-${i}" value="${oi}" style="margin-right:8px" ${state.examenRespuestas[i]===oi?'checked':''}> ${op}
+          </label>`).join('')}
+      </div>`).join('')}
+    <button class="btn gold" id="btn-enviar-examen" style="margin-top:16px">Enviar examen</button>
+  </div>`;
+}
+
+function viewMemorandosEmpleado(){
+  const e = state.expediente;
+  return `<h1 class="page-title">Memorándums</h1><p class="page-sub">Comunicados dirigidos a ti o a todo el personal</p>
+    <div class="card">${e.memorandos.map(m=>`<div style="padding:14px 0;border-bottom:1px solid var(--stone-line)">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>${m.titulo}</b><span style="color:var(--slate);font-size:13px">${fmtDate(m.fecha)}</span></div>
+      <p style="margin:6px 0;font-size:14px;color:var(--charcoal-soft)">${m.contenido||''}</p>
+      <button class="btn-chat" data-memo-emp="${m.id}">📄 Ver / Imprimir / Firmar</button>
+    </div>`).join('') || '<div class="empty">Sin memorándums por ahora</div>'}</div>`;
+}
+function bindMemorandosEmpleado(){
+  document.querySelectorAll('[data-memo-emp]').forEach(btn=>{
+    btn.onclick = () => {
+      const e = state.expediente;
+      const m = e.memorandos.find(x=>x.id===btn.getAttribute('data-memo-emp'));
+      if(m) modalDocumentoMemo({...m, empleado: e.empleado.nombre}, true);
+    };
+  });
+}
+
+function viewPerfilEmpleado(){
+  const e = state.expediente.empleado;
+  return `<h1 class="page-title">Mi perfil</h1><p class="page-sub">Puedes actualizar tu foto, nombre, fecha de nacimiento y documento de identidad</p>
+  <div class="card" style="max-width:480px">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+      <div class="avatar-wrap" id="perfil-foto-wrap">${avatarHtml(e.nombre, e.foto_url, 'lg')}<span class="cam">📷</span></div>
+      <div>
+        <div style="font-weight:600">${e.nombre}</div>
+        <button class="link" id="btn-cambiar-foto">Cambiar foto de perfil</button>
+      </div>
+    </div>
+    <div class="field"><label>Nombre completo</label><input id="perfil-nombre" value="${e.nombre}"></div>
+    <div class="field"><label>Fecha de nacimiento</label><input type="date" id="perfil-nacimiento" value="${e.fecha_nacimiento||''}"></div>
+    <div class="field">
+      <label>Documento de identidad</label>
+      ${e.identidad_url ? `<div style="margin-bottom:8px;font-size:13px"><a href="${e.identidad_url}" target="_blank">Ver documento actual</a></div>` : `<div style="margin-bottom:8px;font-size:13px;color:var(--slate)">Aún no has subido tu identidad</div>`}
+      <input type="file" id="perfil-identidad-file" accept="image/*,.pdf">
+    </div>
+    <button class="btn gold" id="btn-guardar-perfil" style="margin-top:8px">Guardar cambios</button>
+  </div>`;
+}
+
+/* ============ ADMIN VIEWS ============ */
+function viewDashboardAdmin(){
+  const d = state.adminData;
+  if(!d) return '<div class="empty">Cargando...</div>';
+  return `<h1 class="page-title">Panel general</h1><p class="page-sub">Vista consolidada de RRHH</p>
+  <div class="grid cols-3">
+    <div class="card stat-card"><div class="label">Nómina mes actual</div><div class="value gold">${fmtL(d.nomina_mes_actual)}</div></div>
+    <div class="card stat-card"><div class="label">Solicitudes pendientes</div><div class="value">${d.vacaciones_pendientes.length + d.permisos_pendientes.length + d.adelantos_pendientes.length + d.prestamos_pendientes.length + d.incapacidades_pendientes.length}</div></div>
+    <div class="card stat-card"><div class="label">Próximos cumpleaños/aniversarios</div><div class="value">${d.cumpleanos_proximos.length + d.aniversarios_proximos.length}</div></div>
+  </div>
+  <div style="height:22px"></div>
+  <div class="grid cols-2">
+    <div class="card"><h3 style="margin-top:0">🎂 Cumpleaños (próximos 30 días)</h3>
+      ${d.cumpleanos_proximos.map(c=>`<div style="padding:7px 0;border-bottom:1px solid var(--stone-line);font-size:14px">${c.empleado} · ${fmtDate(c.fecha)}</div>`).join('') || '<div class="empty">Nadie cumple años pronto</div>'}</div>
+    <div class="card"><h3 style="margin-top:0">🎉 Aniversarios laborales (próximos 30 días)</h3>
+      ${d.aniversarios_proximos.map(a=>`<div style="padding:7px 0;border-bottom:1px solid var(--stone-line);font-size:14px">${a.empleado} · ${a.anios} año(s) · ${fmtDate(a.fecha)}</div>`).join('') || '<div class="empty">Sin aniversarios próximos</div>'}</div>
+  </div>
+  <div style="height:22px"></div>
+  <div class="grid cols-2">
+    <div class="card"><h3 style="margin-top:0">Incapacidades (90 días)</h3>
+      ${d.incapacidades_recientes.map(i=>`<div style="padding:7px 0;border-bottom:1px solid var(--stone-line);font-size:14px">${i.empleado} · ${i.tipo} · ${fmtDate(i.fecha_inicio)}–${fmtDate(i.fecha_fin)}</div>`).join('') || '<div class="empty">Sin registros</div>'}</div>
+    <div class="card"><h3 style="margin-top:0">Llamadas de atención (90 días)</h3>
+      ${d.llamadas_recientes.map(l=>`<div style="padding:7px 0;border-bottom:1px solid var(--stone-line);font-size:14px">${l.empleado} · <span class="stamp ${l.tipo}" style="transform:none;padding:2px 6px">${l.tipo}</span> · ${l.motivo}</div>`).join('') || '<div class="empty">Sin registros</div>'}</div>
+  </div>
+  <div style="height:22px"></div>
+  <div class="card"><h3 style="margin-top:0">Memorándums recientes (30 días)</h3>
+    ${d.memos_recientes.map(m=>`<div style="padding:7px 0;border-bottom:1px solid var(--stone-line);font-size:14px">${m.titulo} · ${m.empleado} · ${fmtDate(m.fecha)}</div>`).join('') || '<div class="empty">Sin memorándums recientes</div>'}</div>`;
+}
+
+function viewEmpleadosAdmin(){
+  const list = state.empleados || [];
+  return `<div style="display:flex;justify-content:space-between;align-items:center">
+    <div><h1 class="page-title">Asociados</h1><p class="page-sub">${list.length} registrados</p></div>
+    <button class="btn gold sm" id="btn-nuevo-empleado">+ Nuevo asociado</button></div>
+    <div class="card"><table><thead><tr><th>Foto</th><th>Código</th><th>Nombre</th><th>Puesto</th><th>Sucursal</th><th>Salario base</th><th>Rol</th><th>Accesos</th><th>Identidad</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${list.map(e=>`<tr>
+      <td><div class="avatar-wrap" data-foto-emp="${e.id}">${avatarHtml(e.nombre, e.foto_url, 'sm')}<span class="cam">📷</span></div></td>
+      <td class="mono">${e.codigo}</td><td>${e.nombre}${e.nivel_admin?`<span class="badge-role">${e.nivel_admin}</span>`:''}</td><td>${e.puesto||'—'}</td><td>${e.sucursal||'—'}</td><td class="mono">${fmtL(e.salario_base)}</td><td>${e.rol}</td>
+      <td style="font-size:12px">${APPS_SUITE.filter(([k])=>e.accesos_apps&&e.accesos_apps[k]===true).map(([,l])=>l).join(', ')||'—'}${e.accesos_apps&&Array.isArray(e.accesos_apps.sucursales)&&e.accesos_apps.sucursales.length?`<div style="color:var(--slate);font-size:11px">${e.accesos_apps.sucursales.join(' &middot; ')}</div>`:''}</td>
+      <td>${e.identidad_url?`<a href="${e.identidad_url}" target="_blank">Ver</a>`:'—'}</td>
+      <td><span class="stamp ${e.activo?'aprobado':'rechazado'}">${e.activo?'activo':'inactivo'}</span></td>
+      <td><button class="link" data-editar-empleado="${e.id}">Editar datos</button> · <button class="link" data-editar-accesos="${e.id}">Editar accesos</button> · <button class="link" data-cambiar-pin="${e.id}">Cambiar PIN</button></td></tr>`).join('') || `<tr><td colspan="11" class="empty">Aún no hay asociados — crea el primero</td></tr>`}</tbody></table></div>`;
+}
+
+function viewVacacionesAdmin(){
+  const list = state.vacacionesAdmin || [];
+  return `<h1 class="page-title">Vacaciones</h1><p class="page-sub">Historial de todas las solicitudes de vacaciones</p>
+    <div class="card"><table><thead><tr><th>Asociado</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Motivo</th><th>Estado</th><th>Aprobado por</th><th>Documento</th></tr></thead>
+    <tbody>${list.map(v=>`<tr>
+      <td>${v.empleado}<div style="font-size:11px;color:var(--slate)">${v.codigo||''}</div></td>
+      <td>${fmtDate(v.fecha_inicio)}</td><td>${fmtDate(v.fecha_fin)}</td><td>${v.dias}</td><td>${v.motivo||'—'}</td>
+      <td><span class="stamp ${v.estado}">${v.estado}</span></td><td>${v.aprobado_por||'—'}</td>
+      <td>${v.estado==='aprobado' ? `<button class="btn-chat" data-hoja="${v.id}">${v.documento_url?'📄 Ver / actualizar':'📄 Subir hoja'}</button>` : '—'}</td>
+    </tr>`).join('') || `<tr><td colspan="8" class="empty">Aún no hay solicitudes de vacaciones</td></tr>`}</tbody></table></div>`;
+}
+
+function empSelectOptions(){
+  return (state.empleados||[]).map(e=>`<option value="${e.id}">${e.codigo} — ${e.nombre}</option>`).join('');
+}
+
+function viewAsistenciasAdmin(){
+  return `<h1 class="page-title">Registrar asistencia</h1><p class="page-sub">Marca la asistencia diaria de un asociado</p>
+  <div class="card" style="max-width:520px">
+    <div class="field"><label>Asociado</label><select id="af-emp">${empSelectOptions()}</select></div>
+    <div class="form-row">
+      <div class="field"><label>Fecha</label><input type="date" id="af-fecha" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Estado</label><select id="af-estado"><option value="presente">Presente</option><option value="tarde">Tarde</option><option value="ausente">Ausente</option><option value="permiso">Permiso</option><option value="incapacidad">Incapacidad</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Hora entrada</label><input type="time" id="af-entrada"></div>
+      <div class="field"><label>Hora salida</label><input type="time" id="af-salida"></div>
+    </div>
+    <button class="btn gold" id="btn-guardar-asistencia">Guardar asistencia</button>
+  </div>`;
+}
+
+function viewPagosAdmin(){
+  const desc = (state.adminData && state.adminData.descuentos_pendientes) || [];
+  return `<h1 class="page-title">Registrar pago / bono</h1><p class="page-sub">Se suma al historial y al promedio del asociado</p>
+  ${desc.length ? `<div class="card" style="max-width:560px;border:1.5px solid var(--brick);margin-bottom:16px">
+    <h3 style="margin-top:0;color:var(--brick)">⚠️ Descuentos pendientes por incapacidad rechazada</h3>
+    ${desc.map(x=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--stone-line);font-size:14px">
+      <span>${x.empleado} <span style="color:var(--slate);font-size:12px">${x.codigo||''}</span> — ${x.dias_descuento} día(s), incapacidad del ${fmtDate(x.fecha_inicio)}</span>
+      <button class="link" data-marcar-descuento="${x.id}">Marcar aplicado</button>
+    </div>`).join('')}
+  </div>` : ''}
+  <div class="card" style="max-width:560px">
+    <div class="field"><label>Asociado</label><select id="pf-emp">${empSelectOptions()}</select></div>
+    <div class="form-row">
+      <div class="field"><label>Periodo (AAAA-MM)</label><input id="pf-periodo" placeholder="2026-08" value="${new Date().toISOString().slice(0,7)}"></div>
+      <div class="field"><label>Fecha de pago</label><input type="date" id="pf-fecha" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div class="form-row x3">
+      <div class="field"><label>Salario base</label><input type="number" id="pf-base" placeholder="0.00"></div>
+      <div class="field"><label>Bonos</label><input type="number" id="pf-bonos" placeholder="0.00"></div>
+      <div class="field"><label>Comisiones</label><input type="number" id="pf-comisiones" placeholder="0.00"></div>
+    </div>
+    <div class="field"><label>Descuentos</label><input type="number" id="pf-descuentos" placeholder="0.00"></div>
+    <div class="field"><label>Comprobante (opcional)</label><input type="file" id="pf-file"></div>
+    <div class="field"><label>Notas</label><textarea id="pf-notas" rows="2"></textarea></div>
+    <button class="btn gold" id="btn-guardar-pago">Guardar pago</button>
+  </div>`;
+}
+
+function viewIncapacidadesAdmin(){
+  return `<h1 class="page-title">Subir incapacidad</h1><p class="page-sub">Adjunta el documento del IHSS o médico</p>
+  <div class="card" style="max-width:520px">
+    <div class="field"><label>Asociado</label><select id="if-emp">${empSelectOptions()}</select></div>
+    <div class="form-row">
+      <div class="field"><label>Tipo</label><select id="if-tipo"><option value="ihss">IHSS</option><option value="comun">Enfermedad común</option><option value="maternidad">Maternidad</option><option value="laboral">Riesgo laboral</option><option value="otro">Otro</option></select></div>
+      <div></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Desde</label><input type="date" id="if-inicio"></div>
+      <div class="field"><label>Hasta</label><input type="date" id="if-fin"></div>
+    </div>
+    <div class="field"><label>Documento</label><input type="file" id="if-file"></div>
+    <div class="field"><label>Notas</label><textarea id="if-notas" rows="2"></textarea></div>
+    <button class="btn gold" id="btn-guardar-incapacidad">Guardar incapacidad</button>
+  </div>`;
+}
+
+function viewLlamadasAdmin(){
+  return `<h1 class="page-title">Registrar llamada de atención</h1><p class="page-sub">Verbal o por escrito, con documento de respaldo</p>
+  <div class="card" style="max-width:520px">
+    <div class="field"><label>Asociado</label><select id="lf-emp">${empSelectOptions()}</select></div>
+    <div class="form-row">
+      <div class="field"><label>Tipo</label><select id="lf-tipo"><option value="verbal">Verbal</option><option value="escrita">Escrita</option></select></div>
+      <div class="field"><label>Fecha</label><input type="date" id="lf-fecha" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div class="field"><label>Motivo</label><textarea id="lf-motivo" rows="3" placeholder="Describe el motivo de la llamada de atención"></textarea></div>
+    <div class="field"><label>Documento firmado (opcional para verbal, recomendado para escrita)</label><input type="file" id="lf-file"></div>
+    <button class="btn gold" id="btn-guardar-llamada">Guardar</button>
+  </div>`;
+}
+
+function viewMemosAdmin(){
+  const d = state.adminData;
+  return `<h1 class="page-title">Memorándums</h1><p class="page-sub">Envía un comunicado a un asociado o a todo el personal</p>
+  <div class="card" style="max-width:560px">
+    <div class="field"><label>Destinatario</label><select id="mf-emp"><option value="">— Todo el personal —</option>${empSelectOptions()}</select></div>
+    <div class="field"><label>Título</label><input id="mf-titulo" placeholder="ej. Cambio de horario / Reconocimiento"></div>
+    <div class="field"><label>Contenido</label><textarea id="mf-contenido" rows="4"></textarea></div>
+    <div class="field"><label>Documento adjunto (opcional)</label><input type="file" id="mf-file"></div>
+    <button class="btn gold" id="btn-guardar-memo">Enviar memorándum</button>
+  </div>
+  <div style="height:22px"></div>
+  <div class="card"><h3 style="margin-top:0">Recientes (30 días)</h3>
+    ${(d?.memos_recientes||[]).map(m=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--stone-line);font-size:14px">
+      <span>${m.titulo} · ${m.empleado} · ${fmtDate(m.fecha)}</span>
+      <button class="btn-chat" data-memo="${m.id}">📄 Ver / Imprimir</button>
+    </div>`).join('') || '<div class="empty">Sin memorándums recientes</div>'}</div>`;
+}
+
+function viewCapacitacionesAdmin(){
+  const list = state.capacitacionesAdmin || [];
+  return `<h1 class="page-title">Capacitaciones</h1><p class="page-sub">Sube un video, arma el examen y sigue el avance del equipo</p>
+  <div class="card" style="max-width:640px">
+    <h3 style="margin-top:0">Nueva capacitación</h3>
+    <div class="field"><label>Título</label><input id="cap-titulo" placeholder="ej. Atención al cliente en sala"></div>
+    <div class="field"><label>Descripción</label><textarea id="cap-desc" rows="2"></textarea></div>
+    <div class="form-row">
+      <div class="field"><label>URL de video (YouTube, Vimeo o archivo)</label><input id="cap-video" placeholder="https://youtube.com/watch?v=..."></div>
+      <div class="field"><label>Duración (min)</label><input type="number" id="cap-duracion" placeholder="ej. 8"></div>
+    </div>
+    <div class="field"><label>O sube un archivo de video</label><input type="file" accept="video/*" id="cap-video-file"></div>
+    <div class="field"><label>Puntaje mínimo para aprobar (%)</label><input type="number" id="cap-minimo" value="70"></div>
+    <div style="height:8px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="margin:0">Examen</h3><button class="link" id="btn-add-pregunta">+ Agregar pregunta</button>
+    </div>
+    <div id="preguntas-wrap">${renderPreguntasBuilder()}</div>
+    <button class="btn gold" id="btn-guardar-capacitacion" style="margin-top:16px">Publicar capacitación</button>
+  </div>
+  <div style="height:24px"></div>
+  <div class="grid" style="gap:16px">${list.map(c=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">${c.titulo}</h3>
+        <span style="font-size:13px;color:var(--slate)">${c.completados}/${c.total_empleados} completados</span>
+      </div>
+      <p style="font-size:13px;color:var(--slate);margin:6px 0 10px">${c.descripcion||''} · ${c.num_preguntas} preguntas · mínimo ${c.puntaje_minimo}%</p>
+      <table><thead><tr><th>Asociado</th><th>Video</th><th>Intentos</th><th>Mejor puntaje</th><th>Estado</th></tr></thead>
+      <tbody>${c.detalle.map(d=>`<tr><td>${d.empleado}</td><td>${d.video_visto?'✓':'—'}</td><td>${d.intentos}</td><td>${d.mejor_puntaje}%</td><td><span class="stamp ${d.aprobado?'aprobado':'pendiente'}">${d.aprobado?'aprobado':'pendiente'}</span></td></tr>`).join('')}</tbody></table>
+    </div>`).join('') || '<div class="card empty">Aún no has creado capacitaciones</div>'}</div>`;
+}
+
+function renderPreguntasBuilder(){
+  if(state.nuevasPreguntas.length===0) return `<div class="empty" style="padding:14px">Agrega al menos una pregunta</div>`;
+  return state.nuevasPreguntas.map((q,i)=>`
+    <div class="card" style="margin-bottom:10px;background:#FAF9F5">
+      <div style="display:flex;justify-content:space-between"><b style="font-size:13px">Pregunta ${i+1}</b><button class="link" data-del-pregunta="${i}">Eliminar</button></div>
+      <div class="field"><input placeholder="Escribe la pregunta" value="${q.pregunta}" data-pregunta-texto="${i}"></div>
+      ${q.opciones.map((op,oi)=>`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <input type="radio" name="correcta-${i}" ${q.correcta===oi?'checked':''} data-pregunta-correcta="${i}|${oi}">
+          <input style="flex:1" placeholder="Opción ${oi+1}" value="${op}" data-pregunta-opcion="${i}|${oi}">
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function viewSolicitudesAdmin(){
+  const d = state.adminData;
+  if(!d) return '<div class="empty">Cargando...</div>';
+  return `<h1 class="page-title">Solicitudes pendientes</h1><p class="page-sub">Aprueba o rechaza vacaciones, permisos, adelantos, préstamos e incapacidades</p>
+  <div class="grid cols-2">
+    <div class="card"><h3 style="margin-top:0">Incapacidades</h3>
+      ${d.incapacidades_pendientes.map(i=>`<div style="padding:10px 0;border-bottom:1px solid var(--stone-line)">
+        <div style="font-size:14px;font-weight:600">${i.empleado} <span style="font-weight:400;color:var(--slate);font-size:12px">${i.codigo||''}</span></div>
+        <div style="font-size:13px;color:var(--slate);margin:2px 0 4px;text-transform:capitalize">${i.tipo} · ${fmtDate(i.fecha_inicio)} → ${fmtDate(i.fecha_fin)} (${i.dias} días)</div>
+        ${i.notas?`<div style="font-size:13px;margin-bottom:6px">"${i.notas}"</div>`:''}
+        ${i.documento_url?`<div style="margin-bottom:6px"><a href="${i.documento_url}" target="_blank" style="font-size:13px">Ver documento</a></div>`:''}
+        <button class="btn sm" style="background:var(--green);color:#fff" data-resolve="incapacidades|${i.id}|aprobado">Aprobar</button>
+        <button class="btn sm" style="background:var(--brick);color:#fff" data-resolve="incapacidades|${i.id}|rechazado">Rechazar (-2d quincena)</button>
+      </div>`).join('') || '<div class="empty">Sin solicitudes pendientes</div>'}</div>
+    <div class="card"><h3 style="margin-top:0">Vacaciones</h3>
+      ${d.vacaciones_pendientes.map(v=>`<div style="padding:10px 0;border-bottom:1px solid var(--stone-line)">
+        <div style="font-size:14px;font-weight:600">${v.empleado}</div>
+        <div style="font-size:13px;color:var(--slate);margin:2px 0 8px">${fmtDate(v.fecha_inicio)} → ${fmtDate(v.fecha_fin)} (${v.dias} días)</div>
+        <button class="btn sm" style="background:var(--green);color:#fff" data-resolve="vacaciones|${v.id}|aprobado">Aprobar</button>
+        <button class="btn sm" style="background:var(--brick);color:#fff" data-resolve="vacaciones|${v.id}|rechazado">Rechazar</button>
+        <button class="btn-chat" data-chat="vacaciones|${v.id}" style="margin-left:6px">💬 Comentarios</button>
+      </div>`).join('') || '<div class="empty">Sin solicitudes pendientes</div>'}</div>
+    <div class="card"><h3 style="margin-top:0">Permisos</h3>
+      ${d.permisos_pendientes.map(p=>`<div style="padding:10px 0;border-bottom:1px solid var(--stone-line)">
+        <div style="font-size:14px;font-weight:600">${p.empleado}</div>
+        <div style="font-size:13px;color:var(--slate);margin:2px 0 8px">${fmtDate(p.fecha)} · ${p.tipo} · ${p.horas||'—'}h</div>
+        <button class="btn sm" style="background:var(--green);color:#fff" data-resolve="permisos|${p.id}|aprobado">Aprobar</button>
+        <button class="btn sm" style="background:var(--brick);color:#fff" data-resolve="permisos|${p.id}|rechazado">Rechazar</button>
+        <button class="btn-chat" data-chat="permisos|${p.id}" style="margin-left:6px">💬 Comentarios</button>
+      </div>`).join('') || '<div class="empty">Sin solicitudes pendientes</div>'}</div>
+  </div>
+  <div style="height:16px"></div>
+  <div class="grid cols-2">
+    <div class="card"><h3 style="margin-top:0">Adelantos de pago</h3>
+      ${d.adelantos_pendientes.map(a=>`<div style="padding:10px 0;border-bottom:1px solid var(--stone-line)">
+        <div style="font-size:14px;font-weight:600">${a.empleado} · ${fmtL(a.monto)}</div>
+        <div style="font-size:13px;color:var(--slate);margin:2px 0 8px">${a.motivo||'—'}</div>
+        <button class="btn sm" style="background:var(--green);color:#fff" data-resolve="adelantos|${a.id}|aprobado">Aprobar</button>
+        <button class="btn sm" style="background:var(--brick);color:#fff" data-resolve="adelantos|${a.id}|rechazado">Rechazar</button>
+        <button class="btn-chat" data-chat="adelantos|${a.id}" style="margin-left:6px">💬 Comentarios</button>
+      </div>`).join('') || '<div class="empty">Sin solicitudes pendientes</div>'}</div>
+    <div class="card"><h3 style="margin-top:0">Préstamos</h3>
+      ${d.prestamos_pendientes.map(p=>`<div style="padding:10px 0;border-bottom:1px solid var(--stone-line)">
+        <div style="font-size:14px;font-weight:600">${p.empleado} · ${fmtL(p.monto)} a ${p.plazo_meses}m</div>
+        <div style="font-size:13px;color:var(--slate);margin:2px 0 8px">${p.motivo||'—'}</div>
+        <button class="btn sm" style="background:var(--green);color:#fff" data-resolve="prestamos|${p.id}|aprobado">Aprobar</button>
+        <button class="btn sm" style="background:var(--brick);color:#fff" data-resolve="prestamos|${p.id}|rechazado">Rechazar</button>
+        <button class="btn-chat" data-chat="prestamos|${p.id}" style="margin-left:6px">💬 Comentarios</button>
+      </div>`).join('') || '<div class="empty">Sin solicitudes pendientes</div>'}</div>
+  </div>`;
+}
+
+/* ============ MODALS ============ */
+function openModal(html){
+  const bg = document.createElement('div'); bg.className='modal-bg'; bg.id='modal-bg';
+  bg.innerHTML = `<div class="modal">${html}</div>`;
+  document.body.appendChild(bg);
+  bg.addEventListener('click', e=>{ if(e.target===bg) closeModal(); });
+}
+function closeModal(){ document.getElementById('modal-bg')?.remove(); }
+
+function modalSolicitarVacacion(){
+  openModal(`
+    <h3>Solicitar vacaciones</h3>
+    <div class="form-row">
+      <div class="field"><label>Desde</label><input type="date" id="mv-inicio"></div>
+      <div class="field"><label>Hasta</label><input type="date" id="mv-fin"></div>
+    </div>
+    <div class="field"><label>Días solicitados</label><input type="number" id="mv-dias" placeholder="ej. 5"></div>
+    <div class="field"><label>Motivo (opcional)</label><textarea id="mv-motivo" rows="2"></textarea></div>
+    <div class="row-end"><button class="link" id="mv-cancel">Cancelar</button><button class="btn gold sm" id="mv-save">Enviar solicitud</button></div>`);
+  document.getElementById('mv-cancel').onclick = closeModal;
+  document.getElementById('mv-save').onclick = async () => {
+    const inicio = document.getElementById('mv-inicio').value, fin = document.getElementById('mv-fin').value;
+    const dias = document.getElementById('mv-dias').value, motivo = document.getElementById('mv-motivo').value;
+    if(!dias){ toast('Indica los días solicitados'); return; }
+    const errFecha = rangoFechasValido(inicio, fin);
+    if(errFecha){ toast(errFecha); return; }
+    const {error} = await sb.rpc('rrhh_solicitar_vacacion', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_fecha_inicio: inicio, p_fecha_fin: fin, p_dias: Number(dias), p_motivo: motivo});
+    if(error){ toast('Error: '+error.message); return; }
+    notificarAdminsRRHH('🏖️ Nueva solicitud de vacaciones', (state.session.nombre||'Un asociado')+' pidió '+dias+' día(s), del '+fmtDate(inicio)+' al '+fmtDate(fin));
+    closeModal(); toast('Solicitud enviada'); await loadExpediente(); render();
+  };
+}
+
+function modalSolicitarPermiso(){
+  openModal(`
+    <h3>Solicitar permiso</h3>
+    <div class="form-row">
+      <div class="field"><label>Fecha</label><input type="date" id="mp-fecha"></div>
+      <div class="field"><label>Horas</label><input type="number" id="mp-horas" placeholder="ej. 4"></div>
+    </div>
+    <div class="field"><label>Tipo</label><select id="mp-tipo"><option value="personal">Personal</option><option value="medico">Médico</option><option value="otro">Otro</option></select></div>
+    <div class="field"><label>Motivo</label><textarea id="mp-motivo" rows="2"></textarea></div>
+    <div class="row-end"><button class="link" id="mp-cancel">Cancelar</button><button class="btn gold sm" id="mp-save">Enviar solicitud</button></div>`);
+  document.getElementById('mp-cancel').onclick = closeModal;
+  document.getElementById('mp-save').onclick = async () => {
+    const fecha = document.getElementById('mp-fecha').value, horas = document.getElementById('mp-horas').value;
+    const tipo = document.getElementById('mp-tipo').value, motivo = document.getElementById('mp-motivo').value;
+    if(!fecha){ toast('Selecciona una fecha'); return; }
+    const {error} = await sb.rpc('rrhh_solicitar_permiso', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_tipo: tipo, p_fecha: fecha, p_horas: horas?Number(horas):null, p_motivo: motivo});
+    if(error){ toast('Error: '+error.message); return; }
+    notificarAdminsRRHH('📋 Nueva solicitud de permiso', (state.session.nombre||'Un asociado')+' pidió permiso ('+tipo+') para el '+fmtDate(fecha));
+    closeModal(); toast('Solicitud enviada'); await loadExpediente(); render();
+  };
+}
+
+function modalSolicitarAdelanto(){
+  openModal(`
+    <h3>Solicitar adelanto de pago</h3>
+    <div class="field"><label>Monto (L)</label><input type="number" id="ma-monto" placeholder="0.00"></div>
+    <div class="field"><label>Motivo</label><textarea id="ma-motivo" rows="2"></textarea></div>
+    <div class="row-end"><button class="link" id="ma-cancel">Cancelar</button><button class="btn gold sm" id="ma-save">Enviar solicitud</button></div>`);
+  document.getElementById('ma-cancel').onclick = closeModal;
+  document.getElementById('ma-save').onclick = async () => {
+    const monto = document.getElementById('ma-monto').value, motivo = document.getElementById('ma-motivo').value;
+    if(!monto || Number(monto)<=0){ toast('Ingresa un monto válido'); return; }
+    const {error} = await sb.rpc('rrhh_solicitar_adelanto', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_monto: Number(monto), p_motivo: motivo});
+    if(error){ toast('Error: '+error.message); return; }
+    notificarAdminsRRHH('💰 Nueva solicitud de adelanto', (state.session.nombre||'Un asociado')+' pidió un adelanto de L '+Number(monto).toLocaleString('es-HN'));
+    closeModal(); toast('Solicitud enviada'); await loadExpediente(); render();
+  };
+}
+
+function modalSolicitarPrestamo(){
+  openModal(`
+    <h3>Solicitar préstamo</h3>
+    <div class="form-row">
+      <div class="field"><label>Monto (L)</label><input type="number" id="mpr-monto" placeholder="0.00"></div>
+      <div class="field"><label>Plazo (meses)</label><input type="number" id="mpr-plazo" placeholder="ej. 6"></div>
+    </div>
+    <div class="field"><label>Motivo</label><textarea id="mpr-motivo" rows="2"></textarea></div>
+    <div class="row-end"><button class="link" id="mpr-cancel">Cancelar</button><button class="btn gold sm" id="mpr-save">Enviar solicitud</button></div>`);
+  document.getElementById('mpr-cancel').onclick = closeModal;
+  document.getElementById('mpr-save').onclick = async () => {
+    const monto = document.getElementById('mpr-monto').value, plazo = document.getElementById('mpr-plazo').value, motivo = document.getElementById('mpr-motivo').value;
+    if(!monto || Number(monto)<=0 || !plazo){ toast('Completa monto y plazo'); return; }
+    const {error} = await sb.rpc('rrhh_solicitar_prestamo', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_monto: Number(monto), p_plazo_meses: Number(plazo), p_motivo: motivo});
+    if(error){ toast('Error: '+error.message); return; }
+    notificarAdminsRRHH('🏦 Nueva solicitud de préstamo', (state.session.nombre||'Un asociado')+' pidió un préstamo de L '+Number(monto).toLocaleString('es-HN')+' a '+plazo+' meses');
+    closeModal(); toast('Solicitud enviada'); await loadExpediente(); render();
+  };
+}
+
+const SOLICITUD_LABEL = {vacaciones:'Vacaciones', permisos:'Permiso', adelantos:'Adelanto', prestamos:'Préstamo'};
+
+async function modalChatSolicitud(tabla, solicitudId){
+  const esAdmin = state.session.rol === 'admin';
+  openModal(`
+    <h3>💬 ${SOLICITUD_LABEL[tabla]||''} — Comentarios</h3>
+    <div id="chat-msgs" style="max-height:320px;overflow-y:auto;border:1px solid var(--stone-line);border-radius:4px;padding:10px;margin-bottom:12px;background:#FAF9F5">Cargando...</div>
+    <div style="display:flex;gap:8px">
+      <textarea id="chat-input" rows="2" placeholder="Escribe un mensaje..." style="flex:1"></textarea>
+      <button class="btn gold sm" id="chat-send" style="align-self:flex-end">Enviar</button>
+    </div>
+    <div class="row-end"><button class="link" id="chat-close">Cerrar</button></div>`);
+  document.getElementById('chat-close').onclick = closeModal;
+
+  const pintarMsgs = (msgs) => {
+    const box = document.getElementById('chat-msgs');
+    if(!box) return;
+    box.innerHTML = (msgs||[]).map(m=>`
+      <div style="margin-bottom:10px;text-align:${m.autor_tipo==='admin'?'right':'left'}">
+        <div style="display:inline-block;max-width:80%;padding:8px 12px;border-radius:8px;font-size:13px;
+          background:${m.autor_tipo==='admin'?'var(--charcoal)':'#fff'};color:${m.autor_tipo==='admin'?'#fff':'var(--charcoal)'};border:1px solid var(--stone-line)">
+          <div style="font-weight:700;font-size:11px;margin-bottom:2px;opacity:.8">${m.autor_nombre} · ${m.autor_tipo==='admin'?'RRHH':'asociado'}</div>
+          ${m.mensaje}
+        </div>
+      </div>`).join('') || '<div class="empty" style="padding:8px">Sin comentarios todavía</div>';
+    box.scrollTop = box.scrollHeight;
+  };
+
+  const cargar = async () => {
+    const {data, error} = esAdmin
+      ? await sb.rpc('rrhh_admin_listar_mensajes_solicitud', {p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_tabla: tabla, p_solicitud_id: solicitudId})
+      : await sb.rpc('rrhh_listar_mensajes_solicitud', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_tabla: tabla, p_solicitud_id: solicitudId});
+    if(error){ toast('Error: '+error.message); return; }
+    pintarMsgs(data);
+  };
+  await cargar();
+
+  document.getElementById('chat-send').onclick = async () => {
+    const input = document.getElementById('chat-input');
+    const mensaje = input.value.trim();
+    if(!mensaje) return;
+    const {error} = esAdmin
+      ? await sb.rpc('rrhh_admin_enviar_mensaje_solicitud', {p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_tabla: tabla, p_solicitud_id: solicitudId, p_mensaje: mensaje})
+      : await sb.rpc('rrhh_enviar_mensaje_solicitud', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_tabla: tabla, p_solicitud_id: solicitudId, p_mensaje: mensaje});
+    if(error){ toast('Error: '+error.message); return; }
+    input.value = '';
+    await cargar();
+  };
+}
+function bindChatButtons(){
+  document.querySelectorAll('[data-chat]').forEach(btn=>{
+    btn.onclick = () => { const [tabla, id] = btn.getAttribute('data-chat').split('|'); modalChatSolicitud(tabla, id); };
+  });
+}
+
+function modalNuevoEmpleado(){
+  openModal(`
+    <h3>Nuevo asociado</h3>
+    <div class="form-row">
+      <div class="field"><label>Código</label><input id="ne-codigo" placeholder="R1-014"></div>
+      <div class="field"><label>Nombre completo</label><input id="ne-nombre"></div>
+    </div>
+    <div class="field" style="font-size:12px;color:var(--slate)">El PIN se genera automáticamente y único para toda la empresa — lo verás al terminar de crear el asociado.</div>
+    <div class="form-row">
+      <div class="field"><label>Puesto</label><input id="ne-puesto"></div>
+      <div class="field"><label>Sucursal</label><select id="ne-sucursal">${SUCURSALES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Fecha de ingreso</label><input type="date" id="ne-fecha"></div>
+      <div class="field"><label>Fecha de nacimiento</label><input type="date" id="ne-nacimiento"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Salario base</label><input type="number" id="ne-salario"></div>
+      <div class="field"><label>Días vacación/año</label><input type="number" id="ne-dias" value="10"></div>
+    </div>
+    <div class="field"><label>Rol</label><select id="ne-rol"><option value="empleado">Asociado</option><option value="admin">Admin / RRHH</option></select></div>
+    <div class="field">${accesosAppsBuilder('ne-acc', {rrhh:true,crm:true,cobranza:true,cierre:false,equipos:false,arqueos:false,fintrack:false,erp:false,sucursales:[],arqueos_rol:null})}</div>
+    <div class="row-end"><button class="link" id="ne-cancel">Cancelar</button><button class="btn gold sm" id="ne-save">Crear asociado</button></div>`);
+  document.getElementById('ne-cancel').onclick = closeModal;
+  document.getElementById('ne-save').onclick = async () => {
+    const codigo = document.getElementById('ne-codigo').value.trim();
+    const nombre = document.getElementById('ne-nombre').value.trim();
+    if(!codigo || !nombre){ toast('Completa código y nombre'); return; }
+    const {data, error} = await sb.rpc('rrhh_admin_crear_empleado', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin,
+      p_codigo: codigo, p_nombre: nombre, p_puesto: document.getElementById('ne-puesto').value,
+      p_sucursal: document.getElementById('ne-sucursal').value, p_fecha_ingreso: document.getElementById('ne-fecha').value || null,
+      p_salario_base: Number(document.getElementById('ne-salario').value||0),
+      p_dias_vacaciones: Number(document.getElementById('ne-dias').value||10), p_rol: document.getElementById('ne-rol').value,
+      p_fecha_nacimiento: document.getElementById('ne-nacimiento').value || null,
+      p_accesos_apps: leerAccesosAppsBuilder('ne-acc')
+    });
+    if(error){ toast('Error: '+error.message); return; }
+    closeModal(); await loadAdminEmpleados(); render();
+    openModal(`<h3>✅ Asociado creado</h3>
+      <p style="font-size:14px">El PIN de <b>${nombre}</b> es:</p>
+      <div style="font-size:32px;font-weight:700;letter-spacing:4px;text-align:center;padding:16px;background:var(--gold-soft);border-radius:6px;color:#7a5e1e;font-family:'JetBrains Mono',monospace">${data.pin}</div>
+      <p style="font-size:12px;color:var(--slate);margin-top:10px">Anótalo o compártelo ahora — no se va a volver a mostrar. Sirve para entrar a RRHH y al CRM.</p>
+      <div class="row-end"><button class="btn gold sm" id="np-close">Entendido</button></div>`);
+    document.getElementById('np-close').onclick = closeModal;
+  };
+}
+
+/* ---- Accesos por app (checkboxes reutilizables) ---- */
+const APPS_SUITE = [['rrhh','RRHH'],['crm','CRM'],['cobranza','Cobranza'],['cierre','Análisis de Cierre'],['equipos','Equipos'],['arqueos','Arqueos'],['fintrack','Fintrack'],['erp','ERP']];
+const SUCS_SUITE = [['R1','R1 Comercial'],['R2','R2 Barrio Arriba'],['R3','R3 Motors La Libertad'],['R4','R4 Su Mueble'],['R5','R5 Su Moto'],['R6','R6 (pruebas)']];
+function accesosAppsBuilder(prefix, accesos){
+  accesos = accesos || {};
+  const sucs = Array.isArray(accesos.sucursales) ? accesos.sucursales : [];
+  const rolArq = accesos.arqueos_rol || '';
+  return `<label>Acceso a apps (Suite)</label>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;padding:10px 0 2px">
+      ${APPS_SUITE.map(([k,label])=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer">
+        <input type="checkbox" id="${prefix}-${k}" ${accesos[k]?'checked':''}> ${label}</label>`).join('')}
+    </div>
+    <div style="margin-top:10px"><label style="display:block;font-size:12px;color:var(--slate)">Sucursales asignadas — filtran lo que ve en Cierre, Equipos y Arqueos</label>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;padding:6px 0 0">
+        ${SUCS_SUITE.map(([v,l])=>`<label style="display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500;cursor:pointer">
+          <input type="checkbox" class="${prefix}-suc" value="${v}" ${sucs.includes(v)?'checked':''}> ${l}</label>`).join('')}
+      </div></div>
+    <div style="margin-top:10px"><label style="display:block;font-size:12px;color:var(--slate)">Rol en Arqueos</label>
+      <select id="${prefix}-arqrol" class="input" style="width:100%">
+        <option value="" ${!rolArq?'selected':''}>&mdash; Ninguno &mdash;</option>
+        <option value="cajera" ${rolArq==='cajera'?'selected':''}>Cajera (solo sus sucursales)</option>
+        <option value="auditor" ${rolArq==='auditor'?'selected':''}>Auditor (ve todas)</option>
+      </select></div>`;
+}
+function leerAccesosAppsBuilder(prefix){
+  const out = {};
+  APPS_SUITE.forEach(([k])=>{ out[k] = !!document.getElementById(`${prefix}-${k}`)?.checked; });
+  out.sucursales = [...document.querySelectorAll(`.${prefix}-suc:checked`)].map(c=>c.value);
+  out.arqueos_rol = document.getElementById(`${prefix}-arqrol`)?.value || null;
+  return out;
+}
+
+function modalEditarEmpleado(emp){
+  openModal(`
+    <h3>Editar datos — ${emp.nombre}</h3>
+    <div class="field"><label>Nombre completo</label><input id="ee-nombre" value="${emp.nombre||''}"></div>
+    <div class="form-row">
+      <div class="field"><label>Puesto</label><input id="ee-puesto" value="${emp.puesto||''}"></div>
+      <div class="field"><label>Sucursal</label><select id="ee-sucursal">${SUCURSALES.map(([v,l])=>`<option value="${v}" ${emp.sucursal===v?'selected':''}>${l}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Salario base</label><input type="number" id="ee-salario" value="${emp.salario_base||0}"></div>
+      <div class="field"><label>Días vacación/año</label><input type="number" id="ee-dias" value="${emp.dias_vacaciones_anuales||10}"></div>
+    </div>
+    <div class="field">
+      <label>Documento de identidad</label>
+      ${emp.identidad_url ? `<div style="margin-bottom:8px;font-size:13px"><a href="${emp.identidad_url}" target="_blank">Ver documento actual</a></div>` : `<div style="margin-bottom:8px;font-size:13px;color:var(--slate)">Aún no tiene identidad subida</div>`}
+      <input type="file" id="ee-identidad" accept="image/*,.pdf">
+    </div>
+    <div class="row-end"><button class="link" id="ee-cancel">Cancelar</button><button class="btn gold sm" id="ee-save">Guardar cambios</button></div>`);
+  document.getElementById('ee-cancel').onclick = closeModal;
+  document.getElementById('ee-save').onclick = async () => {
+    const nombre = document.getElementById('ee-nombre').value.trim();
+    if(!nombre){ toast('El nombre no puede quedar vacío'); return; }
+    const file = document.getElementById('ee-identidad').files[0];
+    const identidadUrl = file ? await uploadDoc(file) : null;
+    const {error} = await sb.rpc('rrhh_admin_editar_empleado', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: emp.id,
+      p_nombre: nombre, p_puesto: document.getElementById('ee-puesto').value.trim(),
+      p_sucursal: document.getElementById('ee-sucursal').value,
+      p_salario_base: Number(document.getElementById('ee-salario').value||0),
+      p_dias_vacaciones_anuales: Number(document.getElementById('ee-dias').value||10),
+      p_identidad_url: identidadUrl
+    });
+    if(error){ toast('Error: '+error.message); return; }
+    closeModal(); toast('Datos actualizados'); state.empleados=null; await loadAdminEmpleados(); render();
+  };
+}
+function modalEditarAccesos(emp){
+  openModal(`
+    <h3>Accesos de ${emp.nombre}</h3>
+    <div class="field">${accesosAppsBuilder('ea-acc', emp.accesos_apps)}</div>
+    <div class="field"><label>Nivel de administrador (solo si su Rol es Admin/RRHH)</label>
+      <select id="ea-nivel">
+        <option value="" ${!emp.nivel_admin?'selected':''}>— No aplica —</option>
+        <option value="senior" ${emp.nivel_admin==='senior'?'selected':''}>Senior (acceso total)</option>
+        <option value="jr" ${emp.nivel_admin==='jr'?'selected':''}>Jr (sin permisos de borrar)</option>
+      </select>
+    </div>
+    <div class="row-end"><button class="link" id="ea-cancel">Cancelar</button><button class="btn gold sm" id="ea-save">Guardar accesos</button></div>`);
+  document.getElementById('ea-cancel').onclick = closeModal;
+  document.getElementById('ea-save').onclick = async () => {
+    const accesos = leerAccesosAppsBuilder('ea-acc');
+    const nivel = document.getElementById('ea-nivel').value || null;
+    const {error} = await sb.rpc('rrhh_admin_actualizar_accesos', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin,
+      p_empleado_id: emp.id, p_accesos_apps: accesos, p_nivel_admin: nivel
+    });
+    if(error){ toast('Error: '+error.message); return; }
+    closeModal(); toast('Accesos actualizados'); state.empleados=null; await loadAdminEmpleados(); render();
+  };
+}
+function modalCambiarPin(emp){
+  openModal(`
+    <h3>Cambiar PIN — ${emp.nombre}</h3>
+    <p style="font-size:12px;color:var(--slate)">Código: <b>${emp.codigo}</b>. El nuevo PIN debe tener entre 4 y 6 dígitos. Comunícaselo a la persona en persona.</p>
+    <div class="field"><label>Nuevo PIN</label><input id="cp-pin" type="text" inputmode="numeric" maxlength="6" placeholder="••••" style="letter-spacing:4px;font-size:18px"></div>
+    <div class="row-end"><button class="link" id="cp-cancel">Cancelar</button><button class="btn gold sm" id="cp-save">Guardar PIN</button></div>`);
+  document.getElementById('cp-cancel').onclick = closeModal;
+  document.getElementById('cp-save').onclick = async () => {
+    const pin = document.getElementById('cp-pin').value.trim();
+    if(!/^[0-9]{4,6}$/.test(pin)){ toast('El PIN debe tener entre 4 y 6 dígitos'); return; }
+    const {error} = await sb.rpc('rrhh_admin_cambiar_pin', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin,
+      p_empleado_id: emp.id, p_nuevo_pin: pin
+    });
+    if(error){ toast('Error: '+error.message); return; }
+    closeModal(); toast('PIN actualizado');
+  };
+}
+
+/* ============ RENDER ROUTER ============ */
+async function render(){
+  if(!state.session){ renderLogin(); return; }
+  const {rol} = state.session;
+
+  if(rol === 'admin'){
+    if(state.view==='dashboard'){ if(!state.adminData) await loadAdminDashboard(); renderShell(viewDashboardAdmin()); }
+    else if(state.view==='empleados'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewEmpleadosAdmin()); bindEmpleadosAdmin(); }
+    else if(state.view==='vacaciones-admin'){ await loadVacacionesAdmin(); renderShell(viewVacacionesAdmin()); bindVacacionesAdmin(); }
+    else if(state.view==='asistencias-admin'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewAsistenciasAdmin()); bindAsistenciasAdmin(); }
+    else if(state.view==='pagos-admin'){ if(!state.empleados) await loadAdminEmpleados(); if(!state.adminData) await loadAdminDashboard(); renderShell(viewPagosAdmin()); bindPagosAdmin(); }
+    else if(state.view==='incapacidades-admin'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewIncapacidadesAdmin()); bindIncapacidadesAdmin(); }
+    else if(state.view==='llamadas-admin'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewLlamadasAdmin()); bindLlamadasAdmin(); }
+    else if(state.view==='memos-admin'){ if(!state.empleados) await loadAdminEmpleados(); if(!state.adminData) await loadAdminDashboard(); renderShell(viewMemosAdmin()); bindMemosAdmin(); }
+    else if(state.view==='capacitaciones-admin'){ if(!state.capacitacionesAdmin) await loadCapacitacionesAdmin(); renderShell(viewCapacitacionesAdmin()); bindCapacitacionesAdmin(); }
+    else if(state.view==='solicitudes'){ await loadAdminDashboard(); renderShell(viewSolicitudesAdmin()); bindSolicitudesAdmin(); }
+    else { state.view='dashboard'; render(); }
+    return;
+  }
+
+  if(!state.expediente) await loadExpediente();
+  if(state.view==='resumen') renderShell(viewResumen());
+  else if(state.view==='perfil'){ renderShell(viewPerfilEmpleado()); bindPerfilEmpleado(); }
+  else if(state.view==='vacaciones'){ renderShell(viewVacaciones()); document.getElementById('btn-solicitar-vac').onclick = modalSolicitarVacacion; bindChatButtons();
+    document.querySelectorAll('[data-hoja-emp]').forEach(btn=>{
+      btn.onclick = () => {
+        const e = state.expediente;
+        const v = e.vacaciones.find(x=>x.id===btn.getAttribute('data-hoja-emp'));
+        if(!v) return;
+        modalHojaVacacion({ id:v.id, empleado:e.empleado.nombre, codigo:e.empleado.codigo, puesto:e.empleado.puesto, sucursal:e.empleado.sucursal,
+          fecha_inicio:v.fecha_inicio, fecha_fin:v.fecha_fin, dias:v.dias_solicitados, motivo:v.motivo, aprobado_por:v.aprobado_por, documento_url:v.documento_url }, true);
+      };
+    });
+  }
+  else if(state.view==='permisos'){ renderShell(viewPermisos()); document.getElementById('btn-solicitar-permiso').onclick = modalSolicitarPermiso; bindChatButtons(); }
+  else if(state.view==='adelantos'){ renderShell(viewAdelantosEmpleado()); document.getElementById('btn-solicitar-adelanto').onclick = modalSolicitarAdelanto; bindChatButtons();
+    document.querySelectorAll('[data-comprobante-emp]').forEach(btn=>{
+      btn.onclick = () => {
+        const e = state.expediente;
+        const a = e.adelantos.find(x=>x.id===btn.getAttribute('data-comprobante-emp'));
+        if(!a) return;
+        modalComprobanteAdelanto({ id:a.id, empleado:e.empleado.nombre, codigo:e.empleado.codigo, puesto:e.empleado.puesto, sucursal:e.empleado.sucursal,
+          monto:a.monto, motivo:a.motivo, resuelto_por:a.resuelto_por, documento_url:a.documento_url }, true);
+      };
+    });
+  }
+  else if(state.view==='prestamos'){ renderShell(viewPrestamosEmpleado()); document.getElementById('btn-solicitar-prestamo').onclick = modalSolicitarPrestamo; bindChatButtons(); }
+  else if(state.view==='asistencias') renderShell(viewAsistenciasEmpleado());
+  else if(state.view==='pagos') renderShell(viewPagosEmpleado());
+  else if(state.view==='incapacidades'){ renderShell(viewIncapacidadesEmpleado()); document.getElementById('btn-nueva-incapacidad').onclick = modalNuevaIncapacidad; }
+  else if(state.view==='llamadas') renderShell(viewLlamadasEmpleado());
+  else if(state.view==='memorandos'){ renderShell(viewMemorandosEmpleado()); bindMemorandosEmpleado(); }
+  else if(state.view==='capacitaciones'){ if(!state.capacitaciones) await loadCapacitacionesEmpleado(); renderShell(viewCapacitacionesEmpleado()); bindCapacitacionesEmpleado(); }
+  else { state.view='resumen'; render(); }
+}
+
+let perfilFotoPendiente = null;
+
+function bindPerfilEmpleado(){
+  perfilFotoPendiente = null;
+  document.getElementById('btn-cambiar-foto').onclick = () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files[0];
+      if(!file) return;
+      perfilFotoPendiente = file;
+      const wrap = document.getElementById('perfil-foto-wrap');
+      const reader = new FileReader();
+      reader.onload = () => { wrap.querySelector('.avatar, .avatar-ph').outerHTML = `<img class="avatar avatar-lg" src="${reader.result}">`; };
+      reader.readAsDataURL(file);
+      toast('Foto lista — recuerda tocar "Guardar cambios"');
+    };
+    input.click();
+  };
+  document.getElementById('btn-guardar-perfil').onclick = async () => {
+    const nombre = document.getElementById('perfil-nombre').value.trim();
+    const nacimiento = document.getElementById('perfil-nacimiento').value || null;
+    const identidadFile = document.getElementById('perfil-identidad-file').files[0];
+    let fotoUrl = null, identidadUrl = null;
+    if(perfilFotoPendiente){ toast('Subiendo foto...'); fotoUrl = await uploadDoc(perfilFotoPendiente); }
+    if(identidadFile){ toast('Subiendo identidad...'); identidadUrl = await uploadDoc(identidadFile); }
+    const {error} = await sb.rpc('rrhh_actualizar_perfil', {
+      p_empleado_id: state.session.empleado_id, p_pin: state.session.pin,
+      p_nombre: nombre, p_foto_url: fotoUrl, p_identidad_url: identidadUrl, p_fecha_nacimiento: nacimiento });
+    if(error){ toast('Error: '+error.message); return; }
+    state.session.nombre = nombre || state.session.nombre;
+    if(fotoUrl) state.session.foto_url = fotoUrl;
+    saveSession(state.session);
+    toast('Perfil actualizado');
+    state.expediente = null; await loadExpediente(); render();
+  };
+}
+
+function bindCapacitacionesEmpleado(){
+  document.querySelectorAll('[data-open-curso]').forEach(el=>{
+    el.onclick = () => { state.capAbierta = el.getAttribute('data-open-curso'); render(); };
+  });
+  const volver = document.getElementById('btn-volver-cap');
+  if(volver) volver.onclick = () => { state.capAbierta=null; render(); };
+  const volverDet = document.getElementById('btn-volver-detalle');
+  if(volverDet) volverDet.onclick = () => { state.examen=null; state.examenRespuestas={}; render(); };
+  const btnVisto = document.getElementById('btn-marcar-visto');
+  if(btnVisto) btnVisto.onclick = async () => {
+    const {error} = await sb.rpc('rrhh_marcar_video_visto', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_capacitacion_id: state.capAbierta});
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Video marcado como visto'); await loadCapacitacionesEmpleado(); render();
+  };
+  const btnExamen = document.getElementById('btn-tomar-examen');
+  if(btnExamen) btnExamen.onclick = async () => {
+    const {data, error} = await sb.rpc('rrhh_obtener_examen', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_capacitacion_id: state.capAbierta});
+    if(error){ toast('Error: '+error.message); return; }
+    state.examen = data; state.examenRespuestas = {}; render();
+  };
+  const btnEnviar = document.getElementById('btn-enviar-examen');
+  if(btnEnviar) btnEnviar.onclick = async () => {
+    const respuestas = [];
+    let completo = true;
+    state.examen.forEach((q,i)=>{
+      const sel = document.querySelector(`input[name="preg-${i}"]:checked`);
+      if(!sel){ completo = false; return; }
+      respuestas[i] = Number(sel.value);
+    });
+    if(!completo){ toast('Responde todas las preguntas'); return; }
+    const {data, error} = await sb.rpc('rrhh_enviar_examen', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_capacitacion_id: state.capAbierta, p_respuestas: respuestas});
+    if(error){ toast('Error: '+error.message); return; }
+    state.examen = null;
+    toast(data.aprobado ? `¡Aprobado! ${data.puntaje}%` : `No alcanzaste el mínimo (${data.puntaje}%, necesitas ${data.minimo}%)`);
+    await loadCapacitacionesEmpleado(); render();
+  };
+}
+
+function bindEmpleadosAdmin(){
+  document.getElementById('btn-nuevo-empleado').onclick = modalNuevoEmpleado;
+  document.querySelectorAll('[data-editar-empleado]').forEach(btn=>{
+    btn.onclick = () => {
+      const emp = (state.empleados||[]).find(e=>e.id===btn.getAttribute('data-editar-empleado'));
+      if(emp) modalEditarEmpleado(emp);
+    };
+  });
+  document.querySelectorAll('[data-editar-accesos]').forEach(btn=>{
+    btn.onclick = () => {
+      const emp = (state.empleados||[]).find(e=>e.id===btn.getAttribute('data-editar-accesos'));
+      if(emp) modalEditarAccesos(emp);
+    };
+  });
+  document.querySelectorAll('[data-cambiar-pin]').forEach(btn=>{
+    btn.onclick = () => {
+      const emp = (state.empleados||[]).find(e=>e.id===btn.getAttribute('data-cambiar-pin'));
+      if(emp) modalCambiarPin(emp);
+    };
+  });
+  document.querySelectorAll('[data-foto-emp]').forEach(wrap=>{
+    wrap.onclick = () => {
+      const empId = wrap.getAttribute('data-foto-emp');
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'image/*';
+      input.onchange = async () => {
+        const file = input.files[0];
+        if(!file) return;
+        toast('Subiendo foto...');
+        const url = await uploadDoc(file);
+        if(!url) return;
+        const {error} = await sb.rpc('rrhh_admin_actualizar_foto', {
+          p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin,
+          p_empleado_id: empId, p_foto_url: url });
+        if(error){ toast('Error: '+error.message); return; }
+        toast('Foto actualizada');
+        state.empleados = null; await loadAdminEmpleados(); render();
+      };
+      input.click();
+    };
+  });
+}
+function bindAsistenciasAdmin(){
+  document.getElementById('btn-guardar-asistencia').onclick = async () => {
+    const emp = document.getElementById('af-emp').value;
+    if(!emp){ toast('No hay empleados registrados aún'); return; }
+    const {error} = await sb.rpc('rrhh_admin_registrar_asistencia', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: emp,
+      p_fecha: document.getElementById('af-fecha').value, p_hora_entrada: document.getElementById('af-entrada').value || null,
+      p_hora_salida: document.getElementById('af-salida').value || null, p_estado: document.getElementById('af-estado').value });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Asistencia guardada');
+  };
+}
+function bindPagosAdmin(){
+  document.getElementById('btn-guardar-pago').onclick = async () => {
+    const emp = document.getElementById('pf-emp').value;
+    if(!emp){ toast('No hay empleados registrados aún'); return; }
+    const file = document.getElementById('pf-file').files[0];
+    const url = file ? await uploadDoc(file) : null;
+    const {error} = await sb.rpc('rrhh_admin_registrar_pago', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: emp,
+      p_periodo: document.getElementById('pf-periodo').value, p_salario_base: Number(document.getElementById('pf-base').value||0),
+      p_bonos: Number(document.getElementById('pf-bonos').value||0), p_comisiones: Number(document.getElementById('pf-comisiones').value||0),
+      p_descuentos: Number(document.getElementById('pf-descuentos').value||0), p_fecha_pago: document.getElementById('pf-fecha').value,
+      p_comprobante_url: url, p_notas: document.getElementById('pf-notas').value });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Pago registrado');
+  };
+  document.querySelectorAll('[data-marcar-descuento]').forEach(btn=>{
+    btn.onclick = async () => {
+      const {error} = await sb.rpc('rrhh_admin_marcar_descuento_aplicado', { p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_id: btn.getAttribute('data-marcar-descuento') });
+      if(error){ toast('Error: '+error.message); return; }
+      toast('Descuento marcado como aplicado');
+      state.adminData = null; await loadAdminDashboard(); render();
+    };
+  });
+}
+function bindIncapacidadesAdmin(){
+  document.getElementById('btn-guardar-incapacidad').onclick = async () => {
+    const emp = document.getElementById('if-emp').value;
+    if(!emp){ toast('No hay empleados registrados aún'); return; }
+    const inicio = document.getElementById('if-inicio').value, fin = document.getElementById('if-fin').value;
+    const errFecha = rangoFechasValido(inicio, fin);
+    if(errFecha){ toast(errFecha); return; }
+    const file = document.getElementById('if-file').files[0];
+    const url = file ? await uploadDoc(file) : null;
+    const {error} = await sb.rpc('rrhh_admin_crear_incapacidad', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: emp,
+      p_tipo: document.getElementById('if-tipo').value, p_fecha_inicio: inicio, p_fecha_fin: fin,
+      p_documento_url: url, p_notas: document.getElementById('if-notas').value });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Incapacidad registrada');
+  };
+}
+function bindLlamadasAdmin(){
+  document.getElementById('btn-guardar-llamada').onclick = async () => {
+    const emp = document.getElementById('lf-emp').value;
+    if(!emp){ toast('No hay empleados registrados aún'); return; }
+    const motivo = document.getElementById('lf-motivo').value;
+    if(!motivo){ toast('Describe el motivo'); return; }
+    const file = document.getElementById('lf-file').files[0];
+    const url = file ? await uploadDoc(file) : null;
+    const {error} = await sb.rpc('rrhh_admin_crear_llamada', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: emp,
+      p_tipo: document.getElementById('lf-tipo').value, p_fecha: document.getElementById('lf-fecha').value,
+      p_motivo: motivo, p_documento_url: url });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Llamada de atención registrada');
+  };
+}
+function bindMemosAdmin(){
+  document.getElementById('btn-guardar-memo').onclick = async () => {
+    const emp = document.getElementById('mf-emp').value || null; // vacío = memo general
+    const titulo = document.getElementById('mf-titulo').value;
+    if(!titulo){ toast('Escribe un título'); return; }
+    const file = document.getElementById('mf-file').files[0];
+    const url = file ? await uploadDoc(file) : null;
+    const {error} = await sb.rpc('rrhh_admin_crear_memo', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: emp,
+      p_titulo: titulo, p_contenido: document.getElementById('mf-contenido').value, p_documento_url: url });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Memorándum enviado'); state.adminData = null; await loadAdminDashboard(); render();
+  };
+  document.querySelectorAll('[data-memo]').forEach(btn=>{
+    btn.onclick = () => {
+      const memo = ((state.adminData&&state.adminData.memos_recientes)||[]).find(m=>m.id===btn.getAttribute('data-memo'));
+      if(memo) modalDocumentoMemo(memo, false);
+    };
+  });
+}
+
+function bindCapacitacionesAdmin(){
+  const rebindPreguntas = () => {
+    document.getElementById('preguntas-wrap').innerHTML = renderPreguntasBuilder();
+    wirePreguntaInputs();
+  };
+  function wirePreguntaInputs(){
+    document.querySelectorAll('[data-del-pregunta]').forEach(el=>{
+      el.onclick = () => { state.nuevasPreguntas.splice(Number(el.getAttribute('data-del-pregunta')),1); rebindPreguntas(); };
+    });
+    document.querySelectorAll('[data-pregunta-texto]').forEach(el=>{
+      el.oninput = () => { state.nuevasPreguntas[Number(el.getAttribute('data-pregunta-texto'))].pregunta = el.value; };
+    });
+    document.querySelectorAll('[data-pregunta-opcion]').forEach(el=>{
+      el.oninput = () => { const [qi,oi] = el.getAttribute('data-pregunta-opcion').split('|').map(Number); state.nuevasPreguntas[qi].opciones[oi] = el.value; };
+    });
+    document.querySelectorAll('[data-pregunta-correcta]').forEach(el=>{
+      el.onchange = () => { const [qi,oi] = el.getAttribute('data-pregunta-correcta').split('|').map(Number); state.nuevasPreguntas[qi].correcta = oi; };
+    });
+  }
+  document.getElementById('btn-add-pregunta').onclick = () => {
+    state.nuevasPreguntas.push({pregunta:'', opciones:['','',''], correcta:0});
+    rebindPreguntas();
+  };
+  wirePreguntaInputs();
+
+  document.getElementById('btn-guardar-capacitacion').onclick = async () => {
+    const titulo = document.getElementById('cap-titulo').value.trim();
+    let video = document.getElementById('cap-video').value.trim();
+    const file = document.getElementById('cap-video-file').files[0];
+    if(!titulo){ toast('Escribe un título'); return; }
+    if(state.nuevasPreguntas.length===0){ toast('Agrega al menos una pregunta'); return; }
+    for(const q of state.nuevasPreguntas){
+      if(!q.pregunta.trim() || q.opciones.some(o=>!o.trim())){ toast('Completa el texto de todas las preguntas y opciones'); return; }
+    }
+    if(file){ toast('Subiendo video...'); video = await uploadDoc(file); if(!video) return; }
+    if(!video){ toast('Agrega una URL de video o sube un archivo'); return; }
+    const {error} = await sb.rpc('rrhh_admin_crear_capacitacion', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin,
+      p_titulo: titulo, p_descripcion: document.getElementById('cap-desc').value,
+      p_video_url: video, p_duracion_min: Number(document.getElementById('cap-duracion').value||0) || null,
+      p_preguntas: state.nuevasPreguntas, p_puntaje_minimo: Number(document.getElementById('cap-minimo').value||70)
+    });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Capacitación publicada');
+    state.nuevasPreguntas = []; state.capacitacionesAdmin = null;
+    await loadCapacitacionesAdmin(); render();
+  };
+}
+function modalHojaVacacion(vac, esEmpleado){
+  openModal(`
+  <h3>📄 Hoja de vacación — ${vac.empleado}</h3>
+  <div id="hoja-preview" style="border:1px solid var(--stone-line);border-radius:4px;padding:18px;margin-bottom:14px;font-size:13px;line-height:1.8;background:#FAF9F5">
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-weight:700;font-size:15px">Inversiones Calix</div>
+      <div style="color:var(--slate)">Hoja de Vacación Concedida</div>
+    </div>
+    <div><b>Asociado:</b> ${vac.empleado} (${vac.codigo||'—'})</div>
+    <div><b>Puesto:</b> ${vac.puesto||'—'} · <b>Sucursal:</b> ${vac.sucursal||'—'}</div>
+    <div><b>Período:</b> ${fmtDate(vac.fecha_inicio)} → ${fmtDate(vac.fecha_fin)} (${vac.dias} días)</div>
+    <div><b>Motivo:</b> ${vac.motivo||'—'}</div>
+    <div><b>Autorizado por (RRHH):</b> ${vac.aprobado_por || state.session.nombre}</div>
+    <div><b>Fecha de emisión:</b> ${fmtDate(new Date().toISOString().slice(0,10))}</div>
+    <div style="display:flex;justify-content:space-between;margin-top:50px">
+      <div style="text-align:center;width:45%"><div style="border-top:1px solid #333;padding-top:4px">Firma Asociado</div></div>
+      <div style="text-align:center;width:45%"><div style="border-top:1px solid #333;padding-top:4px">Firma RRHH</div></div>
+    </div>
+  </div>
+  <div style="margin-bottom:16px"><button class="btn gold sm" id="hoja-print">🖨️ Imprimir / Descargar PDF</button></div>
+  <div class="field"><label>Subir hoja firmada (foto o escaneo)</label><input type="file" id="hoja-file" accept="image/*,.pdf"></div>
+  <div id="hoja-doc-actual" style="margin:8px 0;font-size:13px">${vac.documento_url?`<a href="${vac.documento_url}" target="_blank">Ver documento actual</a>`:'Sin documento subido aún'}</div>
+  <div class="row-end"><button class="link" id="hoja-cancel">Cerrar</button><button class="btn gold sm" id="hoja-save">Subir documento</button></div>`);
+  document.getElementById('hoja-cancel').onclick = closeModal;
+  document.getElementById('hoja-print').onclick = () => {
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>Hoja de vacación - ${vac.empleado}</title></head><body>${document.getElementById('hoja-preview').outerHTML}</body></html>`);
+    w.document.close(); w.focus();
+    setTimeout(()=>w.print(), 300);
+  };
+  document.getElementById('hoja-save').onclick = async () => {
+    const file = document.getElementById('hoja-file').files[0];
+    if(!file){ toast('Elegí un archivo primero'); return; }
+    const url = await uploadDoc(file);
+    if(!url) return;
+    const {error} = esEmpleado
+      ? await sb.rpc('rrhh_guardar_documento_vacacion', { p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_id: vac.id, p_documento_url: url })
+      : await sb.rpc('rrhh_admin_guardar_documento_vacacion', { p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_id: vac.id, p_documento_url: url });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Documento guardado'); closeModal();
+    if(esEmpleado){ state.expediente = null; await loadExpediente(); render(); }
+    else { state.vacacionesAdmin = null; if(state.view==='vacaciones-admin'){ await loadVacacionesAdmin(); render(); } }
+  };
+}
+function modalDocumentoMemo(memo, esEmpleado){
+  openModal(`
+  <h3>📄 Memorándum — ${memo.titulo}</h3>
+  <div id="memo-preview" style="border:1px solid var(--stone-line);border-radius:4px;padding:18px;margin-bottom:14px;font-size:13px;line-height:1.8;background:#FAF9F5">
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-weight:700;font-size:15px">Inversiones Calix</div>
+      <div style="color:var(--slate)">Memorándum</div>
+    </div>
+    <div><b>Para:</b> ${memo.empleado_id ? memo.empleado : 'Todo el personal'}</div>
+    <div><b>De:</b> RRHH — ${memo.creado_por||'—'}</div>
+    <div><b>Fecha:</b> ${fmtDate(memo.fecha)}</div>
+    <div style="margin-top:10px"><b>${memo.titulo}</b></div>
+    <div style="margin-top:6px;white-space:pre-wrap">${memo.contenido||''}</div>
+    <div style="display:flex;justify-content:space-between;margin-top:50px">
+      <div style="text-align:center;width:45%"><div style="border-top:1px solid #333;padding-top:4px">Firma de recibido</div></div>
+      <div style="text-align:center;width:45%"><div style="border-top:1px solid #333;padding-top:4px">Firma RRHH</div></div>
+    </div>
+  </div>
+  <div style="margin-bottom:16px"><button class="btn gold sm" id="memo-print">🖨️ Imprimir / Descargar PDF</button></div>
+  ${memo.empleado_id ? `
+  <div class="field"><label>Subir memo firmado (foto o escaneo)</label><input type="file" id="memo-file" accept="image/*,.pdf"></div>
+  <div id="memo-doc-actual" style="margin:8px 0;font-size:13px">${memo.documento_url?`<a href="${memo.documento_url}" target="_blank">Ver documento actual</a>`:'Sin documento subido aún'}</div>
+  <div class="row-end"><button class="link" id="memo-cancel">Cerrar</button><button class="btn gold sm" id="memo-save">Subir documento</button></div>` : `
+  <div class="row-end"><button class="link" id="memo-cancel">Cerrar</button></div>`}`);
+  document.getElementById('memo-cancel').onclick = closeModal;
+  document.getElementById('memo-print').onclick = () => {
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>Memorándum - ${memo.titulo}</title></head><body>${document.getElementById('memo-preview').outerHTML}</body></html>`);
+    w.document.close(); w.focus();
+    setTimeout(()=>w.print(), 300);
+  };
+  const btnSave = document.getElementById('memo-save');
+  if(btnSave) btnSave.onclick = async () => {
+    const file = document.getElementById('memo-file').files[0];
+    if(!file){ toast('Elegí un archivo primero'); return; }
+    const url = await uploadDoc(file);
+    if(!url) return;
+    const {error} = esEmpleado
+      ? await sb.rpc('rrhh_guardar_documento_memo', { p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_id: memo.id, p_documento_url: url })
+      : await sb.rpc('rrhh_admin_guardar_documento_memo', { p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_id: memo.id, p_documento_url: url });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Documento guardado'); closeModal();
+    if(esEmpleado){ state.expediente = null; await loadExpediente(); render(); }
+    else { state.adminData = null; await loadAdminDashboard(); render(); }
+  };
+}
+function modalComprobanteAdelanto(ad, esEmpleado){
+  openModal(`
+  <h3>📄 Comprobante de adelanto — ${ad.empleado}</h3>
+  <div id="adel-preview" style="border:1px solid var(--stone-line);border-radius:4px;padding:18px;margin-bottom:14px;font-size:13px;line-height:1.8;background:#FAF9F5">
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-weight:700;font-size:15px">Inversiones Calix</div>
+      <div style="color:var(--slate)">Comprobante de Adelanto de Pago</div>
+    </div>
+    <div><b>Asociado:</b> ${ad.empleado} (${ad.codigo||'—'})</div>
+    <div><b>Puesto:</b> ${ad.puesto||'—'} · <b>Sucursal:</b> ${ad.sucursal||'—'}</div>
+    <div><b>Monto adelantado:</b> ${fmtL(ad.monto)}</div>
+    <div><b>Motivo:</b> ${ad.motivo||'—'}</div>
+    <div><b>Autorizado por (RRHH):</b> ${ad.resuelto_por || state.session.nombre}</div>
+    <div><b>Fecha de emisión:</b> ${fmtDate(new Date().toISOString().slice(0,10))}</div>
+    <div style="margin-top:10px;font-size:12px;color:var(--slate)">Anexar este comprobante al arqueo de caja correspondiente para descontar el monto de lo depositado.</div>
+    <div style="display:flex;justify-content:space-between;margin-top:50px">
+      <div style="text-align:center;width:45%"><div style="border-top:1px solid #333;padding-top:4px">Firma Asociado</div></div>
+      <div style="text-align:center;width:45%"><div style="border-top:1px solid #333;padding-top:4px">Firma RRHH</div></div>
+    </div>
+  </div>
+  <div style="margin-bottom:16px"><button class="btn gold sm" id="adel-print">🖨️ Imprimir / Descargar PDF</button></div>
+  <div class="field"><label>Subir comprobante firmado (foto o escaneo)</label><input type="file" id="adel-file" accept="image/*,.pdf"></div>
+  <div id="adel-doc-actual" style="margin:8px 0;font-size:13px">${ad.documento_url?`<a href="${ad.documento_url}" target="_blank">Ver documento actual</a>`:'Sin documento subido aún'}</div>
+  <div class="row-end"><button class="link" id="adel-cancel">Cerrar</button><button class="btn gold sm" id="adel-save">Subir documento</button></div>`);
+  document.getElementById('adel-cancel').onclick = closeModal;
+  document.getElementById('adel-print').onclick = () => {
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>Comprobante de adelanto - ${ad.empleado}</title></head><body>${document.getElementById('adel-preview').outerHTML}</body></html>`);
+    w.document.close(); w.focus();
+    setTimeout(()=>w.print(), 300);
+  };
+  document.getElementById('adel-save').onclick = async () => {
+    const file = document.getElementById('adel-file').files[0];
+    if(!file){ toast('Elegí un archivo primero'); return; }
+    const url = await uploadDoc(file);
+    if(!url) return;
+    const {error} = esEmpleado
+      ? await sb.rpc('rrhh_guardar_documento_adelanto', { p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_id: ad.id, p_documento_url: url })
+      : await sb.rpc('rrhh_admin_guardar_documento_adelanto', { p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_id: ad.id, p_documento_url: url });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Documento guardado'); closeModal();
+    if(esEmpleado){ state.expediente = null; await loadExpediente(); render(); }
+    else { state.adminData = null; await loadAdminDashboard(); render(); }
+  };
+}
+function bindVacacionesAdmin(){
+  document.querySelectorAll('[data-hoja]').forEach(btn=>{
+    btn.onclick = () => {
+      const vac = (state.vacacionesAdmin||[]).find(v=>v.id===btn.getAttribute('data-hoja'));
+      if(vac) modalHojaVacacion(vac);
+    };
+  });
+}
+function bindSolicitudesAdmin(){
+  bindChatButtons();
+  document.querySelectorAll('[data-resolve]').forEach(btn=>{
+    btn.onclick = async () => {
+      const [tabla, id, estado] = btn.getAttribute('data-resolve').split('|');
+      const vacRef = tabla==='vacaciones' ? (state.adminData.vacaciones_pendientes||[]).find(v=>v.id===id) : null;
+      const adRef = tabla==='adelantos' ? (state.adminData.adelantos_pendientes||[]).find(a=>a.id===id) : null;
+      const {error} = await sb.rpc('rrhh_admin_resolver_solicitud', { p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_tabla: tabla, p_id: id, p_estado: estado });
+      if(error){ toast('Error: '+error.message); return; }
+      toast(estado==='aprobado' ? 'Solicitud aprobada' : 'Solicitud rechazada');
+      if(tabla==='vacaciones') state.vacacionesAdmin = null;
+      await loadAdminDashboard(); render();
+      if(tabla==='vacaciones' && estado==='aprobado' && vacRef) modalHojaVacacion(vacRef);
+      if(tabla==='adelantos' && estado==='aprobado' && adRef) modalComprobanteAdelanto(adRef, false);
+    };
+  });
+}
+
+render();
+ssoDesdeMenu();
+</script>
+</body>
+</html>

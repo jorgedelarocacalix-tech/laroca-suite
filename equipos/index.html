@@ -106,7 +106,7 @@ function eqAplicarSesion(){
     +' <button onclick="eqLogout()" style="margin-left:6px;background:none;border:none;color:#f0b429;cursor:pointer;font-weight:700;text-decoration:underline;font-size:11px;padding:0">Salir</button>';
   return true;
 }
-function eqLogout(){sessionStorage.removeItem('equipos_sesion');location.reload();}
+function eqLogout(){sessionStorage.removeItem('equipos_sesion');sessionStorage.removeItem('suite_sesion');location.reload();}
 async function eqLogin(codigo,pin){
   var r=await sbC.rpc('rrhh_login',{p_codigo:codigo,p_pin:pin});
   if(r.error)return{error:'Código o PIN incorrecto'};

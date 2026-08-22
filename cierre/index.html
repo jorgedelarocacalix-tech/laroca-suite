@@ -294,6 +294,19 @@ const sbR = supabase.createClient(RRHH_URL, RRHH_KEY);
 const SUCS_TODAS = ['R1','R2','R3','R4','R5'];
 let SESION = null;
 try{ SESION = JSON.parse(sessionStorage.getItem('cierre_sesion')||'null'); }catch(e){}
+if(!SESION){
+  try{
+    const _ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
+    if(_ss&&_ss.accesos_apps&&_ss.accesos_apps.cierre===true&&_ss.codigo){
+      const _aud=_ss.accesos_apps.arqueos_rol==='auditor';
+      let _sucs=_aud?SUCS_TODAS.slice():(_ss.accesos_apps.sucursales||[]).filter(x=>SUCS_TODAS.includes(x));
+      if(_sucs.length){
+        SESION={codigo:_ss.codigo,nombre:_ss.nombre,sucursales:_sucs,auditor:_aud};
+        sessionStorage.setItem('cierre_sesion',JSON.stringify(SESION));
+      }
+    }
+  }catch(e){}
+}
 async function cerrarLogin(codigo,pin){
   const {data,error} = await sbR.rpc('rrhh_login',{p_codigo:codigo,p_pin:pin});
   if(error) return {error:'Código o PIN incorrecto'};
@@ -307,7 +320,7 @@ async function cerrarLogin(codigo,pin){
   sessionStorage.setItem('cierre_sesion',JSON.stringify(SESION));
   return {ok:true};
 }
-function cerrarLogout(){ sessionStorage.removeItem('cierre_sesion'); location.reload(); }
+function cerrarLogout(){ sessionStorage.removeItem('cierre_sesion'); sessionStorage.removeItem('suite_sesion'); sessionStorage.removeItem('equipos_sesion'); location.reload(); }
 function pintarSesion(){
   const el=document.getElementById('sesionChip');
   if(el&&SESION) el.innerHTML='👤 '+SESION.nombre+' &middot; '+SESION.sucursales.join(', ')

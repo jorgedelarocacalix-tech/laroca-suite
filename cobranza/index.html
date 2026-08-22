@@ -414,11 +414,12 @@ tr:hover td{background:#f5f8ff}
   <div class="login-card">
     <div class="login-mark">LR</div>
     <div class="login-title">La Roca Cobranza</div>
-    <div class="login-sub">Ingresa tu código de acceso</div>
+    <div class="login-sub">Ingresa tu código y PIN de asociado</div>
+    <input id="cob-cod" type="text" placeholder="Código (ej. v_kar)" autocapitalize="none" autocomplete="username" style="width:100%;max-width:240px;margin:0 auto 12px;display:block;background:#fff;border:2px solid #e0ddd7;border-radius:10px;padding:10px 12px;font-size:14px;text-align:center;color:#222;font-family:inherit"/>
     <div class="pin-display">
       <div class="pin-dot filled" id="p0">●</div><div class="pin-dot filled" id="p1">●</div>
       <div class="pin-dot filled" id="p2">●</div><div class="pin-dot filled" id="p3">●</div>
-      <div class="pin-dot filled" id="p4">●</div>
+      <div class="pin-dot filled" id="p4">●</div><div class="pin-dot filled" id="p5">●</div>
     </div>
     <div class="pin-pad" id="pin-pad">
       <button class="pin-btn" data-v="1">1</button><button class="pin-btn" data-v="2">2</button><button class="pin-btn" data-v="3">3</button>
@@ -625,6 +626,9 @@ Ej: Cliente en casa, dice que paga el viernes. Esposo trabaja fuera. Casa con po
 // ══ CONFIG ══
 var SUPA_URL='https://ixskgawbpwwxdjnkiixt.supabase.co';
 var SUPA_KEY='sb_publishable_-JUaSYPPkq8n4wJIKPtXGw_XMyj3EE7';
+var RRHH_URL='https://upaenjotkocmdvfuobii.supabase.co';
+var RRHH_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+// Mapa legado solo como referencia de carteras; el acceso real ahora viene de RRHH.
 var USUARIOS={
   '12345':{nombre:'Administrador',rol:'admin',carteras:[]},
   '7777':{nombre:'Jorge',rol:'gerente',carteras:[]},
@@ -670,6 +674,13 @@ async function loadLibs(){
 // ══ INIT ══
 window.addEventListener('load',async function(){
   await loadLibs();
+  try{
+    var ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
+    if(ss&&ss.accesos_apps&&ss.accesos_apps.cobranza===true&&ss.codigo){
+      entrarCobranza(userDesdeAcceso(ss.codigo,ss.nombre,ss.accesos_apps,ss.nivel_admin));
+      return;
+    }
+  }catch(e){}
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('main-header').style.display='none';
   document.getElementById('home-zone').style.display='none';
@@ -686,29 +697,48 @@ function initPinPad(){
     var v=btn.getAttribute('data-v');
     if(v==='del'){PIN_VAL=PIN_VAL.slice(0,-1);renderPin();}
     else if(v==='ok'){pinEnter();}
-    else if(PIN_VAL.length<5){PIN_VAL+=v;renderPin();if(PIN_VAL.length===5)setTimeout(pinEnter,120);}
+    else if(PIN_VAL.length<6){PIN_VAL+=v;renderPin();}
   }
   pad.addEventListener('touchend',handle,{passive:false});
   pad.addEventListener('click',handle,{passive:false});
 }
 function renderPin(){
-  for(var i=0;i<5;i++){
+  for(var i=0;i<6;i++){
     var el=document.getElementById('p'+i);
     el.textContent=i<PIN_VAL.length?'●':'';
     el.className='pin-dot'+(i<PIN_VAL.length?' filled':'')+(i===PIN_VAL.length?' active':'');
   }
 }
-function pinEnter(){
-  var u=USUARIOS[PIN_VAL];
-  if(!u){document.getElementById('pin-err').textContent='Código incorrecto';PIN_VAL='';renderPin();return;}
-  USER=Object.assign({},u,{codigo:PIN_VAL});
+function userDesdeAcceso(codigo,nombre,acc,nivel){
+  var auditor=acc.arqueos_rol==='auditor';
+  var rol=(nivel==='senior'||auditor)?'admin':'cobrador';
+  var mapa={R1:'ROCA_COMERCIAL',R2:'BARRIO',R3:'LIBERTAD',R4:'MUEBLE',R5:'MOTO'};
+  var carteras=(rol==='admin')?[]:(Array.isArray(acc.sucursales)?acc.sucursales.map(function(x){return mapa[x]||null;}).filter(Boolean):[]);
+  return Object.assign({},{nombre:nombre,codigo:codigo,rol:rol,carteras:carteras});
+}
+async function pinEnter(){
+  var codEl=document.getElementById('cob-cod');
+  var cod=(codEl?codEl.value:'').trim();
+  if(!cod){document.getElementById('pin-err').textContent='Escribe tu código de asociado';if(codEl)codEl.focus();return;}
+  if(PIN_VAL.length<4){document.getElementById('pin-err').textContent='PIN incompleto';return;}
+  document.getElementById('pin-err').textContent='Verificando…';
+  try{
+    var r=await fetch(RRHH_URL+'/rest/v1/rpc/rrhh_login',{method:'POST',headers:{'Content-Type':'application/json',apikey:RRHH_KEY,Authorization:'Bearer '+RRHH_KEY},body:JSON.stringify({p_codigo:cod,p_pin:PIN_VAL})});
+    if(!r.ok){document.getElementById('pin-err').textContent='Código o PIN incorrecto';PIN_VAL='';renderPin();return;}
+    var d=await r.json(),acc=d.accesos_apps||{};
+    if(acc.cobranza!==true){document.getElementById('pin-err').textContent='Tu usuario no tiene acceso a Cobranza';PIN_VAL='';renderPin();return;}
+    entrarCobranza(userDesdeAcceso(d.codigo,d.nombre,acc,d.nivel_admin));
+  }catch(e){document.getElementById('pin-err').textContent='Error de conexión';}
+}
+function entrarCobranza(u){
+  USER=u;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-header').style.display='flex';
   document.getElementById('user-lbl').textContent='👤 '+u.nombre;
   if(USER.rol==='admin')document.getElementById('btn-alerta').style.display='';
   loadData().then(function(){
     renderHome();startSync();
-    if(USER.rol==='gerente'){
+    if(USER.rol==='gerente'||USER.rol==='admin'){
       // Abrir burbuja IA en modo global al entrar
       var bubble=document.getElementById('ai-bubble');
       if(bubble)bubble.style.display='';
@@ -722,6 +752,7 @@ function pinEnter(){
 }
 function logout(){
   if(!confirm('¿Cerrar sesión?'))return;
+  sessionStorage.removeItem('suite_sesion');sessionStorage.removeItem('equipos_sesion');
   stopSync();USER=null;CARTERAS={};PROMESAS={};CURRENT=null;CURRENT_TAB=null;PIN_VAL='';renderPin();
   document.getElementById('pin-err').textContent='';
   document.getElementById('main-header').style.display='none';
