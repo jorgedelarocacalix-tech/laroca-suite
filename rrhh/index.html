@@ -622,7 +622,7 @@ function dashFila(e){
     <td>${avatarHtml(e.nombre, e.foto_url, 'sm')} ${e.nombre}<div class="mono" style="font-size:11px;color:var(--slate)">${e.codigo}</div></td>
     <td>${e.puesto||'—'}<div style="font-size:11px;color:var(--slate)">${(SUCURSALES.find(x=>x[0]===e.sucursal)||[,'—'])[1]||e.sucursal||'—'}</div></td>
     <td class="mono">${fmtL(e.salario_base)}</td>
-    <td style="text-align:center"><b>${e.dias_pendientes}</b><div style="font-size:11px;color:var(--slate)">${e.dias_tomadas} tomados / ${e.dias_anuales} año</div></td>
+    <td style="text-align:center"><b>${e.dias_pendientes}</b><div style="font-size:11px;color:var(--slate)">${e.dias_tomados} tomados / ${e.dias_anuales} año</div></td>
     <td style="text-align:center">${e.pagos_count||'—'}</td>
     <td class="mono">${e.promedio_pago!=null?fmtL(e.promedio_pago):'—'}${e.ultimo_pago?`<div style="font-size:11px;color:var(--slate)">últ. ${fmtDate(e.ultimo_pago)}</div>`:''}</td>
     <td class="mono">${e.comisiones_promedio!=null?fmtL(e.comisiones_promedio):'—'}${Number(e.comisiones_total)?`<div style="font-size:11px;color:var(--slate)">total ${fmtL(e.comisiones_total)}</div>`:''}</td>
