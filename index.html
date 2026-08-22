@@ -263,7 +263,7 @@ async function suiteLogin(){
     var d=await r.json(),acc=d.accesos_apps||{};
     var alguna=['rrhh','crm','cobranza','cierre','equipos','arqueos','fintrack','erp'].some(function(k){return acc[k]===true;});
     if(!alguna){err.textContent='Tu usuario no tiene acceso a ningún sistema';return;}
-    var s={codigo:d.codigo,nombre:d.nombre,accesos_apps:acc};
+    var s={codigo:d.codigo,nombre:d.nombre,nivel_admin:d.nivel_admin,accesos_apps:acc};
     sessionStorage.setItem('suite_sesion',JSON.stringify(s));
     document.getElementById('gate').style.display='none';
     err.textContent='';

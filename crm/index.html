@@ -669,6 +669,14 @@ function pinDel(){pinBuf=pinBuf.slice(0,-1);renderPD();}
 function pinClr(){pinBuf='';renderPD();}
 function renderPD(){for(var i=0;i<6;i++){var d=document.getElementById('pd'+i);d.textContent=i<pinBuf.length?'●':'·';d.classList.toggle('on',i<pinBuf.length);}}
 function shk(){document.querySelectorAll('.pd').forEach(function(d){d.classList.add('shk');setTimeout(function(){d.classList.remove('shk');},350);});}
+function entrarComo(rr){
+  var codigo=rr.codigo;
+  var local=DB.users.find(function(x){return x.id===codigo||(codigo==='ADMIN'&&x.id==='admin');});
+  var nu;
+  if(local){if(rr.nombre)local.name=rr.nombre;nu=local;}
+  else{nu={id:codigo,name:rr.nombre,pin:'-',role:(rr.nivel_admin?'admin':'vendedor'),cartera:[]};DB.users.push(nu);saveDB();}
+  CU=nu;pinBuf='';renderPD();document.getElementById('s-login').classList.remove('on');launchApp();
+}
 function doLogin(){
   var err=document.getElementById('lerr');
   var cod=(document.getElementById('l-cod')?document.getElementById('l-cod').value:'').trim();
@@ -677,15 +685,11 @@ function doLogin(){
   if(pb.length<4){err.textContent='PIN incompleto';shk();return;}
   err.textContent='Verificando...';
   fetch(SB_URL+'/rest/v1/rpc/rrhh_login',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:JSON.stringify({p_codigo:cod,p_pin:pb})}).then(function(r){return r.ok?r.json():null;}).then(function(rr){
-    if(!rr){err.textContent='Código o PIN incorrecto';shk();pinBuf='';renderPD();return null;}
+    if(!rr){err.textContent='Código o PIN incorrecto';shk();pinBuf='';renderPD();return;}
     var acc=rr.accesos_apps||{};
-    if(!acc.crm){err.textContent='Tu usuario no tiene acceso al CRM';shk();pinBuf='';renderPD();return null;}
-    return sbF('usuarios','GET',null,'?id=eq.'+encodeURIComponent(rr.codigo)+'&select=*').then(function(rows){
-      var nu=null;
-      if(rows&&rows.length){nu=_mergeSupabaseUser(rows[0]);}
-      if(!nu){nu={id:rr.codigo,name:rr.nombre,pin:'-',role:'vendedor',cartera:[]};DB.users.push(nu);saveDB();}
-      err.textContent='';CU=nu;pinBuf='';renderPD();document.getElementById('s-login').classList.remove('on');launchApp();
-    });
+    if(!acc.crm){err.textContent='Tu usuario no tiene acceso al CRM';shk();pinBuf='';renderPD();return;}
+    err.textContent='';
+    entrarComo(rr);
   }).catch(function(){err.textContent='Error de conexión';shk();});
 }
 
@@ -737,7 +741,7 @@ function launchApp(){
 }
 
 
-function doLogout(){if(_rtChannel){try{_rtChannel.close();}catch(e){}}_rtChannel=null;CU=null;CCI=null;activeCart=null;kbActiveCart=null;kbSelVend=null;dashCart=null;dashSelVend=null;segCart=null;segSelVend=null;document.getElementById('s-app').classList.remove('on');document.getElementById('s-nombre').classList.remove('on');document.getElementById('s-login').classList.add('on');initLogin();}
+function doLogout(){sessionStorage.removeItem('suite_sesion');sessionStorage.removeItem('equipos_sesion');if(_rtChannel){try{_rtChannel.close();}catch(e){}}_rtChannel=null;CU=null;CCI=null;activeCart=null;kbActiveCart=null;kbSelVend=null;dashCart=null;dashSelVend=null;segCart=null;segSelVend=null;document.getElementById('s-app').classList.remove('on');document.getElementById('s-nombre').classList.remove('on');document.getElementById('s-login').classList.add('on');initLogin();}
 
 function buildSB(){
   document.getElementById('sb-av').textContent=CU.name[0].toUpperCase();
@@ -3129,7 +3133,15 @@ window.addEventListener('DOMContentLoaded',function(){
       });
       saveDB();
     }
-  }).catch(function(){}).finally(function(){initLogin();});
+  }).catch(function(){}).finally(function(){
+    initLogin();
+    try{
+      var ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
+      if(ss&&ss.accesos_apps&&ss.accesos_apps.crm===true&&ss.codigo&&!CU){
+        entrarComo({codigo:ss.codigo,nombre:ss.nombre,nivel_admin:ss.nivel_admin});
+      }
+    }catch(e){}
+  });
 });
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
 
