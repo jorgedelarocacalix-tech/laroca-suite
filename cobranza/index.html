@@ -662,7 +662,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260822-28';
+var APP_VERSION='20260822-29';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -3461,7 +3461,7 @@ function quickComentario(cartId,nombre){
   // ── Layout de chat: header + hilo de mensajes + barra de entrada fija abajo ──
   div.innerHTML=
     '<div class="modal-card" style="max-width:460px;width:100%;height:min(640px,88vh);padding:0;display:flex;flex-direction:column;overflow:hidden">'
-    +'<button class="modal-x" onclick="document.getElementById(\'qcom-overlay\').remove()">×</button>'
+    +'<button class="modal-x" onclick="qcomCerrar()">×</button>'
     +'<div style="padding:14px 46px 10px 20px;border-bottom:1px solid var(--border);flex-shrink:0">'
     +'<div style="font-size:15px;font-weight:700">💬 '+ibEsc(nombre)+'</div>'
     +'<div class="cart-meta" style="margin-top:2px">Cuota: L '+fmt(c.cuota||0)+' · Saldo: L '+fmt(c.saldo||0)+'</div>'
@@ -3482,15 +3482,37 @@ function quickComentario(cartId,nombre){
       };
     }
   },60);
-  quickComentarioHist(cartId,nombre);
+  quickComentarioHist(cartId,nombre,true);
+  qcomStartPoll(cartId,nombre);   // mientras el chat esté abierto, llegan los mensajes del equipo solos
+}
+
+// ── Auto-refresco del chat abierto (cada 5s) ──
+var _QC_POLL=null,_QC_CART=null,_QC_NOM=null;
+function qcomStartPoll(cartId,nombre){
+  qcomStopPoll();
+  _QC_CART=cartId;_QC_NOM=nombre;
+  _QC_POLL=setInterval(function(){
+    if(!document.getElementById('qcom-overlay')){qcomStopPoll();return;}
+    quickComentarioHist(_QC_CART,_QC_NOM,false);
+  },5000);
+}
+function qcomStopPoll(){if(_QC_POLL){clearInterval(_QC_POLL);_QC_POLL=null;_QC_CART=null;_QC_NOM=null;}}
+function qcomCerrar(){
+  var wasCart=_QC_CART;
+  qcomStopPoll();
+  var ov=document.getElementById('qcom-overlay');if(ov)ov.remove();
+  // Refrescar el Inbox al cerrar para que se vean los mensajes nuevos
+  if(wasCart&&_IB.cart===wasCart){var f=document.getElementById('ib-feed');if(f&&f.parentElement)buildInbox(wasCart,f.parentElement);}
 }
 
 var _QC_ICON={promesa:'📅',posponer:'⏭',pago:'✅',abono:'💰',visita_agenda:'🗓',visita_realizada:'🚗',no_contesta:'📵',no_contesta_old:'📵',nota:'',promesa_cumplida:'🤝',promesa_incumplida:'🚨',arreglo_pago:'🤝',cero_prima:'🆕',extension_plazo:'📅'};
 var _QC_COL={promesa:'var(--purple)',posponer:'var(--purple)',pago:'var(--green)',abono:'var(--orange)',visita_agenda:'var(--amber)',visita_realizada:'var(--green)',no_contesta:'var(--red)',no_contesta_old:'var(--red)',nota:'var(--blue)',promesa_cumplida:'var(--green)',promesa_incumplida:'var(--red)',arreglo_pago:'var(--green)',cero_prima:'var(--purple)',extension_plazo:'var(--blue)'};
 
-async function quickComentarioHist(cartId,nombre){
+async function quickComentarioHist(cartId,nombre,forceScroll){
   var el=document.getElementById('qcom-hist');if(!el)return;
   if(!supa){el.innerHTML='<div class="empty">Sin conexion.</div>';return;}
+  // Si el usuario estaba leyendo arriba, no forzar scroll al fondo
+  var stick=el.scrollHeight-el.scrollTop-el.clientHeight<80;
   try{
     var r=await supa.from('historial_clientes').select('*').eq('cartera_id',cartId).eq('cliente_nombre',nombre).order('created_at',{ascending:true}).limit(100);
     if(r.error)throw r.error;
@@ -3528,7 +3550,7 @@ async function quickComentarioHist(cartId,nombre){
         +'</div></div>';
     });
     el.innerHTML=html;
-    el.scrollTop=el.scrollHeight;   // chat siempre muestra lo último
+    if(forceScroll||stick)el.scrollTop=el.scrollHeight;   // scroll al fondo solo si corresponde
   }catch(e){el.innerHTML='<div class="empty">Error: '+e.message+'</div>';console.error('quickComentarioHist:',e);}
 }
 function qcomDel(el){
@@ -3561,7 +3583,7 @@ async function quickComentarioGuardar(cartId,nombre){
   await dbSaveProm(cartId,nombre);
   setConn(true,'💬 Comentario guardado ✓');
   setTimeout(function(){setConn(true,'Conectado');},2500);
-  quickComentarioHist(cartId,nombre);
+  quickComentarioHist(cartId,nombre,true);
   if(CURRENT&&CARTERAS[CURRENT])refreshSoft(CURRENT);
 }
 
