@@ -438,6 +438,7 @@ tr:hover td{background:#f5f8ff}
     <button class="hbtn" onclick="syncNow()">🔄 Sync</button>
     <div class="hdate" id="hdate">LUN, 15 JUN 2026</div>
     <div class="user-chip" id="user-chip" onclick="logout()"><span id="user-lbl">👤 Administrador</span> <span style="color:var(--text3)">✕</span></div>
+    <button class="hbtn" onclick="location.href='https://laroca-suite-production.up.railway.app/'">⌂ Apps</button>
     <button class="hbtn" id="back-btn" style="" onclick="goHome()">↩ Inicio</button>
   </div>
 </header>
@@ -1398,7 +1399,7 @@ function renderHome(){
   if(USER&&USER.rol==='admin'){rn.style.cssText='background:var(--greenbg);color:var(--green);border:1px solid rgba(26,122,60,.2);border-radius:5px;padding:9px 13px;font-family:var(--mono);font-size:11px;margin-bottom:16px';rn.textContent='Administrador - acceso completo. Sube PDFs y gestiona carteras.';}
   else if(USER&&USER.rol==='gerente'){rn.style.cssText='background:var(--purplebg,#f3e8ff);color:var(--purple,#7c3aed);border:1px solid rgba(124,58,237,.2);border-radius:5px;padding:9px 13px;font-family:var(--mono);font-size:11px;margin-bottom:16px';rn.textContent='Gerente — Vista global y análisis IA';}
   else{rn.style.cssText='background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.2);border-radius:5px;padding:9px 13px;font-family:var(--mono);font-size:11px;margin-bottom:16px';rn.textContent=(USER?USER.nombre:'') + ' - Registra promesas y visitas en tu cartera';}
-  if(USER&&USER.rol==='gerente'){document.getElementById('home-zone').classList.add('wide');_renderGerentePanel();}
+  if(USER&&(USER.rol==='gerente'||USER.rol==='admin')){document.getElementById('home-zone').classList.add('wide');_renderGerentePanel();}
   else{document.getElementById('home-zone').classList.remove('wide');var gp=document.getElementById('gerente-panel');if(gp)gp.style.display='none';}
   var dz=document.getElementById('drop-zone');
   dz.className='drop-zone'+(canUpload()?'':' disabled');
@@ -1440,9 +1441,9 @@ function openCartera(id){
   document.getElementById('ai-bubble').style.display='';
   // Barra de modo: solo gerente ve "Todas las carteras"
   var modeBar=document.getElementById('ai-chat-mode-bar');
-  if(modeBar) modeBar.style.display=(USER&&USER.rol==='gerente')?'flex':'none';
+  if(modeBar) modeBar.style.display=(USER&&(USER.rol==='gerente'||USER.rol==='admin'))?'flex':'none';
   // Resetear modo chat a "esta cartera" para cobradores
-  if(USER&&USER.rol!=='gerente') switchChatMode('cartera');
+  if(!(USER&&(USER.rol==='gerente'||USER.rol==='admin'))) switchChatMode('cartera');
   renderDash(id);
   showBienvenida(id);
 }

@@ -237,6 +237,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;background:#E8EA
   <div class="header">
     <div class="header-top">
       <div class="header-title">Fintrack · La Roca</div>
+      <button onclick="location.href='https://laroca-suite-production.up.railway.app/'" style="background:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#185FA5;cursor:pointer;margin-left:10px">⌂ Apps</button>
       <div class="header-btns">
         <button class="hbtn ia" onclick="abrirIA()">✦ IA</button>
         <button class="hbtn" onclick="abrirConfig()">⚙</button>
@@ -301,6 +302,13 @@ const SB_URL = 'https://upaenjotkocmdvfuobii.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
 const SK = 'ft_v1';
 const PIN_DEFAULT = '1234';
+
+// Acceso solo desde el menú de la suite (sesión válida con fintrack activo)
+(function(){
+  let ok=false;
+  try{const ss=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');ok=!!(ss&&ss.accesos_apps&&ss.accesos_apps.fintrack===true);}catch(e){}
+  if(!ok){location.replace('/');}
+})();
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const BANCOS = ['BAC','Atlántida','Banrural','Cuscatlán','Davivienda','Promerica','Ficohsa','Banpaís','Efectivo','Transferencia'];
 
@@ -382,6 +390,12 @@ function pinDel() {
   document.getElementById('d' + pinBuffer.length).classList.remove('filled');
   document.getElementById('pin-error').classList.add('hidden');
 }
+
+window.addEventListener('load', function(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').classList.remove('hidden');
+  iniciar();
+});
 
 function verificarPin() {
   const pin = localStorage.getItem(SK + '_pin') || PIN_DEFAULT;
