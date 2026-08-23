@@ -117,6 +117,33 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
 .chip b{color:#fff}
 .chip button{margin-left:8px;background:none;border:none;color:#C6285A;font-weight:700;cursor:pointer;text-decoration:underline;font-size:11px;padding:0}
 
+/* ── Ignición de login (TV encendiendo + motor) ── */
+#ignicion{position:fixed;inset:0;background:#000;z-index:999;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer}
+#ignicion.apagar{animation:tvOff .38s cubic-bezier(.6,0,.9,.4) forwards}
+@keyframes tvOff{0%{transform:scaleY(1);opacity:1}55%{transform:scaleY(.008);opacity:1;filter:brightness(3)}100%{transform:scaleY(.002) scaleX(0);opacity:0}}
+.linea-tv{position:absolute;left:50%;top:50%;width:min(94vw,1000px);height:2px;border-radius:999px;
+  transform:translate(-50%,-50%) scaleX(0);
+  background:linear-gradient(90deg,transparent,#fff 16%,#fff 84%,transparent);
+  box-shadow:0 0 26px 7px rgba(255,255,255,.9),0 0 90px 24px rgba(198,40,90,.5)}
+#ignicion.fase-linea .linea-tv{animation:tvLine .6s cubic-bezier(.2,.8,.25,1) forwards}
+@keyframes tvLine{
+  0%{transform:translate(-50%,-50%) scaleX(0);height:2px}
+  45%{transform:translate(-50%,-50%) scaleX(1);height:3px}
+  78%{transform:translate(-50%,-50%) scaleX(1);height:72vh}
+  100%{transform:translate(-50%,-50%) scaleX(1.15);height:130vh;opacity:.12}}
+.motor-vib{animation:motorVib .09s linear infinite}
+@keyframes motorVib{0%{transform:translate(0,0)}25%{transform:translate(1.5px,-1px)}50%{transform:translate(-1.5px,1px)}75%{transform:translate(1px,1.5px)}100%{transform:translate(-1px,-1.5px)}}
+.ign-contenido{opacity:0;transform:scale(.7);filter:blur(12px);transition:all .75s cubic-bezier(.16,1,.3,1);text-align:center;padding:24px;position:relative;z-index:2}
+#ignicion.fase-foto .ign-contenido{opacity:1;transform:scale(1);filter:blur(0)}
+.ign-foto{width:min(56vw,230px);height:min(56vw,230px);border-radius:50%;object-fit:cover;
+  border:5px solid #C6285A;background:#141414;
+  box-shadow:0 14px 70px rgba(198,40,90,.55),0 0 100px rgba(255,255,255,.12)}
+.ign-foto-ph{display:flex;align-items:center;justify-content:center;font-size:82px;font-weight:800;color:#fff;
+  background:radial-gradient(circle at 30% 25%,#2E2E2E,#101010)}
+.ign-nombre{margin-top:20px;font-size:clamp(22px,6vw,30px);font-weight:800;letter-spacing:.02em}
+.ign-frase{margin-top:12px;font-size:15px;color:#b5b5b5;font-style:italic;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.55}
+.ign-continuar{margin-top:22px;font-size:11px;color:#333;text-transform:uppercase;letter-spacing:.18em}
+
 @media(max-width:480px){
   .grid{grid-template-columns:1fr}
   body{padding:28px 16px}
@@ -307,6 +334,73 @@ function setTileLine(app,txt){
     l.style.display='flex';
   } else if(l) l.style.display='none';
 }
+/* ── Ignición de login: TV encendiendo + motor + foto en grande + frase del día ── */
+var FRASES_EXITO=[
+  'El éxito es la suma de pequeños esfuerzos repetidos cada día.',
+  'Los campeones no nacen: se entrenan todos los días.',
+  'Hoy es una gran mañana para hacer historia.',
+  'La disciplina es el puente entre metas y logros.',
+  'El que vende sonríe dos veces: hoy y al cerrar el mes.',
+  'No cuentes los días, haz que los días cuenten.',
+  'El equipo que cree, gana. Y nosotros creemos.',
+  'Cada cliente atendido con ganas vuelve y trae a diez más.',
+  'La constancia vence lo que la suerte no puede.',
+  'Grandes resultados nacen de hábitos pequeños.',
+  'Tu actitud de hoy define las ventas de mañana.',
+  'El trabajo en equipo hace que lo difícil sea posible.',
+  'Empieza donde estás, usa lo que tienes, haz lo que puedas.',
+  'Los días buenos empiezan con buena actitud. El resto es detalle.',
+  'Nadie llega lejos solo: por eso somos La Roca.',
+  'Siduele un poco hoy, celebra mucho mañana.'
+];
+function fraseDelDia(){
+  var f=new Date(),ini=new Date(f.getFullYear(),0,0);
+  var dia=Math.floor((f-ini)/864e5)+(f.getFullYear()*367);
+  return FRASES_EXITO[dia%FRASES_EXITO.length];
+}
+function sonarIgnicion(){
+  try{
+    var C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+    var ctx=sonarIgnicion._c||(sonarIgnicion._c=new C());
+    if(ctx.state==='suspended')ctx.resume();
+    var o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime;
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(55,t);
+    o.frequency.exponentialRampToValueAtTime(330,t+.65);
+    o.frequency.exponentialRampToValueAtTime(105,t+1.35);
+    g.gain.setValueAtTime(.001,t);
+    g.gain.exponentialRampToValueAtTime(.20,t+.12);
+    g.gain.exponentialRampToValueAtTime(.05,t+1.25);
+    g.gain.exponentialRampToValueAtTime(.0001,t+1.55);
+    o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+1.6);
+  }catch(e){}
+}
+function mostrarIgnicion(nombre,fotoUrl){
+  var old=document.getElementById('ignicion');if(old)old.remove();
+  var iniciales=(nombre||'U').trim().split(/\s+/).map(function(p){return p[0]}).slice(0,2).join('').toUpperCase();
+  var ov=document.createElement('div');ov.id='ignicion';
+  ov.innerHTML='<div class="linea-tv"></div>'+
+    '<div class="ign-contenido">'+
+      (fotoUrl?'<img class="ign-foto" src="'+fotoUrl+'" alt="'+nombre+'">':'<div class="ign-foto ign-foto-ph">'+iniciales+'</div>')+
+      '<div class="ign-nombre">'+nombre+'</div>'+
+      '<div class="ign-frase">\u201C'+fraseDelDia()+'\u201D</div>'+
+      '<div class="ign-continuar">toca para continuar</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.classList.add('fase-linea');
+  ov.classList.add('motor-vib');
+  sonarIgnicion();
+  setTimeout(function(){ov.classList.remove('motor-vib')},650);
+  setTimeout(function(){ov.classList.add('fase-foto')},700);
+  function apagar(){
+    if(!ov.parentNode)return;
+    clearTimeout(tAuto);
+    ov.classList.add('apagar');
+    setTimeout(function(){ov.remove()},400);
+  }
+  var tAuto=setTimeout(apagar,5200);
+  ov.addEventListener('click',apagar);
+}
 async function suiteLogin(){
   var cod=document.getElementById('g-cod').value.trim();
   var pin=document.getElementById('g-pin').value.trim();
@@ -321,6 +415,7 @@ async function suiteLogin(){
     if(!alguna){err.textContent='Tu usuario no tiene acceso a ningún sistema';return;}
     var s={codigo:d.codigo,nombre:d.nombre,nivel_admin:d.nivel_admin,accesos_apps:acc,pin:pin};
     sessionStorage.setItem('suite_sesion',JSON.stringify(s));
+    mostrarIgnicion(d.nombre,d.foto_url);
     document.getElementById('gate').style.display='none';
     err.textContent='';
     aplicarSesion(s);
