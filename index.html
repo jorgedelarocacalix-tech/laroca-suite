@@ -285,8 +285,11 @@ async function refreshNotifs(){
     ['adelantos','vacaciones','permisos','prestamos','incapacidades'].forEach(function(k){if((rrhh[k]||0)>0)det.push(rrhh[k]+' '+ETIQ[k]);});
     setBadge('rrhh',rrhh.total||0,det.length?'Pendientes en RRHH: '+det.join(', '):'');
     setTileLine('rrhh',det.length?det.join(' · '):'');
-    setBadge('arqueos',arq.total||0,(arq.vales||0)>0?'Vales de RRHH sin entregar efectivo: '+arq.vales:'');
-    setTileLine('arqueos',(arq.vales||0)>0?arq.vales+' vale'+(arq.vales>1?'s':'')+' de RRHH sin entregar':'');
+    var lineasArq=[];
+    if((arq.solicitudes||0)>0)lineasArq.push(arq.solicitudes+' gasto'+(arq.solicitudes>1?'s':'')+' por autorizar');
+    if((arq.vales||0)>0)lineasArq.push(arq.vales+' vale'+(arq.vales>1?'s':'')+' de RRHH sin entregar');
+    setBadge('arqueos',arq.total||0,lineasArq.join(' · '));
+    setTileLine('arqueos',lineasArq.join(' · '));
   }catch(e){}
 }
 function setBadge(app,n,tip){
