@@ -293,6 +293,24 @@ function normNombre(s){
 function primerNombre(s){
   return normNombre(s).split(/\s+/)[0]||'';
 }
+function levenshtein(a, b){
+  const m = a.length, n = b.length;
+  if(!m) return n; if(!n) return m;
+  let prev = Array.from({length:n+1}, (_,i)=>i);
+  for(let i=1;i<=m;i++){
+    const cur = [i];
+    for(let j=1;j<=n;j++){
+      cur[j] = a[i-1]===b[j-1] ? prev[j-1] : 1+Math.min(prev[j-1],prev[j],cur[j-1]);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+function nombresParecidos(a, b){
+  if(!a || !b) return false;
+  if(a===b || a.startsWith(b) || b.startsWith(a)) return true;
+  return levenshtein(a,b) <= 2;
+}
 async function loadActividadAsociados(){
   if(!state.empleados) await loadAdminEmpleados();
   const empleados = (state.empleados||[]).filter(e=>e.activo);
@@ -316,8 +334,8 @@ async function loadActividadAsociados(){
   const resultado = {};
   empleados.forEach(e=>{
     const pn = primerNombre(e.nombre);
-    const crmCount = gestNombres.filter(n=>primerNombre(n)===pn).length;
-    const enCobranza = cobranzaNombres.some(n=>primerNombre(n)===pn);
+    const crmCount = gestNombres.filter(n=>nombresParecidos(primerNombre(n),pn)).length;
+    const enCobranza = cobranzaNombres.some(n=>nombresParecidos(primerNombre(n),pn));
     const enRRHH = pendRRHH.has(normNombre(e.nombre));
     resultado[e.id] = { crm: crmCount, cobranza: enCobranza, rrhh: enRRHH };
   });
