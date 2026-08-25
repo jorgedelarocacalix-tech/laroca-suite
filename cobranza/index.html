@@ -1015,11 +1015,11 @@ function parseCartera(lines){
   var pushCliente=function(nombre,allD,allN){
     if(allD.length<1||allN.length<1||nombre.length<3)return;
     var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago;
-    if(sinP){var fFactD=parseHNDate(fFact);if(fFactD&&fFactD<=HOY){uPago=fFact;sinP=false;}else{uPago=null;}}
     var total=0,nCuotas=0,pagado=0,saldo=0,diaPago=0,cuota=0;
     var bI=allN.findIndex(function(n){return n>=100;});if(bI>=0)total=allN[bI];
     var nci=-1;for(var ni=bI+1;ni<allN.length;ni++){if(allN[ni]>=1&&allN[ni]<=36&&Number.isInteger(allN[ni])){nCuotas=Math.round(allN[ni]);nci=ni;break;}}
     var pi=-1;for(var ni2=Math.max(nci,bI)+1;ni2<allN.length;ni2++){if(allN[ni2]>=0){pagado=allN[ni2];pi=ni2;break;}}
+    if(sinP&&pagado>0){var fFactD=parseHNDate(fFact);if(fFactD&&fFactD<=HOY){uPago=fFact;sinP=false;}else{uPago=null;}}
     var si=-1;for(var ni3=pi+1;ni3<allN.length;ni3++){if(allN[ni3]>=0){saldo=allN[ni3];si=ni3;break;}}
     var dpi=-1;for(var ni4=si+1;ni4<allN.length;ni4++){if(allN[ni4]>=1&&allN[ni4]<=31&&Number.isInteger(allN[ni4])){diaPago=Math.round(allN[ni4]);dpi=ni4;break;}}
     for(var ni5=Math.max(dpi,si)+1;ni5<allN.length;ni5++){if(allN[ni5]>=100){cuota=allN[ni5];break;}}
@@ -5894,10 +5894,10 @@ function parseBloqueCliente(nombre,lineas,clientes){
     });
     if(allD.length<1||allN.length<1)return;
     var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago;
-    if(sinP){var fFactD=parseHNDate(fFact);if(fFactD&&fFactD<=HOY){uPago=fFact;sinP=false;}else{uPago=null;}}
     var bI=allN.findIndex(function(n){return n>=100;});var total=bI>=0?allN[bI]:0;
     var nci=-1,nCuotas=0;for(var ni=bI+1;ni<allN.length;ni++){if(allN[ni]>=1&&allN[ni]<=36&&Number.isInteger(allN[ni])){nCuotas=Math.round(allN[ni]);nci=ni;break;}}
     var pi=-1,pagado=0;for(var ni2=Math.max(nci,bI)+1;ni2<allN.length;ni2++){if(allN[ni2]>=0){pagado=allN[ni2];pi=ni2;break;}}
+    if(sinP&&pagado>0){var fFactD=parseHNDate(fFact);if(fFactD&&fFactD<=HOY){uPago=fFact;sinP=false;}else{uPago=null;}}
     var si=-1,saldo=0;for(var ni3=pi+1;ni3<allN.length;ni3++){if(allN[ni3]>=0){saldo=allN[ni3];si=ni3;break;}}
     var dpi=-1,diaPago=0;for(var ni4=si+1;ni4<allN.length;ni4++){if(allN[ni4]>=1&&allN[ni4]<=31&&Number.isInteger(allN[ni4])){diaPago=Math.round(allN[ni4]);dpi=ni4;break;}}
     var cuota=0;for(var ni5=Math.max(dpi,si)+1;ni5<allN.length;ni5++){if(allN[ni5]>=100){cuota=allN[ni5];break;}}
