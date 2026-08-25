@@ -160,6 +160,7 @@ let state = {
   empleados: null,
   vacacionesAdmin: null,
   permisosAdmin: null,
+  chatUnread: {},
   loading: false,
   capacitaciones: null,
   capacitacionesAdmin: null,
@@ -260,6 +261,30 @@ async function loadAdminDashboard(){
   const {data, error} = await sb.rpc('rrhh_admin_dashboard', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
   if(error){ toast('Error: '+error.message); return; }
   state.adminData = data;
+  loadChatUnread(data);
+}
+function chatSeenKey(tabla, id){ return 'rrhh_chat_seen_'+tabla+'_'+id; }
+function marcarChatVisto(tabla, id, ultimoTs){
+  if(!ultimoTs) return;
+  localStorage.setItem(chatSeenKey(tabla, id), ultimoTs);
+  state.chatUnread[tabla+'|'+id] = false;
+}
+async function loadChatUnread(d){
+  const {session} = state;
+  const items = [
+    ...(d.vacaciones_pendientes||[]).map(x=>['vacaciones', x.id]),
+    ...(d.permisos_pendientes||[]).map(x=>['permisos', x.id]),
+    ...(d.adelantos_pendientes||[]).map(x=>['adelantos', x.id]),
+    ...(d.prestamos_pendientes||[]).map(x=>['prestamos', x.id]),
+  ];
+  await Promise.all(items.map(async ([tabla, id]) => {
+    const {data, error} = await sb.rpc('rrhh_admin_listar_mensajes_solicitud', {p_admin_codigo: session.codigo, p_admin_pin: session.pin, p_tabla: tabla, p_solicitud_id: id});
+    if(error || !data || !data.length) return;
+    const ultimo = data[data.length-1];
+    const visto = localStorage.getItem(chatSeenKey(tabla, id));
+    state.chatUnread[tabla+'|'+id] = !visto || visto < ultimo.created_at;
+  }));
+  if(state.view==='solicitudes'){ renderShell(viewSolicitudesAdmin()); bindSolicitudesAdmin(); }
 }
 async function loadDashEmpleados(){
   const {session} = state;
@@ -348,6 +373,9 @@ function renderShell(bodyHtml){
           const a=state.adminData;
           const tot=(a.adelantos_pendientes||[]).length+(a.vacaciones_pendientes||[]).length+(a.permisos_pendientes||[]).length+(a.prestamos_pendientes||[]).length+(a.incapacidades_pendientes||[]).length;
           if(tot>0)extra=` <span class="nav-badge-roja">${tot}</span>`;
+        }
+        if(k==='solicitudes'&&Object.values(state.chatUnread).some(Boolean)){
+          extra+=' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brick);vertical-align:middle"></span>';
         }
         return `<div class="navitem ${state.view===k?'active':''}" data-nav="${k}">${label}${extra}</div>`;
       }).join('')}
@@ -876,6 +904,9 @@ function renderPreguntasBuilder(){
     </div>`).join('');
 }
 
+function chatBadge(tabla, id){
+  return state.chatUnread[tabla+'|'+id] ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brick);margin-left:5px;vertical-align:middle"></span>' : '';
+}
 function viewSolicitudesAdmin(){
   const d = state.adminData;
   if(!d) return '<div class="empty">Cargando...</div>';
@@ -896,7 +927,7 @@ function viewSolicitudesAdmin(){
         <div style="font-size:13px;color:var(--slate);margin:2px 0 8px">${fmtDate(v.fecha_inicio)} → ${fmtDate(v.fecha_fin)} (${v.dias} días)</div>
         <button class="btn sm" style="background:var(--green);color:#fff" data-resolve="vacaciones|${v.id}|aprobado">Aprobar</button>
         <button class="btn sm" style="background:var(--brick);color:#fff" data-resolve="vacaciones|${v.id}|rechazado">Rechazar</button>
-        <button class="btn-chat" data-chat="vacaciones|${v.id}" style="margin-left:6px">💬 Comentarios</button>
+        <button class="btn-chat" data-chat="vacaciones|${v.id}" style="margin-left:6px">💬 Comentarios</button>${chatBadge('vacaciones',v.id)}
       </div>`).join('') || '<div class="empty">Sin solicitudes pendientes</div>'}</div>
     <div class="card"><h3 style="margin-top:0">Permisos</h3>
       ${d.permisos_pendientes.map(p=>`<div style="padding:10px 0;border-bottom:1px solid var(--stone-line)">
@@ -904,7 +935,7 @@ function viewSolicitudesAdmin(){
         <div style="font-size:13px;color:var(--slate);margin:2px 0 8px">${fmtDate(p.fecha)} · ${p.tipo} · ${p.horas||'—'}h</div>
         <button class="btn sm" style="background:var(--green);color:#fff" data-resolve="permisos|${p.id}|aprobado">Aprobar</button>
         <button class="btn sm" style="background:var(--brick);color:#fff" data-resolve="permisos|${p.id}|rechazado">Rechazar</button>
-        <button class="btn-chat" data-chat="permisos|${p.id}" style="margin-left:6px">💬 Comentarios</button>
+        <button class="btn-chat" data-chat="permisos|${p.id}" style="margin-left:6px">💬 Comentarios</button>${chatBadge('permisos',p.id)}
       </div>`).join('') || '<div class="empty">Sin solicitudes pendientes</div>'}</div>
   </div>
   <div style="height:16px"></div>
@@ -915,7 +946,7 @@ function viewSolicitudesAdmin(){
         <div style="font-size:13px;color:var(--slate);margin:2px 0 8px">${a.motivo||'—'}</div>
         <button class="btn sm" style="background:var(--green);color:#fff" data-resolve="adelantos|${a.id}|aprobado">Aprobar</button>
         <button class="btn sm" style="background:var(--brick);color:#fff" data-resolve="adelantos|${a.id}|rechazado">Rechazar</button>
-        <button class="btn-chat" data-chat="adelantos|${a.id}" style="margin-left:6px">💬 Comentarios</button>
+        <button class="btn-chat" data-chat="adelantos|${a.id}" style="margin-left:6px">💬 Comentarios</button>${chatBadge('adelantos',a.id)}
       </div>`).join('') || '<div class="empty">Sin solicitudes pendientes</div>'}</div>
     <div class="card"><h3 style="margin-top:0">Préstamos</h3>
       ${d.prestamos_pendientes.map(p=>`<div style="padding:10px 0;border-bottom:1px solid var(--stone-line)">
@@ -923,7 +954,7 @@ function viewSolicitudesAdmin(){
         <div style="font-size:13px;color:var(--slate);margin:2px 0 8px">${p.motivo||'—'}</div>
         <button class="btn sm" style="background:var(--green);color:#fff" data-resolve="prestamos|${p.id}|aprobado">Aprobar</button>
         <button class="btn sm" style="background:var(--brick);color:#fff" data-resolve="prestamos|${p.id}|rechazado">Rechazar</button>
-        <button class="btn-chat" data-chat="prestamos|${p.id}" style="margin-left:6px">💬 Comentarios</button>
+        <button class="btn-chat" data-chat="prestamos|${p.id}" style="margin-left:6px">💬 Comentarios</button>${chatBadge('prestamos',p.id)}
       </div>`).join('') || '<div class="empty">Sin solicitudes pendientes</div>'}</div>
   </div>`;
 }
@@ -1060,6 +1091,7 @@ async function modalChatSolicitud(tabla, solicitudId, readonly){
       : await sb.rpc('rrhh_listar_mensajes_solicitud', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_tabla: tabla, p_solicitud_id: solicitudId});
     if(error){ toast('Error: '+error.message); return; }
     pintarMsgs(data);
+    if(esAdmin && data && data.length) marcarChatVisto(tabla, solicitudId, data[data.length-1].created_at);
   };
   await cargar();
   _chatPollTimer = setInterval(cargar, 5000);
