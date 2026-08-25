@@ -1019,7 +1019,6 @@ function parseCartera(lines){
     var bI=allN.findIndex(function(n){return n>=100;});if(bI>=0)total=allN[bI];
     var nci=-1;for(var ni=bI+1;ni<allN.length;ni++){if(allN[ni]>=1&&allN[ni]<=36&&Number.isInteger(allN[ni])){nCuotas=Math.round(allN[ni]);nci=ni;break;}}
     var pi=-1;for(var ni2=Math.max(nci,bI)+1;ni2<allN.length;ni2++){if(allN[ni2]>=0){pagado=allN[ni2];pi=ni2;break;}}
-    if(sinP&&pagado>0){var fFactD=parseHNDate(fFact);if(fFactD&&fFactD<=HOY){uPago=fFact;sinP=false;}else{uPago=null;}}
     var si=-1;for(var ni3=pi+1;ni3<allN.length;ni3++){if(allN[ni3]>=0){saldo=allN[ni3];si=ni3;break;}}
     var dpi=-1;for(var ni4=si+1;ni4<allN.length;ni4++){if(allN[ni4]>=1&&allN[ni4]<=31&&Number.isInteger(allN[ni4])){diaPago=Math.round(allN[ni4]);dpi=ni4;break;}}
     for(var ni5=Math.max(dpi,si)+1;ni5<allN.length;ni5++){if(allN[ni5]>=100){cuota=allN[ni5];break;}}
@@ -1152,6 +1151,51 @@ function daysSince(s){var d=parseHNDate(s);if(!d)return null;return Math.max(0,M
 function pagoEsteMes(s){var d=parseHNDate(s);if(!d)return false;return d.getMonth()===HOY.getMonth()&&d.getFullYear()===HOY.getFullYear();}
 function pagoMesAnterior(s){var d=parseHNDate(s);if(!d)return false;var am=new Date(HOY.getFullYear(),HOY.getMonth()-1,1);return d.getFullYear()===am.getFullYear()&&d.getMonth()===am.getMonth();}
 
+// ══ CRUCE CON ARQUEOS: detectar primas pagadas ══
+async function cruzarPrimasConArqueos(cartId,clientes){
+  try{
+    var mesStr=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
+    var desde=mesStr+'-01';
+    var hasta=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1)+'-'+(HOY.getDate()<10?'0':'')+HOY.getDate();
+    var r=await supa.from('arqueos').select('sucursal,fecha,analisis_json').gte('fecha',desde).lte('fecha',hasta);
+    if(r.error||!r.data)return;
+    // Mapear sucursal → cartera_id
+    var sucMap={'R1':'LA_ROCA_COMERCIAL_1','R2':'LA_ROCA_MOTORS_BARRIO_ARRIBA_1','R3':'LA_ROCA_MOTORS_LA_LIBERTAD_2','R4':'SU_MUEBLE','R5':'SU_MOTO_DANLI'};
+    var sucCart={};Object.keys(sucMap).forEach(function(s){sucCart[sucMap[s]]=s;});
+    var miSuc=sucCart[cartId];if(!miSuc)return;
+    // Recopilar cobros PRIMA de esta sucursal
+    var primas={};
+    (r.data||[]).forEach(function(a){
+      if(a.sucursal!==miSuc)return;
+      var aj=a.analisis_json||{};
+      (aj.cobros||[]).forEach(function(c){
+        if((c.tipo||'').toUpperCase()==='PRIMA'&&c.cliente){
+          var nombre=c.cliente.trim().toUpperCase();
+          if(!primas[nombre])primas[nombre]=a.fecha;
+        }
+      });
+    });
+    if(!Object.keys(primas).length)return;
+    // Fecha HN del arqueo
+    function isoToHN(iso){var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+    // Matchear clientes sin ultimo_pago con primas
+    clientes.forEach(function(c){
+      if(!c.sin_ultimo_pago||c.ultimo_pago)return;
+      var nombreUp=c.nombre.trim().toUpperCase();
+      // Match exacto
+      if(primas[nombreUp]){c.ultimo_pago=isoToHN(primas[nombreUp]);c.sin_ultimo_pago=false;return;}
+      // Match parcial: nombre del cliente contenido en la prima o viceversa
+      var keys=Object.keys(primas);
+      for(var i=0;i<keys.length;i++){
+        var k=keys[i];
+        if(k.length>=4&&nombreUp.length>=4&&(k.indexOf(nombreUp)>=0||nombreUp.indexOf(k)>=0)){
+          c.ultimo_pago=isoToHN(primas[k]);c.sin_ultimo_pago=false;return;
+        }
+      }
+    });
+  }catch(e){console.error('cruzarPrimasConArqueos:',e);}
+}
+
 // ══ FILE HANDLING ══
 var dropEl=document.getElementById('drop-zone'),fileEl=document.getElementById('file-input');
 dropEl.addEventListener('dragover',function(e){e.preventDefault();if(canUpload())dropEl.classList.add('over');});
@@ -1171,6 +1215,8 @@ async function processPDF(file){
     var ab=await file.arrayBuffer();var lines=await extractText(ab);var data=parseCartera(lines);
     if(!data.clientes.length){showErr('Sin clientes en: '+file.name);return;}
     var id=getCanonicalId(data.empresa);
+    // Cruzar clientes sin ultimo_pago con PRIMA en arqueos del mes
+    await cruzarPrimasConArqueos(id,data.clientes);
     // Auto-agregar todos los no capturados usando sus datos del PDF
     var autoAgregados=[],noSePudo=[];
     (data.no_capturados||[]).forEach(function(b){
@@ -5897,7 +5943,6 @@ function parseBloqueCliente(nombre,lineas,clientes){
     var bI=allN.findIndex(function(n){return n>=100;});var total=bI>=0?allN[bI]:0;
     var nci=-1,nCuotas=0;for(var ni=bI+1;ni<allN.length;ni++){if(allN[ni]>=1&&allN[ni]<=36&&Number.isInteger(allN[ni])){nCuotas=Math.round(allN[ni]);nci=ni;break;}}
     var pi=-1,pagado=0;for(var ni2=Math.max(nci,bI)+1;ni2<allN.length;ni2++){if(allN[ni2]>=0){pagado=allN[ni2];pi=ni2;break;}}
-    if(sinP&&pagado>0){var fFactD=parseHNDate(fFact);if(fFactD&&fFactD<=HOY){uPago=fFact;sinP=false;}else{uPago=null;}}
     var si=-1,saldo=0;for(var ni3=pi+1;ni3<allN.length;ni3++){if(allN[ni3]>=0){saldo=allN[ni3];si=ni3;break;}}
     var dpi=-1,diaPago=0;for(var ni4=si+1;ni4<allN.length;ni4++){if(allN[ni4]>=1&&allN[ni4]<=31&&Number.isInteger(allN[ni4])){diaPago=Math.round(allN[ni4]);dpi=ni4;break;}}
     var cuota=0;for(var ni5=Math.max(dpi,si)+1;ni5<allN.length;ni5++){if(allN[ni5]>=100){cuota=allN[ni5];break;}}
