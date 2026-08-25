@@ -159,6 +159,7 @@ let state = {
   adminData: null,
   empleados: null,
   vacacionesAdmin: null,
+  permisosAdmin: null,
   loading: false,
   capacitaciones: null,
   capacitacionesAdmin: null,
@@ -279,6 +280,12 @@ async function loadVacacionesAdmin(){
   if(error){ toast('Error: '+error.message); return; }
   state.vacacionesAdmin = data;
 }
+async function loadPermisosAdmin(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_admin_listar_permisos', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
+  if(error){ toast('Error: '+error.message); return; }
+  state.permisosAdmin = data;
+}
 async function loadCapacitacionesEmpleado(){
   const {session} = state;
   const {data, error} = await sb.rpc('rrhh_listar_capacitaciones', {p_empleado_id: session.empleado_id, p_pin: session.pin});
@@ -299,8 +306,7 @@ function navItemsFor(rol){
       ['dashboard','Panel general'],
       ['dashboard-empleados','Dashboard empleados'],
       ['empleados','Asociados'],
-      ['vacaciones-admin','Vacaciones'],
-      ['asistencias-admin','Asistencias'],
+      ['vacaciones-admin','Vacaciones y Permisos'],
       ['pagos-admin','Pagos y bonos'],
       ['incapacidades-admin','Incapacidades'],
       ['llamadas-admin','Llamadas de atención'],
@@ -705,14 +711,24 @@ function viewEmpleadosAdmin(){
 
 function viewVacacionesAdmin(){
   const list = state.vacacionesAdmin || [];
-  return `<h1 class="page-title">Vacaciones</h1><p class="page-sub">Historial de todas las solicitudes de vacaciones</p>
-    <div class="card"><table><thead><tr><th>Asociado</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Motivo</th><th>Estado</th><th>Aprobado por</th><th>Documento</th></tr></thead>
+  const permisos = state.permisosAdmin || [];
+  return `<h1 class="page-title">Vacaciones y Permisos</h1><p class="page-sub">Historial de todas las solicitudes, con acceso a los comentarios de cada una</p>
+    <div class="card"><h3 style="margin-top:0">Vacaciones</h3><table><thead><tr><th>Asociado</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Motivo</th><th>Estado</th><th>Aprobado por</th><th>Documento</th><th>Comentarios</th></tr></thead>
     <tbody>${list.map(v=>`<tr>
       <td>${v.empleado}<div style="font-size:11px;color:var(--slate)">${v.codigo||''}</div></td>
       <td>${fmtDate(v.fecha_inicio)}</td><td>${fmtDate(v.fecha_fin)}</td><td>${v.dias}</td><td>${v.motivo||'—'}</td>
       <td><span class="stamp ${v.estado}">${v.estado}</span></td><td>${v.aprobado_por||'—'}</td>
       <td>${v.estado==='aprobado' ? `<button class="btn-chat" data-hoja="${v.id}">${v.documento_url?'📄 Ver / actualizar':'📄 Subir hoja'}</button>` : '—'}</td>
-    </tr>`).join('') || `<tr><td colspan="8" class="empty">Aún no hay solicitudes de vacaciones</td></tr>`}</tbody></table></div>`;
+      <td><button class="btn-chat" data-chat-historial="vacaciones|${v.id}">💬 Ver</button></td>
+    </tr>`).join('') || `<tr><td colspan="9" class="empty">Aún no hay solicitudes de vacaciones</td></tr>`}</tbody></table></div>
+    <div style="height:16px"></div>
+    <div class="card"><h3 style="margin-top:0">Permisos</h3><table><thead><tr><th>Asociado</th><th>Fecha</th><th>Tipo</th><th>Horas</th><th>Motivo</th><th>Estado</th><th>Aprobado por</th><th>Comentarios</th></tr></thead>
+    <tbody>${permisos.map(p=>`<tr>
+      <td>${p.empleado}<div style="font-size:11px;color:var(--slate)">${p.codigo||''}</div></td>
+      <td>${fmtDate(p.fecha)}</td><td style="text-transform:capitalize">${p.tipo}</td><td>${p.horas??'—'}</td><td>${p.motivo||'—'}</td>
+      <td><span class="stamp ${p.estado}">${p.estado}</span></td><td>${p.aprobado_por||'—'}</td>
+      <td><button class="btn-chat" data-chat-historial="permisos|${p.id}">💬 Ver</button></td>
+    </tr>`).join('') || `<tr><td colspan="8" class="empty">Aún no hay solicitudes de permiso</td></tr>`}</tbody></table></div>`;
 }
 
 function empSelectOptions(){
@@ -919,7 +935,11 @@ function openModal(html){
   document.body.appendChild(bg);
   bg.addEventListener('click', e=>{ if(e.target===bg) closeModal(); });
 }
-function closeModal(){ document.getElementById('modal-bg')?.remove(); }
+let _chatPollTimer = null;
+function closeModal(){
+  document.getElementById('modal-bg')?.remove();
+  if(_chatPollTimer){ clearInterval(_chatPollTimer); _chatPollTimer = null; }
+}
 
 function modalSolicitarVacacion(){
   openModal(`
@@ -1006,15 +1026,17 @@ function modalSolicitarPrestamo(){
 
 const SOLICITUD_LABEL = {vacaciones:'Vacaciones', permisos:'Permiso', adelantos:'Adelanto', prestamos:'Préstamo'};
 
-async function modalChatSolicitud(tabla, solicitudId){
+async function modalChatSolicitud(tabla, solicitudId, readonly){
   const esAdmin = state.session.rol === 'admin';
   openModal(`
     <h3>💬 ${SOLICITUD_LABEL[tabla]||''} — Comentarios</h3>
     <div id="chat-msgs" style="max-height:320px;overflow-y:auto;border:1px solid var(--stone-line);border-radius:4px;padding:10px;margin-bottom:12px;background:#FAF9F5">Cargando...</div>
-    <div style="display:flex;gap:8px">
+    ${readonly
+      ? `<p style="font-size:12px;color:var(--slate);margin:0 0 8px">🔒 Historial bloqueado — esta solicitud ya se resolvió, no se pueden agregar más comentarios.</p>`
+      : `<div style="display:flex;gap:8px">
       <textarea id="chat-input" rows="2" placeholder="Escribe un mensaje..." style="flex:1"></textarea>
       <button class="btn gold sm" id="chat-send" style="align-self:flex-end">Enviar</button>
-    </div>
+    </div>`}
     <div class="row-end"><button class="link" id="chat-close">Cerrar</button></div>`);
   document.getElementById('chat-close').onclick = closeModal;
 
@@ -1040,22 +1062,33 @@ async function modalChatSolicitud(tabla, solicitudId){
     pintarMsgs(data);
   };
   await cargar();
+  _chatPollTimer = setInterval(cargar, 5000);
 
-  document.getElementById('chat-send').onclick = async () => {
-    const input = document.getElementById('chat-input');
-    const mensaje = input.value.trim();
-    if(!mensaje) return;
-    const {error} = esAdmin
-      ? await sb.rpc('rrhh_admin_enviar_mensaje_solicitud', {p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_tabla: tabla, p_solicitud_id: solicitudId, p_mensaje: mensaje})
-      : await sb.rpc('rrhh_enviar_mensaje_solicitud', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_tabla: tabla, p_solicitud_id: solicitudId, p_mensaje: mensaje});
-    if(error){ toast('Error: '+error.message); return; }
-    input.value = '';
-    await cargar();
-  };
+  if(!readonly){
+    document.getElementById('chat-send').onclick = async () => {
+      const input = document.getElementById('chat-input');
+      const mensaje = input.value.trim();
+      if(!mensaje) return;
+      const {error} = esAdmin
+        ? await sb.rpc('rrhh_admin_enviar_mensaje_solicitud', {p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_tabla: tabla, p_solicitud_id: solicitudId, p_mensaje: mensaje})
+        : await sb.rpc('rrhh_enviar_mensaje_solicitud', {p_empleado_id: state.session.empleado_id, p_pin: state.session.pin, p_tabla: tabla, p_solicitud_id: solicitudId, p_mensaje: mensaje});
+      if(error){ toast('Error: '+error.message); return; }
+      const nombre = state.session.nombre || (esAdmin ? 'Un admin' : 'Un asociado');
+      notificarAdminsRRHH(
+        esAdmin ? `💬 ${nombre} comentó — ${SOLICITUD_LABEL[tabla]||''}` : `💬 Nuevo comentario — ${SOLICITUD_LABEL[tabla]||''}`,
+        nombre+': '+mensaje.slice(0,150)
+      );
+      input.value = '';
+      await cargar();
+    };
+  }
 }
 function bindChatButtons(){
   document.querySelectorAll('[data-chat]').forEach(btn=>{
     btn.onclick = () => { const [tabla, id] = btn.getAttribute('data-chat').split('|'); modalChatSolicitud(tabla, id); };
+  });
+  document.querySelectorAll('[data-chat-historial]').forEach(btn=>{
+    btn.onclick = () => { const [tabla, id] = btn.getAttribute('data-chat-historial').split('|'); modalChatSolicitud(tabla, id, true); };
   });
 }
 
@@ -1229,7 +1262,7 @@ async function render(){
     if(state.view==='dashboard'){ if(!state.adminData) await loadAdminDashboard(); renderShell(viewDashboardAdmin()); }
     else if(state.view==='dashboard-empleados'){ if(!state.dashEmp) await loadDashEmpleados(); renderShell(viewDashboardEmpleados()); bindDashboardEmpleados(); }
     else if(state.view==='empleados'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewEmpleadosAdmin()); bindEmpleadosAdmin(); }
-    else if(state.view==='vacaciones-admin'){ await loadVacacionesAdmin(); renderShell(viewVacacionesAdmin()); bindVacacionesAdmin(); }
+    else if(state.view==='vacaciones-admin'){ await Promise.all([loadVacacionesAdmin(), loadPermisosAdmin()]); renderShell(viewVacacionesAdmin()); bindVacacionesAdmin(); }
     else if(state.view==='asistencias-admin'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewAsistenciasAdmin()); bindAsistenciasAdmin(); }
     else if(state.view==='pagos-admin'){ if(!state.empleados) await loadAdminEmpleados(); if(!state.adminData) await loadAdminDashboard(); renderShell(viewPagosAdmin()); bindPagosAdmin(); }
     else if(state.view==='incapacidades-admin'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewIncapacidadesAdmin()); bindIncapacidadesAdmin(); }
@@ -1749,6 +1782,7 @@ function bindVacacionesAdmin(){
       if(vac) modalHojaVacacion(vac);
     };
   });
+  bindChatButtons();
 }
 function bindSolicitudesAdmin(){
   bindChatButtons();
