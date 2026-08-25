@@ -142,6 +142,7 @@ const PUSH_URL = 'https://ixskgawbpwwxdjnkiixt.supabase.co';
 const ARQUEOS_URL = 'https://larocaarqueos-production.up.railway.app';
 const VALE_KEY = 'fd016a8791ef42ac2774f1a6bd6c03bd2dfda4fc608a611b';
 const PUSH_KEY = 'sb_publishable_-JUaSYPPkq8n4wJIKPtXGw_XMyj3EE7';
+const sbCobranza = createClient(PUSH_URL, PUSH_KEY);
 function notificarAdminsRRHH(title, body){
   fetch(PUSH_URL + '/functions/v1/send-push', {
     method: 'POST',
@@ -161,6 +162,7 @@ let state = {
   vacacionesAdmin: null,
   permisosAdmin: null,
   chatUnread: {},
+  actividadAsociados: null,
   loading: false,
   capacitaciones: null,
   capacitacionesAdmin: null,
@@ -284,6 +286,43 @@ async function loadChatUnread(d){
     state.chatUnread[tabla+'|'+id] = visto ? data.filter(m=>m.created_at>visto).length : data.length;
   }));
   if(state.view==='solicitudes'){ renderShell(viewSolicitudesAdmin()); bindSolicitudesAdmin(); }
+}
+function normNombre(s){
+  return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+}
+function primerNombre(s){
+  return normNombre(s).split(/\s+/)[0]||'';
+}
+async function loadActividadAsociados(){
+  if(!state.empleados) await loadAdminEmpleados();
+  const empleados = (state.empleados||[]).filter(e=>e.activo);
+  const hoy = new Date();
+  const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0,10);
+  const mesKey = hoy.toISOString().slice(0,7);
+
+  const [gestRes, cierreRes] = await Promise.all([
+    sb.from('gestiones').select('user_name').gte('date_iso', mesInicio),
+    sbCobranza.from('cierre_proyeccion').select('cerrado_por').eq('mes_key', mesKey),
+  ]);
+  const gestNombres = (gestRes.data||[]).map(g=>g.user_name);
+  const cobranzaNombres = (cierreRes.data||[]).map(c=>c.cerrado_por);
+  const pendRRHH = new Set();
+  const d = state.adminData;
+  if(d){
+    [...(d.vacaciones_pendientes||[]), ...(d.permisos_pendientes||[]), ...(d.adelantos_pendientes||[]), ...(d.prestamos_pendientes||[])]
+      .forEach(x=>pendRRHH.add(normNombre(x.empleado)));
+  }
+
+  const resultado = {};
+  empleados.forEach(e=>{
+    const pn = primerNombre(e.nombre);
+    const crmCount = gestNombres.filter(n=>primerNombre(n)===pn).length;
+    const enCobranza = cobranzaNombres.some(n=>primerNombre(n)===pn);
+    const enRRHH = pendRRHH.has(normNombre(e.nombre));
+    resultado[e.id] = { crm: crmCount, cobranza: enCobranza, rrhh: enRRHH };
+  });
+  state.actividadAsociados = resultado;
+  if(state.view==='dashboard'){ renderShell(viewDashboardAdmin()); }
 }
 async function loadDashEmpleados(){
   const {session} = state;
@@ -640,6 +679,33 @@ function viewPerfilEmpleado(){
   </div>`;
 }
 
+function viewActividadAsociados(){
+  const act = state.actividadAsociados;
+  const empleados = (state.empleados||[]).filter(e=>e.activo);
+  if(!empleados.length) return '';
+  const mesLabel = new Date().toLocaleDateString('es-HN',{month:'long',year:'numeric'});
+  const chip = (on, label) => `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:10px;background:${on?'var(--green)':'var(--stone-line)'};color:${on?'#fff':'var(--slate)'}">${label}</span>`;
+  return `<div class="card"><h3 style="margin-top:0">Actividad de asociados — ${mesLabel}</h3>
+    <p style="font-size:12px;color:var(--slate);margin:-6px 0 14px">En qué app trabajó cada quien este mes (CRM = gestiones registradas, Cobranza = cartera cerrada, RRHH = solicitud con vos)</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px">
+    ${empleados.map(e=>{
+      const a = act ? act[e.id] : null;
+      return `<div style="text-align:center;padding:14px 8px;border:1px solid var(--stone-line);border-radius:10px">
+        ${avatarHtml(e.nombre, e.foto_url, 'lg')}
+        <div style="font-weight:700;font-size:13px;margin-top:8px">${e.nombre}</div>
+        <div style="font-size:11px;color:var(--slate);margin-bottom:8px">${e.puesto||''}</div>
+        ${a===null||a===undefined
+          ? '<div style="font-size:11px;color:var(--slate)">Cargando…</div>'
+          : `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:4px">
+              ${chip(a.crm>0, a.crm>0?`CRM (${a.crm})`:'CRM')}
+              ${chip(a.cobranza, 'Cobranza')}
+              ${chip(a.rrhh, 'RRHH')}
+            </div>`}
+      </div>`;
+    }).join('')}
+    </div>
+  </div>`;
+}
 /* ============ ADMIN VIEWS ============ */
 function viewDashboardAdmin(){
   const d = state.adminData;
@@ -650,6 +716,8 @@ function viewDashboardAdmin(){
     <div class="card stat-card"><div class="label">Solicitudes pendientes</div><div class="value">${d.vacaciones_pendientes.length + d.permisos_pendientes.length + d.adelantos_pendientes.length + d.prestamos_pendientes.length + d.incapacidades_pendientes.length}</div></div>
     <div class="card stat-card"><div class="label">Próximos cumpleaños/aniversarios</div><div class="value">${d.cumpleanos_proximos.length + d.aniversarios_proximos.length}</div></div>
   </div>
+  <div style="height:22px"></div>
+  ${viewActividadAsociados()}
   <div style="height:22px"></div>
   <div class="grid cols-2">
     <div class="card"><h3 style="margin-top:0">🎂 Cumpleaños (próximos 30 días)</h3>
@@ -1292,7 +1360,7 @@ async function render(){
   const {rol} = state.session;
 
   if(rol === 'admin'){
-    if(state.view==='dashboard'){ if(!state.adminData) await loadAdminDashboard(); renderShell(viewDashboardAdmin()); }
+    if(state.view==='dashboard'){ if(!state.adminData) await loadAdminDashboard(); renderShell(viewDashboardAdmin()); loadActividadAsociados(); }
     else if(state.view==='dashboard-empleados'){ if(!state.dashEmp) await loadDashEmpleados(); renderShell(viewDashboardEmpleados()); bindDashboardEmpleados(); }
     else if(state.view==='empleados'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewEmpleadosAdmin()); bindEmpleadosAdmin(); }
     else if(state.view==='vacaciones-admin'){ await Promise.all([loadVacacionesAdmin(), loadPermisosAdmin()]); renderShell(viewVacacionesAdmin()); bindVacacionesAdmin(); }
