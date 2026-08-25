@@ -1014,7 +1014,8 @@ function parseCartera(lines){
   var nameSim=function(a,b){if(a===b)return true;var lo=a.length>=b.length?a:b,sh=a.length<b.length?a:b;if(sh.length<4)return false;if(lo.startsWith(sh))return true;if(a.length===b.length){var d=0;for(var k=0;k<a.length;k++)if(a[k]!==b[k])d++;return d<=2;}return false;};
   var pushCliente=function(nombre,allD,allN){
     if(allD.length<1||allN.length<1||nombre.length<3)return;
-    var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago;if(sinP)uPago=null;
+    var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago;
+    if(sinP){var fFactD=parseHNDate(fFact);if(fFactD&&fFactD<=HOY){uPago=fFact;sinP=false;}else{uPago=null;}}
     var total=0,nCuotas=0,pagado=0,saldo=0,diaPago=0,cuota=0;
     var bI=allN.findIndex(function(n){return n>=100;});if(bI>=0)total=allN[bI];
     var nci=-1;for(var ni=bI+1;ni<allN.length;ni++){if(allN[ni]>=1&&allN[ni]<=36&&Number.isInteger(allN[ni])){nCuotas=Math.round(allN[ni]);nci=ni;break;}}
@@ -5892,7 +5893,8 @@ function parseBloqueCliente(nombre,lineas,clientes){
       ns.forEach(function(n){allN.push(n);});
     });
     if(allD.length<1||allN.length<1)return;
-    var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago;if(sinP)uPago=null;
+    var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago;
+    if(sinP){var fFactD=parseHNDate(fFact);if(fFactD&&fFactD<=HOY){uPago=fFact;sinP=false;}else{uPago=null;}}
     var bI=allN.findIndex(function(n){return n>=100;});var total=bI>=0?allN[bI]:0;
     var nci=-1,nCuotas=0;for(var ni=bI+1;ni<allN.length;ni++){if(allN[ni]>=1&&allN[ni]<=36&&Number.isInteger(allN[ni])){nCuotas=Math.round(allN[ni]);nci=ni;break;}}
     var pi=-1,pagado=0;for(var ni2=Math.max(nci,bI)+1;ni2<allN.length;ni2++){if(allN[ni2]>=0){pagado=allN[ni2];pi=ni2;break;}}
