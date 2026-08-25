@@ -1,0 +1,136 @@
+{
+  "name": "Cobranza — Cruce diario pagos vs cartera (MODO REPORTE)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Cruce diario cobranza — MODO REPORTE\n\nEste workflow **todavía no envía nada a ningún cliente**. Cada noche:\n1. Llama a `GET /api/n8n/gestion-diaria` en LarocaArqueos.\n2. Compara los pagos del día contra la cartera (por saldo, no por nombre).\n3. Arma un texto de reporte (quién pagó / quién no / recibos que no se pudieron cruzar).\n\nEl reporte queda en el último nodo (\"Reporte listo\") — revísalo ahí unos días antes de conectar un envío real (WhatsApp/email/Slack). Ver `AUDITORIA_COBRANZA_N8N.md` y `ESTADO_PARA_JORGE_2026-08-25.md` en este repo para el contexto completo.\n\n**Antes de activar:**\n- Aplicar `larocaarqueos/migrations/007_carteras_sucursales.sql`\n- Desplegar `larocaarqueos` a Railway (tiene el endpoint nuevo)\n- Configurar `N8N_API_KEY` en las variables de entorno de Railway\n- Editar el nodo \"Config\" con la URL real y esa misma key",
+        "height": 460,
+        "width": 460
+      },
+      "id": "a1111111-0000-4000-8000-000000000001",
+      "name": "Notas",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-200, -80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 3 * * *" }
+          ]
+        }
+      },
+      "id": "a1111111-0000-4000-8000-000000000002",
+      "name": "Cada noche 9pm Honduras",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [280, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "base_url",
+              "type": "string",
+              "value": "https://larocaarqueos-production.up.railway.app"
+            },
+            {
+              "id": "b2",
+              "name": "n8n_key",
+              "type": "string",
+              "value": "PEGAR_AQUI_LA_N8N_API_KEY_CONFIGURADA_EN_RAILWAY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1111111-0000-4000-8000-000000000003",
+      "name": "Config (editar antes de usar)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.base_url }}/api/n8n/gestion-diaria",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-n8n-key", "value": "={{ $json.n8n_key }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1111111-0000-4000-8000-000000000004",
+      "name": "Cruce del día",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst carteras = data.carteras || [];\n\nlet totalPagaron = 0, totalSinMatch = 0, totalPendientes = 0;\nconst detalle = [];\n\nfor (const c of carteras) {\n  if (c.error) {\n    detalle.push({ sucursal: c.sucursal, error: c.error });\n    continue;\n  }\n  totalPagaron    += (c.pagaron || []).length;\n  totalSinMatch   += (c.sin_match || []).length;\n  totalPendientes += (c.pendientes_hoy_sin_pago || []).length;\n  detalle.push({\n    sucursal: c.sucursal,\n    cartera: c.nombre,\n    pagaron: (c.pagaron || []).length,\n    sin_match: (c.sin_match || []).length,\n    pendientes_sin_pago: (c.pendientes_hoy_sin_pago || []).length,\n    sin_match_detalle: c.sin_match || [],\n    pendientes_detalle: c.pendientes_hoy_sin_pago || [],\n  });\n}\n\nreturn [{\n  json: {\n    fecha: data.fecha,\n    totales: { pagaron: totalPagaron, sin_match: totalSinMatch, pendientes_sin_pago: totalPendientes },\n    carteras: detalle,\n  }\n}];"
+      },
+      "id": "a1111111-0000-4000-8000-000000000005",
+      "name": "Separar resultados",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nlet texto = `📊 Cruce de cobranza — ${d.fecha}\\n\\n`;\ntexto += `Pagaron (match confirmado): ${d.totales.pagaron}\\n`;\ntexto += `Sin match (revisar a mano): ${d.totales.sin_match}\\n`;\ntexto += `Pendientes sin pago hoy: ${d.totales.pendientes_sin_pago}\\n\\n`;\n\nfor (const c of d.carteras) {\n  if (c.error) { texto += `⚠️ ${c.sucursal}: ${c.error}\\n`; continue; }\n  texto += `— ${c.sucursal} (${c.cartera}) —\\n`;\n  texto += `  Pagaron: ${c.pagaron} | Sin match: ${c.sin_match} | Pendientes: ${c.pendientes_sin_pago}\\n`;\n  if (c.sin_match_detalle.length) {\n    texto += `  Revisar:\\n`;\n    for (const s of c.sin_match_detalle) texto += `    - Recibo ${s.recibo} (${s.cliente}, L${s.monto}): ${s.motivo}\\n`;\n  }\n  texto += `\\n`;\n}\n\nreturn [{ json: { ...d, reporte_texto: texto } }];"
+      },
+      "id": "a1111111-0000-4000-8000-000000000006",
+      "name": "Armar reporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 300]
+    },
+    {
+      "parameters": {},
+      "id": "a1111111-0000-4000-8000-000000000007",
+      "name": "Reporte listo (conectar salida aquí)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1380, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Acá conectás la salida real\n\nHoy este workflow termina en \"Reporte listo\" sin mandar nada. Cuando ya hayas revisado unos días que el cruce por saldo está funcionando bien:\n\n1. **Primero mándatelo solo a ti** (email, Slack, o un chat de WhatsApp tuyo) unos días — no a los clientes todavía. Revisa especialmente la lista \"sin_match_detalle\", son los casos que la automatización no supo resolver sola.\n2. Recién ahí conectá el envío real a clientes. El backend WhatsApp ya existente (Twilio) está en el repo `la-roca-crm` — `POST /api/enviar-masivo` con plantilla, o construir uno nuevo apuntado a `pendientes_detalle` de cada cartera (trae `mensaje_wa` ya armado por cliente si `carteras.clientes[]` lo tiene cargado).\n3. Para escribir de vuelta a `historial_clientes` (registrar que se gestionó), falta el endpoint dedicado `/api/n8n/gestion-diaria` en modo POST — no está construido todavía, ver auditoría sección 10.",
+        "height": 380,
+        "width": 460
+      },
+      "id": "a1111111-0000-4000-8000-000000000008",
+      "name": "Notas 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1160, 480]
+    }
+  ],
+  "connections": {
+    "Cada noche 9pm Honduras": {
+      "main": [[{ "node": "Config (editar antes de usar)", "type": "main", "index": 0 }]]
+    },
+    "Config (editar antes de usar)": {
+      "main": [[{ "node": "Cruce del día", "type": "main", "index": 0 }]]
+    },
+    "Cruce del día": {
+      "main": [[{ "node": "Separar resultados", "type": "main", "index": 0 }]]
+    },
+    "Separar resultados": {
+      "main": [[{ "node": "Armar reporte", "type": "main", "index": 0 }]]
+    },
+    "Armar reporte": {
+      "main": [[{ "node": "Reporte listo (conectar salida aquí)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
