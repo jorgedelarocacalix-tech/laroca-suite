@@ -267,7 +267,7 @@ function chatSeenKey(tabla, id){ return 'rrhh_chat_seen_'+tabla+'_'+id; }
 function marcarChatVisto(tabla, id, ultimoTs){
   if(!ultimoTs) return;
   localStorage.setItem(chatSeenKey(tabla, id), ultimoTs);
-  state.chatUnread[tabla+'|'+id] = false;
+  state.chatUnread[tabla+'|'+id] = 0;
 }
 async function loadChatUnread(d){
   const {session} = state;
@@ -280,9 +280,8 @@ async function loadChatUnread(d){
   await Promise.all(items.map(async ([tabla, id]) => {
     const {data, error} = await sb.rpc('rrhh_admin_listar_mensajes_solicitud', {p_admin_codigo: session.codigo, p_admin_pin: session.pin, p_tabla: tabla, p_solicitud_id: id});
     if(error || !data || !data.length) return;
-    const ultimo = data[data.length-1];
     const visto = localStorage.getItem(chatSeenKey(tabla, id));
-    state.chatUnread[tabla+'|'+id] = !visto || visto < ultimo.created_at;
+    state.chatUnread[tabla+'|'+id] = visto ? data.filter(m=>m.created_at>visto).length : data.length;
   }));
   if(state.view==='solicitudes'){ renderShell(viewSolicitudesAdmin()); bindSolicitudesAdmin(); }
 }
@@ -374,8 +373,9 @@ function renderShell(bodyHtml){
           const tot=(a.adelantos_pendientes||[]).length+(a.vacaciones_pendientes||[]).length+(a.permisos_pendientes||[]).length+(a.prestamos_pendientes||[]).length+(a.incapacidades_pendientes||[]).length;
           if(tot>0)extra=` <span class="nav-badge-roja">${tot}</span>`;
         }
-        if(k==='solicitudes'&&Object.values(state.chatUnread).some(Boolean)){
-          extra+=' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brick);vertical-align:middle"></span>';
+        if(k==='solicitudes'){
+          const totalUnread = Object.values(state.chatUnread).reduce((s,n)=>s+(n|0),0);
+          if(totalUnread>0) extra+=` <span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--brick);color:#fff;font-size:11px;font-weight:700;vertical-align:middle">${totalUnread>9?'9+':totalUnread}</span>`;
         }
         return `<div class="navitem ${state.view===k?'active':''}" data-nav="${k}">${label}${extra}</div>`;
       }).join('')}
@@ -905,7 +905,8 @@ function renderPreguntasBuilder(){
 }
 
 function chatBadge(tabla, id){
-  return state.chatUnread[tabla+'|'+id] ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brick);margin-left:5px;vertical-align:middle"></span>' : '';
+  const n = state.chatUnread[tabla+'|'+id]|0;
+  return n>0 ? `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--brick);color:#fff;font-size:11px;font-weight:700;margin-left:5px;vertical-align:middle">${n>9?'9+':n}</span>` : '';
 }
 function viewSolicitudesAdmin(){
   const d = state.adminData;
