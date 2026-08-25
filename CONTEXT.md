@@ -10,6 +10,7 @@ Repo: https://github.com/jorgedelarocacalix-tech/laroca-suite
 |---|---|---|
 | `/` | Suite (hub) | Login con código+PIN RRHH vía RPC `rrhh_login`, guarda sesión en `sessionStorage.suite_sesion` |
 | `/cobranza/` | Cobranza | `cobranza/index.html` — copia sincronizada del repo COBRAZNA- (SSO vía sessionStorage) |
+| `/cotizador/` | Cotizador | `cotizador/index.html` — copia sincronizada del repo cotizador-laroca. Tile SIN `data-app`, por lo que no se filtra por `accesos_apps`: siempre visible para cualquier usuario logueado en la suite |
 | link | RRHH | https://laroca-rrhh-production.up.railway.app |
 | link (`#sso=`) | Arqueos | https://larocaarqueos-production.up.railway.app — SSO por hash base64 codigo+pin |
 
@@ -32,3 +33,6 @@ nginx sirve HTML con `Cache-Control: no-cache` (usuarios siempre ven versión nu
 
 ## Actualizar cobranza incluida
 Copiar `~/cobranza-app/index.html` → `cobranza/index.html`, commit, y `railway up`.
+
+## Actualizar cotizador incluido
+Copiar `~/cotizador-laroca/index.html` → `cotizador/index.html`, commit, y `railway up`.

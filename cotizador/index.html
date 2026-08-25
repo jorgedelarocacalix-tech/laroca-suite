@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Cotizador — La Roca</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --red: #c0392b; --red-dark: #96281b;
+      --g50: #f9f9f9; --g100: #f1f1f1; --g200: #e0e0e0;
+      --g400: #9e9e9e; --g600: #555; --g800: #222;
+      --shadow: 0 2px 12px rgba(0,0,0,0.1); --r: 12px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--g50); color: var(--g800); font-size: 16px; min-height: 100vh; }
+    .hidden { display: none !important; }
+
+    /* Header */
+    header { background: var(--red); color: white; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header span { font-size: 12px; opacity: 0.8; }
+    #btn-admin { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 8px 14px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+
+    /* Tabs */
+    .tabs { display: flex; background: white; border-bottom: 2px solid var(--g200); position: sticky; top: 55px; z-index: 99; }
+    .tab-btn { flex: 1; padding: 13px 8px; border: none; background: none; font-size: 14px; font-weight: 600; color: var(--g400); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+    .tab-btn.active { color: var(--red); border-bottom-color: var(--red); }
+
+    /* Content */
+    .tab-content { padding: 16px; max-width: 640px; margin: 0 auto; }
+
+    /* Inputs */
+    input, select, textarea {
+      width: 100%; padding: 13px 16px; border: 2px solid var(--g200);
+      border-radius: var(--r); font-size: 16px; outline: none;
+      background: white; color: var(--g800); font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--red); }
+    textarea { resize: vertical; min-height: 80px; }
+    label { display: block; font-size: 13px; font-weight: 700; color: var(--g600); margin-bottom: 6px; }
+    .form-group { margin-bottom: 14px; }
+    .prefix-wrap { position: relative; }
+    .prefix-wrap .pfx { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 14px; font-weight: 700; color: var(--g400); pointer-events: none; }
+    .prefix-wrap input { padding-left: 54px; }
+
+    /* Buttons */
+    .btn { width: 100%; padding: 15px; border: none; border-radius: var(--r); font-size: 16px; font-weight: 700; cursor: pointer; }
+    .btn-red { background: var(--red); color: white; }
+    .btn-red:hover { background: var(--red-dark); }
+    .btn-gray { background: var(--g100); color: var(--g600); border: 2px solid var(--g200); }
+
+    /* Price card */
+    .price-card { background: white; border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; margin-top: 16px; }
+    .price-card-head { background: var(--red); color: white; padding: 16px; }
+    .price-card-head h3 { font-size: 18px; font-weight: 700; line-height: 1.3; }
+    .price-card-head p { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+    .divider { background: var(--g100); padding: 6px 16px; font-size: 11px; font-weight: 700; color: var(--g400); text-transform: uppercase; letter-spacing: 0.5px; }
+    .price-row { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--g100); }
+    .price-row:last-child { border-bottom: none; }
+    .price-label { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+    .ico { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .ico-1 { background: #e8f5e9; } .ico-2 { background: #e3f2fd; }
+    .ico-3 { background: #fff3e0; } .ico-4 { background: #f3e5f5; } .ico-5 { background: #fce4ec; }
+    .price-right { text-align: right; }
+    .price-main { font-size: 18px; font-weight: 700; color: var(--red); }
+    .price-sub { font-size: 12px; color: var(--g400); margin-top: 2px; }
+
+    /* Category badge */
+    .cat-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-top: 8px; }
+    .cat-badge.moto { background: #e3f2fd; color: #1565c0; }
+    .cat-badge.hogar { background: #e8f5e9; color: #2e7d32; }
+    .cat-badge.unknown { background: var(--g100); color: var(--g600); }
+
+    /* Search */
+    .search-wrap { position: relative; margin-bottom: 10px; }
+    .search-wrap input { padding-left: 44px; }
+    .search-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 18px; color: var(--g400); }
+    .results-list { background: white; border: 2px solid var(--g200); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); margin-top: -6px; }
+    .result-item { padding: 13px 16px; cursor: pointer; border-bottom: 1px solid var(--g100); }
+    .result-item:hover { background: var(--g50); }
+    .result-item:last-child { border-bottom: none; }
+    .ri-name { font-weight: 600; font-size: 15px; }
+    .ri-sub { font-size: 13px; color: var(--g400); margin-top: 2px; }
+
+    /* Similar */
+    .similar-title { font-size: 15px; font-weight: 700; margin: 20px 0 10px; }
+    .similar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 10px; }
+    .sim-card { background: white; border-radius: 10px; padding: 12px; box-shadow: var(--shadow); cursor: pointer; border: 2px solid transparent; }
+    .sim-card:hover { border-color: var(--red); }
+    .sim-name { font-weight: 600; font-size: 13px; line-height: 1.3; }
+    .sim-price { font-size: 15px; font-weight: 700; color: var(--red); margin-top: 4px; }
+    .sim-lbl { font-size: 11px; color: var(--g400); }
+
+    /* Empty */
+    .empty { text-align: center; padding: 48px 20px; color: var(--g400); }
+    .empty .big { font-size: 52px; margin-bottom: 12px; }
+    .empty p { font-size: 15px; line-height: 1.6; }
+
+    /* CSV drop */
+    .drop-zone { border: 2px dashed var(--g200); border-radius: var(--r); padding: 28px 20px; text-align: center; cursor: pointer; background: white; transition: border-color 0.2s; }
+    .drop-zone:hover, .drop-zone.over { border-color: var(--red); background: #fff8f8; }
+    .drop-ico { font-size: 40px; margin-bottom: 10px; }
+    .drop-zone p { font-size: 15px; color: var(--g600); }
+    .drop-hint { font-size: 12px; color: var(--g400); margin-top: 6px; }
+    #csv-file { display: none; }
+
+    /* CSV table */
+    .csv-wrap { overflow-x: auto; margin-top: 14px; border-radius: 10px; border: 1px solid var(--g200); }
+    .csv-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .csv-wrap th { background: var(--g100); padding: 9px 10px; text-align: left; font-weight: 700; white-space: nowrap; }
+    .csv-wrap td { padding: 8px 10px; border-top: 1px solid var(--g100); vertical-align: top; }
+    .row-ok td { background: #f9fff9; }
+    .row-warn td { background: #fffdf0; }
+    .row-err td { background: #fff5f5; }
+    .badge-ok { color: #2e7d32; font-weight: 700; }
+    .badge-warn { color: #e65100; font-weight: 700; }
+    .badge-err { color: var(--red); font-weight: 700; }
+    .auto-cat { font-size: 11px; padding: 2px 8px; border-radius: 10px; display: inline-block; }
+    .auto-cat.moto { background: #e3f2fd; color: #1565c0; }
+    .auto-cat.hogar { background: #e8f5e9; color: #2e7d32; }
+
+    .csv-summary { background: var(--g50); border-radius: 10px; padding: 12px 16px; font-size: 14px; margin-top: 12px; line-height: 1.8; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
+    .modal-overlay.center { align-items: center; }
+    .modal-box { background: white; border-radius: 20px 20px 0 0; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 24px 20px 36px; }
+    .modal-box.small { border-radius: 20px; width: calc(100% - 40px); max-width: 360px; padding: 28px 24px; text-align: center; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .modal-head h2 { font-size: 20px; font-weight: 700; }
+    .btn-x { background: var(--g100); border: none; width: 32px; height: 32px; border-radius: 8px; font-size: 16px; cursor: pointer; }
+
+    /* Admin tabs */
+    .adm-tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+    .adm-tab { flex: 1; min-width: 90px; padding: 10px 6px; border: 2px solid var(--g200); border-radius: 8px; background: none; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--g600); }
+    .adm-tab.active { border-color: var(--red); color: var(--red); background: #fff0ef; }
+
+    /* Margins */
+    .cat-block { background: var(--g50); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+    .cat-block h4 { font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .mfield label { font-size: 12px; margin-bottom: 4px; }
+    .mfield input { padding: 10px 12px; font-size: 15px; }
+    .btn-save-cat { width: 100%; padding: 10px; background: var(--red); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+    /* PIN */
+    .pin-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .pin-sub { font-size: 14px; color: var(--g400); margin-bottom: 16px; }
+    .pin-input { text-align: center; font-size: 28px; letter-spacing: 8px; padding: 14px; border-radius: 12px; margin-bottom: 14px; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120px); background: #333; color: white; padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: 600; z-index: 999; transition: transform 0.3s; white-space: nowrap; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.ok { background: #2e7d32; }
+
+    /* Spinner */
+    .spin { display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: sp 0.7s linear infinite; vertical-align: middle; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+
+    /* Referencia de mercado */
+    .ref-card { background: white; border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; margin-top: 12px; border: 2px solid #bbdefb; }
+    .ref-card-head { background: #1565c0; color: white; padding: 14px 16px; }
+    .ref-card-head h3 { font-size: 15px; font-weight: 700; }
+    .ref-card-head p { font-size: 12px; opacity: 0.85; margin-top: 4px; line-height: 1.4; }
+    .ref-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--g100); }
+    .ref-row:last-child { border-bottom: none; }
+    .ref-label { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+    .ref-right { text-align: right; }
+    .ref-price { font-size: 17px; font-weight: 700; color: #1565c0; }
+    .ref-sub { font-size: 11px; color: var(--g400); margin-top: 2px; }
+    .ref-pct { font-size: 11px; font-weight: 700; color: #1565c0; background: #e3f2fd; padding: 2px 7px; border-radius: 10px; }
+    .ref-note { font-size: 12px; color: var(--g600); padding: 10px 16px; background: #f0f7ff; border-top: 1px solid #bbdefb; line-height: 1.5; }
+
+    @media(max-width:420px) { .similar-grid, .mgrid { grid-template-columns: 1fr 1fr; } }
+      /* Excel tab */
+    #excel-raw { font-family: monospace; font-size: 13px; }
+    .xl-chip { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; margin-left:6px; }
+    .xl-ref  { background:#e3f2fd; color:#1565c0; }
+    .xl-cat  { background:#e8f5e9; color:#2e7d32; }
+    .xl-err  { background:#fff0ef; color:var(--red); }
+    .xl-actions { display:flex; gap:10px; margin-top:12px; }
+    .xl-actions .btn { flex:1; padding:14px; }
+
+    /* Comparar tab */
+    .cat-pills { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+    .cat-pill { padding:8px 14px; border:2px solid var(--g200); border-radius:20px; background:white; font-size:13px; font-weight:700; cursor:pointer; color:var(--g600); }
+    .cat-pill.active { border-color:#2e7d32; color:#2e7d32; background:#f0fff4; }
+    .comp-wrap { overflow-x:auto; border-radius:10px; border:1px solid var(--g200); margin-top:12px; }
+    .comp-wrap table { width:100%; border-collapse:collapse; font-size:12px; }
+    .comp-wrap th { background:var(--g800); color:white; padding:9px 10px; text-align:left; white-space:nowrap; font-size:11px; }
+    .comp-wrap td { padding:9px 10px; border-top:1px solid var(--g100); }
+    .comp-best td { background:#f0fff4 !important; }
+    .comp-high td { background:#f9fff9; }
+    .comp-mid  td { background:white; }
+    .comp-low  td { background:#fffdf0; }
+    .mg-badge { display:inline-block; padding:2px 7px; border-radius:8px; font-weight:700; font-size:11px; }
+    .mg-high { background:#e8f5e9; color:#2e7d32; }
+    .mg-mid  { background:#e3f2fd; color:#1565c0; }
+    .mg-low  { background:#fff3e0; color:#e65100; }
+    .prov-tag { display:inline-block; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:700; background:var(--g100); color:var(--g600); white-space:nowrap; }
+  </style>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div>
+    <h1>Cotizador La Roca</h1>
+    <span id="prod-count">Cargando…</span>
+  </div>
+  <button id="btn-admin" onclick="openPin()">⚙️ Admin</button>
+</header>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" id="t-rapido"  onclick="showTab('rapido')">⚡ Cotizar</button>
+  <button class="tab-btn"        id="t-comp"    onclick="showTab('comp')">🔄 Comparar</button>
+  <button class="tab-btn"        id="t-subir"   onclick="showTab('subir')">📥 Subir</button>
+</div>
+
+<!-- ═══ TAB: BUSCAR (oculto) ═══════════════════════════ -->
+<div class="tab-content hidden" id="tab-buscar">
+  <div class="search-wrap">
+    <span class="search-ico">🔍</span>
+    <input type="text" id="search-q" placeholder="Buscar producto por nombre o código…"
+           oninput="onSearch(this.value)" autocomplete="off">
+  </div>
+  <div id="search-results" class="results-list hidden"></div>
+
+  <div id="buscar-result" class="hidden">
+    <div id="price-card-buscar" class="price-card"></div>
+    <p class="similar-title" id="sim-title" style="display:none">Productos con precio similar</p>
+    <div class="similar-grid" id="sim-grid"></div>
+  </div>
+
+  <div id="buscar-empty" class="empty">
+    <div class="big">🔍</div>
+    <p>Busca un producto para ver<br>todas las opciones de precio</p>
+  </div>
+</div>
+
+<!-- ═══ TAB: COTIZAR RÁPIDO ═══════════════════ -->
+<div class="tab-content" id="tab-rapido">
+  <div class="form-group">
+    <label>Descripción del producto</label>
+    <textarea id="r-desc" placeholder="Ej: Honda CB125F moto de trabajo 125cc azul&#10;&#10;El sistema detecta automáticamente la categoría según el texto." rows="3"></textarea>
+  </div>
+  <div class="form-group">
+    <label>Costo del producto</label>
+    <div class="prefix-wrap">
+      <span class="pfx">Lps.</span>
+      <input type="number" id="r-costo" placeholder="0.00" min="0" step="1">
+    </div>
+  </div>
+  <button class="btn btn-red" onclick="cotizarRapido()">Generar precios</button>
+
+  <div id="rapido-result" class="hidden">
+    <div id="r-cat-detected" style="margin-top:14px;font-size:14px;color:var(--g600)"></div>
+    <div id="price-card-rapido" class="price-card"></div>
+    <div id="ref-card" class="ref-card hidden"></div>
+    <div id="mini-comp"></div>
+  </div>
+</div>
+
+<!-- ═══ TAB: EXCEL ═══════════════════════════ -->
+<div class="tab-content hidden" id="tab-excel">
+  <p style="font-size:14px;color:var(--g600);margin-bottom:14px">
+    Pega productos con su costo — calcula todos los precios comparando con proveedores reales.
+    <b>Un producto por línea.</b>
+  </p>
+  <div class="form-group">
+    <label>Descripción [TAB o 2+ espacios] Costo</label>
+    <textarea id="excel-raw" rows="10"
+      placeholder="Refrigeradora Samsung 14 pies    13685
+Sala Barcelona Honducamas    13209
+Estufa Gas Mabe 20 pulgadas    5175
+Lavadora Whirlpool 18Kg    10005
+TV Samsung 55 pulgadas 4K    12000
+Closet Maletero 4 puertas    11700"></textarea>
+  </div>
+  <button class="btn btn-red" onclick="procesarExcel()">⚡ Calcular precios</button>
+
+  <div id="excel-result" class="hidden" style="margin-top:16px">
+    <div id="excel-meta" style="font-size:13px;font-weight:700;color:var(--g600);margin-bottom:8px"></div>
+    <div id="excel-preview-wrap" class="csv-wrap"></div>
+    <div class="xl-actions">
+      <button class="btn btn-red"  onclick="descargarXLSX()">📥 Descargar .xlsx</button>
+      <button class="btn btn-gray" onclick="limpiarExcel()">✕ Limpiar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: COMPARAR PROVEEDORES ══════════════════════ -->
+<div class="tab-content hidden" id="tab-comp">
+  <p style="font-size:14px;color:var(--g600);margin-bottom:14px">
+    Compara todos los productos de un tipo entre proveedores, ordenados por <b>margen de ganancia</b>.
+  </p>
+  <div class="cat-pills" id="comp-pills"></div>
+  <div id="comp-table-wrap">
+    <div class="empty" style="padding:32px 20px">
+      <div class="big">📊</div>
+      <p>Selecciona una categoría arriba<br>para ver la comparación</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: SUBIR LISTA ══════════════════════ -->
+<div class="tab-content hidden" id="tab-subir">
+
+  <!-- Instrucciones -->
+  <div style="background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:16px;margin-bottom:14px">
+    <div style="font-weight:700;font-size:15px;margin-bottom:10px">📋 ¿Cómo debe venir el archivo?</div>
+    <p style="font-size:13px;color:var(--g600);margin-bottom:10px">El archivo debe tener <b>al menos 2 columnas</b>: el nombre del producto y su costo. Puede ser <b>.xlsx</b> o <b>.csv</b>.</p>
+
+    <!-- Tabla ejemplo -->
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:var(--red);color:white">
+            <th style="padding:8px 10px;text-align:left;border-radius:6px 0 0 0">nombre / descripción</th>
+            <th style="padding:8px 10px;text-align:left">costo</th>
+            <th style="padding:8px 10px;text-align:left">codigo</th>
+            <th style="padding:8px 10px;text-align:left;border-radius:0 6px 0 0">modelo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#fafafa">
+            <td style="padding:7px 10px;border-bottom:1px solid #eee">Refrigeradora Samsung 14 pies</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee">13685</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee">REF001</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee">RT38DG</td>
+          </tr>
+          <tr>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee">Cama Matrimonial Antiestress DL</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee">5672.94</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee">CAM001</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #eee"></td>
+          </tr>
+          <tr style="background:#fafafa">
+            <td style="padding:7px 10px">Honda CB125F</td>
+            <td style="padding:7px 10px">12000</td>
+            <td style="padding:7px 10px">MOT001</td>
+            <td style="padding:7px 10px">CB125F</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+      <div style="font-size:12px;color:var(--g600)">✅ <b>nombre / descripción</b> — requerido. Incluye la categoría (Cama, Refrigeradora, Moto, Sofá…)</div>
+      <div style="font-size:12px;color:var(--g600)">✅ <b>costo</b> — requerido. Solo números, sin símbolos ni comas.</div>
+      <div style="font-size:12px;color:var(--g600)">⬜ <b>codigo</b> y <b>modelo</b> — opcionales.</div>
+      <div style="font-size:12px;color:#c0392b">⚠️ Si tu archivo tiene columnas con nombres distintos (ej. "Precio costo", "Descripción"), el sistema las detecta automáticamente.</div>
+    </div>
+
+    <button class="btn btn-red" onclick="dlTemplate(event)" style="margin-top:14px;width:100%">⬇️ Descargar plantilla de ejemplo (.xlsx)</button>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="drop-zone" id="drop-zone"
+       onclick="document.getElementById('csv-file').click()"
+       ondragover="dzOver(event)" ondragleave="dzOut()" ondrop="dzDrop(event)">
+    <div class="drop-ico">📂</div>
+    <p><b>Arrastra tu archivo aquí</b><br>o haz clic para seleccionar</p>
+    <p class="drop-hint">Acepta: .xlsx, .xls, .csv</p>
+  </div>
+  <input type="file" id="csv-file" accept=".xlsx,.xls,.csv,.txt" onchange="loadCSV(event)">
+
+  <div id="csv-summary-box" class="hidden"></div>
+  <div id="csv-table-box" class="hidden"></div>
+  <div id="csv-btn-box" class="hidden" style="margin-top:14px">
+    <button class="btn btn-red" id="btn-import" onclick="importarLista()">Importar productos</button>
+    <button class="btn btn-gray" onclick="resetCSV()" style="margin-top:10px">Cancelar</button>
+  </div>
+</div>
+
+<!-- ═══ MODAL: PIN ════════════════════════════ -->
+<div class="modal-overlay center hidden" id="pin-modal" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-box small">
+    <div class="pin-title">🔒 Administración</div>
+    <p class="pin-sub">Ingresa tu PIN</p>
+    <input type="password" class="pin-input" id="pin-val" maxlength="10"
+           placeholder="••••" onkeydown="if(event.key==='Enter')checkPin()">
+    <button class="btn btn-red" onclick="checkPin()">Ingresar</button>
+  </div>
+</div>
+
+<!-- ═══ MODAL: ADMIN ══════════════════════════ -->
+<div class="modal-overlay hidden" id="admin-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>⚙️ Administración</h2>
+      <button class="btn-x" onclick="closeAdmin()">✕</button>
+    </div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" id="at-cats" onclick="showAdmTab('cats')">Categorías y Márgenes</button>
+      <button class="adm-tab" id="at-prod" onclick="showAdmTab('prod')">Productos</button>
+    </div>
+
+    <!-- Categorías -->
+    <div id="adm-cats">
+      <p style="font-size:13px;color:var(--g400);margin-bottom:14px">
+        Define cuánto se gana por cada tipo de producto. El sistema usa estos porcentajes para calcular los precios automáticamente.
+      </p>
+      <div id="cats-list"></div>
+    </div>
+
+    <!-- Productos -->
+    <div id="adm-prod" class="hidden">
+      <div id="prod-list">
+        <p style="text-align:center;color:var(--g400);padding:20px">Cargando…</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════
+const SB  = 'https://upaenjotkocmdvfuobii.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+const PIN = '1111';
+
+const H = { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
+
+// ══════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════
+let cats = [], prods = [], csvData = [], catChanges = {};
+
+// ══════════════════════════════════════
+//  SUPABASE
+// ══════════════════════════════════════
+const sbGet  = (t, q='') => fetch(`${SB}/rest/v1/${t}?${q}&order=id.asc`, {headers:H}).then(r=>r.json());
+const sbPost = (t, d)    => fetch(`${SB}/rest/v1/${t}`, {method:'POST', headers:{...H,Prefer:'return=representation'}, body:JSON.stringify(d)}).then(r=>r.json());
+const sbPatch= (t, id,d) => fetch(`${SB}/rest/v1/${t}?id=eq.${id}`, {method:'PATCH', headers:{...H,Prefer:'return=representation'}, body:JSON.stringify(d)}).then(r=>r.json());
+const sbDel  = (t, id)   => fetch(`${SB}/rest/v1/${t}?id=eq.${id}`, {method:'DELETE', headers:H});
+
+// ══════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════
+async function init() {
+  try {
+    [cats, prods] = await Promise.all([
+      sbGet('cotizador_categorias','activa=eq.true'),
+      sbGet('cotizador_productos', 'activo=eq.true')
+    ]);
+    document.getElementById('prod-count').textContent = prods.length + ' productos';
+  } catch(e) { toast('Error conectando a la base de datos'); }
+}
+
+// ══════════════════════════════════════
+//  DATOS DE REFERENCIA DE PROVEEDORES
+//  Fuente: listas reales julio 2026
+// ══════════════════════════════════════
+const REF = [
+  // ── REFRIGERADORAS ──────────────────
+  // Samsung (Abril 2026)
+  {cat:'refrigeradora',marca:'samsung',nombre:'Refrigerador 11 Pies TMF c/dispensador',modelo:'RT31DG5124S9AP',costo:10445,contado:15657,t6:20547,t12:25344,proveedor:'SAMSUNG'},
+  {cat:'refrigeradora',marca:'samsung',nombre:'Refrigerador 13.7 Pies TMF c/dispensador',modelo:'RT38DG6224S9AP',costo:12195,contado:17645,t6:23095,t12:28728,proveedor:'SAMSUNG'},
+  {cat:'refrigeradora',marca:'samsung',nombre:'Refrigerador 15 Pies Energy c/dispensador',modelo:'RT42DG6734S9AP',costo:13195,contado:18445,t6:23436,t12:28418,proveedor:'SAMSUNG'},
+  {cat:'refrigeradora',marca:'samsung',nombre:'Refrigerador 18 Pies WiFi c/dispensador',modelo:'RT53DG6224S9AP',costo:15295,contado:21795,t6:26794,t12:32016,proveedor:'SAMSUNG'},
+  {cat:'refrigeradora',marca:'samsung',nombre:'Refrigerador 20 Pies SBS sin dispensador',modelo:'RS57DG4000M9AP',costo:18995,contado:25995,t6:31546,t12:36990,proveedor:'SAMSUNG'},
+  // Samsung (Diunsa)
+  {cat:'refrigeradora',marca:'samsung',nombre:'Refrigeradora Samsung 11 Pies Inverter',costo:12592.50,contado:17804.50,t6:22694.50,t12:27491.50,proveedor:'DIUNSA'},
+  {cat:'refrigeradora',marca:'samsung',nombre:'Refrigeradora Samsung 14 Pies Inverter',costo:13685,contado:19430,t6:25429,t12:31682,proveedor:'DIUNSA'},
+  // Otras marcas (Diunsa)
+  {cat:'refrigeradora',marca:'frigidaire',nombre:'Refrigeradora Frigidaire 12 Pies 2 puertas',costo:10235,contado:14735,t6:19197,t12:23863,proveedor:'DIUNSA'},
+  {cat:'refrigeradora',marca:'frigidaire',nombre:'Refrigeradora Frigidaire 5 Pies 2 puertas',costo:5635,contado:9485,t6:13240,t12:17114,proveedor:'DIUNSA'},
+  {cat:'refrigeradora',marca:'oster',nombre:'Refrigeradora Oster 7 Pies c/dispensador',costo:7015,contado:10737.50,t6:14287.50,t12:18175.50,proveedor:'DIUNSA'},
+  {cat:'refrigeradora',marca:'superchef',nombre:'Refrigeradora SuperChef 12 Pies 2 puertas',costo:10752.50,contado:15197.50,t6:19642.50,t12:24431.50,proveedor:'DIUNSA'},
+  {cat:'refrigeradora',marca:'superchef',nombre:'Refrigeradora SuperChef 9 Pies 2 puertas',costo:8970,contado:15530,t6:18795,t12:24195,proveedor:'DIUNSA'},
+
+  // ── ESTUFAS ─────────────────────────
+  // RCA (Abril 2026)
+  {cat:'estufa',marca:'rca',nombre:'Estufa Vitrocerámica RCA 20"',modelo:'RCCR50',costo:6885,contado:15417.75,t6:22417.75,t12:29417.75,proveedor:'RCA'},
+  {cat:'estufa',marca:'rca',nombre:'Estufa Eléctrica RCA 30" 4 quemadores',modelo:'RCCR7604EVC',costo:9389,contado:17797.35,t6:24797.35,t12:31797.35,proveedor:'RCA'},
+  {cat:'estufa',marca:'rca',nombre:'Estufa Gas RCA 20" Ace Inox',modelo:'RCCR26',costo:2988,contado:6436,t6:9436,t12:12858,proveedor:'RCA'},
+  // RCA (Lista Junio 2026)
+  {cat:'estufa',marca:'rca',nombre:'Estufa Eléctrica RCA 20" BLK AC',modelo:'RCCR5021EVC',costo:8246.65,mayoreo:9996.65,promo:10871.65,contado:13496.65,t6:18387.65,t12:23053.65,proveedor:'RCA'},
+  // Diunsa
+  {cat:'estufa',marca:'mabe',nombre:'Estufa Gas Mabe 20" 4 quemadores c/respaldo',costo:5175,contado:10175,t6:15074,t12:19574,proveedor:'DIUNSA'},
+  {cat:'estufa',marca:'mabe',nombre:'Estufa Gas Mabe 30" 6 quemadores negra',costo:8970,contado:13860,t6:19062,t12:24053,proveedor:'DIUNSA'},
+  {cat:'estufa',marca:'mabe',nombre:'Estufa Eléctrica Mabe 20" Espiral 4 quemadores',costo:8740,contado:12740,t6:17184,t12:21506,proveedor:'DIUNSA'},
+  {cat:'estufa',marca:'superchef',nombre:'Estufa Gas SuperChef 20" 4 quemadores',costo:3335,contado:6585,t6:9584,t12:12572,proveedor:'DIUNSA'},
+
+  // ── LAVADORAS ───────────────────────
+  {cat:'lavadora',marca:'whirlpool',nombre:'Lavadora Whirlpool 18Kg con agitador',costo:10005,contado:16990,t6:20880,t12:26950,proveedor:'DIUNSA'},
+  {cat:'lavadora',marca:'whirlpool',nombre:'Lavadora Whirlpool 16Kg 9 ciclos',costo:11270,contado:15713,t6:20963,t12:26285,proveedor:'DIUNSA'},
+  {cat:'lavadora',marca:'whirlpool',nombre:'Lavadora Whirlpool 42Lbs 12 ciclos',costo:13455,contado:19145,t6:24144,t12:28466,proveedor:'DIUNSA'},
+
+  // ── TELEVISORES ─────────────────────
+  {cat:'television',marca:'samsung',nombre:'TV Samsung 50" LED 4K Smart',costo:8797.50,contado:15930,t6:20695,t12:25139,proveedor:'DIUNSA'},
+  {cat:'television',marca:'samsung',nombre:'TV Samsung 70" LED 4K Smart',costo:17020,contado:25994,t6:33993,t12:41892,proveedor:'DIUNSA'},
+  {cat:'television',marca:'lg',nombre:'TV LG 75" Smart 4K ThinQ',costo:18860,contado:27360,t6:35359,t12:43258,proveedor:'DIUNSA'},
+
+  // ── AIRES ───────────────────────────
+  {cat:'aire',marca:'oster',nombre:'Aire Minisplit 12000BTU Oster On/Off',costo:6957.50,contado:11423.50,t6:16073.50,t12:20628.50,proveedor:'DIUNSA'},
+
+  // ── SALAS (INV. PADILLA) ────────────
+  {cat:'sala',marca:'invpa',nombre:'Sala Damasco',costo:13000,contado:20760,t6:27600,t12:35640,proveedor:'INV. PADILLA'},
+  {cat:'sala',marca:'invpa',nombre:'Sala Tucson',costo:20100,contado:31835,t6:42303,t12:54608,proveedor:'INV. PADILLA'},
+  {cat:'sala',marca:'invpa',nombre:'Sala Bogota',costo:10040,contado:15390,t6:20389,t12:25288,proveedor:'INV. PADILLA'},
+  {cat:'sala',marca:'invpa',nombre:'Sala Romina',costo:9915,contado:15339,t6:20247,t12:26016,proveedor:'INV. PADILLA'},
+  {cat:'sala',marca:'invpa',nombre:'Sala Lisboa',costo:14000,contado:22171,t6:29564,t12:38254,proveedor:'INV. PADILLA'},
+  {cat:'sala',marca:'invpa',nombre:'Sala Jordania',costo:12035,contado:18780,t6:24837,t12:31957,proveedor:'INV. PADILLA'},
+  {cat:'sala',marca:'invpa',nombre:'Sala Marimar',costo:11940,contado:18921,t6:24912,t12:31954,proveedor:'INV. PADILLA'},
+  {cat:'sala',marca:'invpa',nombre:'Sala Bromelia',costo:12990,contado:20336,t6:26982,t12:34794,proveedor:'INV. PADILLA'},
+
+  // ── SALAS (HONDUCAMAS) ──────────────
+  {cat:'sala',marca:'honducamas',nombre:'Sala Alexandra',costo:12279,contado:20640,t6:28244,t12:35844,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Andrea Tela Suede',costo:7552,contado:13102,t6:18377,t12:23650,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Angel',costo:14524,contado:22524,t6:30128,t12:37728,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Angelica 3-2-1',costo:7761,contado:13492,t6:18767,t12:24040,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Angelina',costo:10652,contado:18465,t6:25594,t12:32719,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Barcelona',costo:13209,contado:24749,t6:33249,t12:42249,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Bogota',costo:18928,contado:31484,t6:39984,t12:48984,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Carolina',costo:12968,contado:20468,t6:27597,t12:34722,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Claudia Especial',costo:9813,contado:18098,t6:25702,t12:33302,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Condesa',costo:17499,contado:28013,t6:37513,t12:47013,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Deluxe',costo:14368,contado:22790,t6:30394,t12:37994,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Diana',costo:9818,contado:16606,t6:22788,t12:28963,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Emily',costo:13438,contado:21833,t6:29441,t12:37041,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Emma c/Butaca',costo:11825,contado:20172,t6:27772,t12:35372,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Florencia',costo:12944,contado:20444,t6:27569,t12:34694,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Galaxy Colonial',costo:18872,contado:32872,t6:41372,t12:49872,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Imperial',costo:15035,contado:23477,t6:31085,t12:38693,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Luna',costo:14189,contado:24606,t6:34116,t12:43636,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Madrid',costo:12226,contado:21082,t6:29166,t12:37241,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Maya',costo:18685,contado:28734,t6:37759,t12:46784,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Medellin',costo:24779,contado:37507,t6:48919,t12:60343,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Nicolle',costo:8835,contado:16335,t6:23460,t12:30585,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Paris',costo:16758,contado:27758,t6:38208,t12:48669,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Premier',costo:14799,contado:23734,t6:31809,t12:39884,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Venecia',costo:14086,contado:23000,t6:31075,t12:39150,proveedor:'HONDUCAMAS'},
+  {cat:'sala',marca:'honducamas',nombre:'Sala Venus Tela Suede',costo:7438,contado:12938,t6:18163,t12:23388,proveedor:'HONDUCAMAS'},
+
+  // ── CLOSETS / CHIFONIERS ────────────
+  {cat:'closet',marca:'invpa',nombre:'Closet Maletero 4 Puertas Nogal',costo:11700,contado:16699,t6:21590,t12:25923,proveedor:'INV. PADILLA'},
+  {cat:'closet',marca:'invpa',nombre:'Closet Maletero 3 Puertas',costo:9200,contado:13880,t6:20080,t12:26280,proveedor:'INV. PADILLA'},
+  {cat:'closet',marca:'invpa',nombre:'Closet Maletero 2 Puertas',costo:7550,contado:12000,t6:16899,t12:21689,proveedor:'INV. PADILLA'},
+  {cat:'closet',marca:'invpa',nombre:'Closet Maletero con Comoda',costo:13550,contado:18410,t6:23060,t12:27382,proveedor:'INV. PADILLA'},
+  {cat:'chifonier',marca:'invpa',nombre:'Chifonier Sencillo',costo:9540,contado:14040,t6:18790,t12:23112,proveedor:'INV. PADILLA'},
+
+  // ── COMEDORES ───────────────────────
+  {cat:'comedor',marca:'invpa',nombre:'Comedor Amazonas 6 Sillas',costo:15065,contado:21365,t6:27487,t12:33609,proveedor:'INV. PADILLA'},
+  {cat:'comedor',marca:'invpa',nombre:'Comedor Amazonas 4 Sillas',costo:10955,contado:14745,t6:18535,t12:21985,proveedor:'INV. PADILLA'},
+
+  // ── CAMAS / RECÁMARAS (HONDUCAMAS) ──
+  {cat:'cabecera',marca:'honducamas',nombre:'Cabecera Matrimonial Princess',costo:2428,mayoreo:3628,promo:3628,contado:4828,t6:7578,proveedor:'HONDUCAMAS'},
+  {cat:'cabecera',marca:'honducamas',nombre:'Cabecera Queen Princess',costo:2707,mayoreo:4086,promo:4086,contado:5336,t6:8086,proveedor:'HONDUCAMAS'},
+  {cat:'cabecera',marca:'honducamas',nombre:'Cabecera King Princess',costo:3412,mayoreo:4662,promo:4662,contado:5912,t6:8662,proveedor:'HONDUCAMAS'},
+  {cat:'recamara',marca:'honducamas',nombre:'Recámara Matrimonial Emanuel c/pie de cama',costo:7330,contado:12780,t6:17679,t12:22929,proveedor:'HONDUCAMAS'},
+  {cat:'recamara',marca:'honducamas',nombre:'Recámara Queen Emanuel c/baúl',costo:9580,contado:15580,t6:21030,t12:26280,proveedor:'HONDUCAMAS'},
+  {cat:'recamara',marca:'honducamas',nombre:'Recámara King Emanuel caramelo',costo:9468,contado:16468,t6:22918,t12:29168,proveedor:'HONDUCAMAS'},
+
+  // ── CAMAS DIVECO (Septiembre 2025) ──
+  // Unipersonal
+  {cat:'cama',marca:'diveco',nombre:'Cama Unip. BD Estandar Plus',costo:3373.61,mayoreo:4032.64,promo:4362.16,contado:5123.61,t6:7123.63,c6:989.39,t12:9373.43,c12:716.03,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Unip. Estrella',costo:3186.94,mayoreo:3795.77,promo:4100.18,contado:4786.94,t6:6786.97,c6:942.63,t12:9036.77,c12:690.31,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Unip. PAW PATROL',costo:4109.86,mayoreo:4967.85,promo:5396.85,contado:5822.86,t6:7837.86,c6:1088.59,t12:10070.86,c12:769.30,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Unip. Top 20',costo:7956.00,mayoreo:9485.24,promo:10249.86,contado:10356.00,t6:12606.00,c6:1750.83,t12:14955.80,c12:1142.46,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Unip. Futbolera HN',costo:5210.10,mayoreo:6460.10,promo:7009.10,contado:7209.10,t6:9209.10,c6:1279.04,t12:11130.10,c12:850.22,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Unip. Antiestress Ortop',costo:4888.01,mayoreo:5865.62,promo:6354.42,contado:6606.01,t6:8597.01,c6:1194.03,t12:10808.01,c12:825.61,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Unip. Antiestress DL',costo:4468.90,mayoreo:5326.89,promo:5755.89,contado:6181.90,t6:8196.90,c6:1138.46,t12:10429.90,c12:796.73,proveedor:'DIVECO'},
+  // Matrimonial — valores reales DIVECO Sept 2025
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri. BD Estandar Plus',costo:4117.52,mayoreo:4924.84,promo:5517.52,contado:6527.74,t6:9277.74,c6:1288.58,t12:11727.74,c12:895.87,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri. Estrella',costo:3953.80,mayoreo:4709.01,promo:5352.80,contado:5843.61,t6:8094.61,c6:1124.25,t12:10560.61,c12:806.71,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri. Original Ortopedica',costo:9240.00,mayoreo:10930.00,promo:12012.00,contado:12990.00,t6:16400.00,c6:2277.78,t12:19810.00,c12:1513.26,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri. Doble Sense',costo:8229.72,mayoreo:9919.72,promo:10655.22,contado:11351.72,t6:15061.72,c6:2091.91,t12:18949.72,c12:1447.55,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri. Top 20 Firme',costo:9592.08,mayoreo:11392.08,promo:12558.37,contado:13291.47,t6:17001.47,c6:2361.32,t12:20720.47,c12:1582.81,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri. Top 30 Medio',costo:11781.00,mayoreo:14031.00,promo:14681.00,contado:16040.00,t6:20103.00,c6:2792.08,t12:24570.00,c12:1876.88,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri. Serta 2BTS',costo:12653.55,mayoreo:15153.55,promo:16003.55,contado:18003.55,t6:22403.55,c6:3111.60,t12:27203.55,c12:2078.05,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri. Futbolera HN',costo:6144.13,mayoreo:7627.22,promo:9110.42,contado:9843.52,t6:13553.52,c6:1882.43,t12:17272.52,c12:1319.43,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri Antiestress 2BTS',costo:6848.46,mayoreo:8173.20,promo:8835.60,contado:10608.46,t6:13513.70,c6:1876.90,t12:17324.70,c12:1323.41,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri Antiestress Orto',costo:6105.84,mayoreo:7291.44,promo:7884.24,contado:9227.84,t6:11672.84,c6:1621.23,t12:15094.84,c12:1153.08,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri Antiestress DL',costo:5672.94,mayoreo:6753.54,promo:7293.74,contado:8794.94,t6:10671.94,c6:1482.21,t12:13619.14,c12:1040.35,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Matri Catracha',costo:5937.51,mayoreo:7087.51,promo:7632.10,contado:9059.51,t6:11820.80,c6:1641.78,t12:15161.80,c12:1158.19,proveedor:'DIVECO'},
+  // Queen — valores reales DIVECO Sept 2025
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Original Ortopedica',costo:10500.00,mayoreo:12961.00,promo:13650.00,contado:18822.00,t6:18822.00,c6:2614.17,t12:22659.00,c12:1730.90,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Doble Sense',costo:9426.80,mayoreo:11816.80,promo:12576.80,contado:13426.80,t6:18065.20,c6:2509.06,t12:22417.80,c12:1712.47,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Top 20 Firme',costo:10900.00,mayoreo:13250.00,promo:14250.00,contado:15590.00,t6:18627.00,c6:2587.08,t12:22926.00,c12:1751.29,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Top 30 Medio',costo:12954.00,mayoreo:15454.00,promo:16304.00,contado:17504.00,t6:17988.00,c6:2498.33,t12:24980.00,c12:1908.19,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Serta 2BTS',costo:14729.00,mayoreo:17229.00,promo:18529.00,contado:19729.00,t6:null,c6:null,t12:28879.00,c12:2206.03,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Futbolera HN',costo:7154.66,mayoreo:8554.66,promo:9404.66,contado:11609.66,t6:15754.66,c6:2188.15,t12:20322.76,c12:1552.43,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Antiestress 2BTS',costo:7716.90,mayoreo:9116.90,promo:9966.90,contado:12171.90,t6:16966.90,c6:2356.51,t12:20885.00,c12:1595.38,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Antiestress Orto',costo:7269.02,mayoreo:8669.02,promo:9519.02,contado:11536.12,t6:15937.12,c6:2213.49,t12:20437.12,c12:1561.17,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Antiestress DL',costo:6697.34,mayoreo:8097.34,promo:8619.34,contado:10964.34,t6:14865.44,c6:2064.64,t12:19763.32,c12:1509.70,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama Queen Catracha',costo:6684.04,mayoreo:8084.04,promo:8606.04,contado:10951.04,t6:14852.14,c6:2062.80,t12:19750.02,c12:1508.68,proveedor:'DIVECO'},
+  // King — valores reales DIVECO Sept 2025
+  {cat:'cama',marca:'diveco',nombre:'Cama King Original Ortopedica',costo:14700.00,mayoreo:16905.00,promo:18375.00,contado:20150.00,t6:24441.00,c6:3394.58,t12:28691.00,c12:2191.67,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama King Doble Sense',costo:12559.98,mayoreo:14764.98,promo:15641.73,contado:18009.98,t6:22338.98,c6:3102.64,t12:27126.98,c12:2072.20,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama King Top 20 Firme',costo:14800.01,mayoreo:17014.77,promo:18722.01,contado:20250.01,t6:24590.04,c6:3415.28,t12:29478.04,c12:2251.79,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama King Top 30',costo:17097.75,mayoreo:19603.18,promo:21273.47,contado:22856.75,t6:27087.77,c6:3762.19,t12:31975.77,c12:2442.59,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama King Antiestress 2BTS',costo:10390.65,mayoreo:12240.65,promo:14140.65,contado:15281.65,t6:20172.65,c6:2801.76,t12:25060.65,c12:1914.36,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama King Antiestress Orto',costo:9946.90,mayoreo:11796.90,promo:13696.90,contado:14837.90,t6:19728.90,c6:2740.13,t12:24616.90,c12:1880.46,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama King Antiestress DL',costo:8925.89,mayoreo:10775.89,promo:12175.89,contado:13816.85,t6:18707.85,c6:2598.31,t12:23595.85,c12:1802.46,proveedor:'DIVECO'},
+  {cat:'cama',marca:'diveco',nombre:'Cama King Catracha',costo:9148.69,mayoreo:10998.69,promo:12398.69,contado:14018.69,t6:18339.64,c6:2547.17,t12:23227.64,c12:1774.33,proveedor:'DIVECO'},
+];
+
+// Palabras clave por categoría de referencia
+const REF_CATS = {
+  refrigeradora: /refriger|nevera|heladera|fridge|\bfrig\b/,
+  estufa:        /estufa|cocina|\bquemador|vitrocer|plancha de cocin/,
+  lavadora:      /lavadora|lavarrop/,
+  television:    /\btv\b|televisor|television|smart tv|led \d+|pantalla/,
+  aire:          /minisplit|aire acondicionado|\ba\.c\.\b|split/,
+  sala:          /\bsala\b|sofá|sofa|sillón|sillon|mueble de sala/,
+  comedor:       /comedor|mesa de comedor/,
+  closet:        /closet|clóset|maletero|armario/,
+  chifonier:     /chifonier|cómoda|comoda/,
+  cama:          /\bcama\b|colch[oó]n|camarote/,
+  cabecera:      /cabecera|\bpie de cama\b/,
+  recamara:      /recámara|recamara|dormitorio completo/,
+};
+
+const REF_MARCAS = {
+  samsung:    /samsung/,
+  mabe:       /mabe/,
+  whirlpool:  /whirlpool/,
+  lg:         /\blg\b/,
+  rca:        /\brca\b/,
+  oster:      /oster/,
+  frigidaire: /frigidaire/,
+  superchef:  /superchef/,
+  honducamas: /honducamas/,
+  invpa:      /padilla|invpa/,
+};
+
+function buscarReferencia(desc, costo) {
+  const t = (desc || '').toLowerCase();
+
+  // Detectar categoría
+  let catKey = null;
+  for (const [k, rx] of Object.entries(REF_CATS)) {
+    if (rx.test(t)) { catKey = k; break; }
+  }
+  if (!catKey) return null;
+
+  // Detectar marca
+  let marcaKey = null;
+  for (const [k, rx] of Object.entries(REF_MARCAS)) {
+    if (rx.test(t)) { marcaKey = k; break; }
+  }
+
+  // Filtrar por categoría
+  let pool = REF.filter(r => r.cat === catKey);
+  if (!pool.length) return null;
+
+  // Preferir misma marca
+  const byBrand = marcaKey ? pool.filter(r => r.marca === marcaKey) : [];
+  if (byBrand.length) pool = byBrand;
+
+  // Filtrar por tamaño de cama si se menciona en la descripción
+  if (catKey === 'cama') {
+    const sizeMap = [
+      { rx: /king/,                       key: 'king'  },
+      { rx: /queen/,                      key: 'queen' },
+      { rx: /matrimonial|matri\b|doble/,  key: 'matri' },
+      { rx: /unipersonal|unip\b|individual|sencill/i, key: 'unip' },
+    ];
+    for (const { rx, key } of sizeMap) {
+      if (rx.test(t)) {
+        const bySize = pool.filter(r => r.nombre.toLowerCase().includes(key));
+        if (bySize.length) { pool = bySize; break; }
+      }
+    }
+  }
+
+  // Más cercano por costo
+  pool.sort((a, b) => Math.abs(a.costo - costo) - Math.abs(b.costo - costo));
+  const ref = pool[0];
+
+  const mContado = ref.contado / ref.costo;
+  const mT6      = ref.t6  ? ref.t6  / ref.costo : null;
+  const mT12     = ref.t12 ? ref.t12 / ref.costo : null;
+  const mC6      = ref.c6  ? ref.c6  / ref.costo : null;
+  const mC12     = ref.c12 ? ref.c12 / ref.costo : null;
+
+  // Ratio mayoreo/promo: usar el real del proveedor, si no hay usar margen de categoría
+  const catObj   = catForRef(catKey);
+  const mMayoreo = ref.mayoreo
+    ? ref.mayoreo / ref.costo
+    : (catObj ? 1 + catObj.margen_mayoreo / 100 : null);
+  const mPromo   = ref.promo
+    ? ref.promo / ref.costo
+    : (catObj ? 1 + catObj.margen_pagos   / 100 : null);
+
+  // Escalar desde la referencia — el piso (nunca menos que la referencia) solo
+  // aplica si nuestro costo es igual o mayor al costo de la referencia. Si el
+  // producto es más barato que la referencia, el precio debe escalar
+  // proporcionalmente hacia abajo, no quedarse pegado al precio de la referencia.
+  const floorOk = costo >= ref.costo;
+  const t6Sc  = mT6  ? costo * mT6  : null;
+  const t12Sc = mT12 ? costo * mT12 : null;
+  const c6Sc  = mC6  ? costo * mC6  : (t6Sc  ? t6Sc  / 6  : null);
+  const c12Sc = mC12 ? costo * mC12 : (t12Sc ? t12Sc / 12 : null);
+
+  const t6  = t6Sc  ? Math.round((floorOk ? Math.max(t6Sc,  ref.t6  || 0) : t6Sc)  * 100)/100 : null;
+  const t12 = t12Sc ? Math.round((floorOk ? Math.max(t12Sc, ref.t12 || 0) : t12Sc) * 100)/100 : null;
+  const c6  = c6Sc  ? Math.round((floorOk ? Math.max(c6Sc,  ref.c6  || 0) : c6Sc)  * 100)/100 : null;
+  const c12 = c12Sc ? Math.round((floorOk ? Math.max(c12Sc, ref.c12 || 0) : c12Sc) * 100)/100 : null;
+
+  return {
+    ref,
+    costoInput: costo,
+    mayoreo: mMayoreo ? Math.round((floorOk ? Math.max(costo * mMayoreo, ref.mayoreo || 0) : costo * mMayoreo) * 100)/100 : null,
+    promo:   mPromo   ? Math.round((floorOk ? Math.max(costo * mPromo,   ref.promo   || 0) : costo * mPromo)   * 100)/100 : null,
+    contado: Math.round((floorOk ? Math.max(costo * mContado, ref.contado) : costo * mContado) * 100)/100,
+    t6, c6, t12, c12,
+    pctContado: Math.round((mContado - 1) * 100),
+    pctMayoreo: mMayoreo ? Math.round((mMayoreo - 1) * 100) : null,
+    pctPromo:   mPromo   ? Math.round((mPromo   - 1) * 100) : null,
+    pctT6:      t6  ? Math.round((t6  / costo - 1) * 100) : null,
+    pctT12:     t12 ? Math.round((t12 / costo - 1) * 100) : null,
+    costoRef:   ref.costo,
+    diffPct:    Math.round(Math.abs(ref.costo - costo) / ref.costo * 100),
+  };
+}
+
+function refCardHTML(r) {
+  const rows = [
+    r.mayoreo ? { ico:'🏪', label:'Mayoreo',         price: r.mayoreo, sub: `+${r.pctMayoreo}% sobre costo` } : null,
+    r.promo   ? { ico:'🏷️', label:'Promoción',       price: r.promo,   sub: `+${r.pctPromo}% sobre costo` }   : null,
+    { ico:'💵', label:'Contado',          price: r.contado, sub: `+${r.pctContado}% sobre costo` },
+    r.t6  ? { ico:'📅', label:'6 Meses (total)',  price: r.t6,  sub: `Cuota: ${lps(r.c6)}/mes · +${r.pctT6}%` }  : null,
+    r.t12 ? { ico:'📆', label:'12 Meses (total)', price: r.t12, sub: `Cuota: ${lps(r.c12)}/mes · +${r.pctT12}%` } : null,
+  ].filter(Boolean);
+
+  const diffTxt = r.diffPct <= 5 ? 'costo idéntico' : `costo base: ${lps(r.costoRef)}`;
+  return `
+    <div class="ref-card-head">
+      <h3>📋 Precios vigentes La Roca</h3>
+      <p>Basado en: <b>${r.ref.nombre}</b> (${r.ref.proveedor}) — ${diffTxt}</p>
+    </div>
+    ${rows.map(row => `
+    <div class="ref-row">
+      <div class="ref-label"><div class="ico ico-2">${row.ico}</div>${row.label}</div>
+      <div class="ref-right">
+        <div class="ref-price">${lps(row.price)}</div>
+        <div class="ref-sub">${row.sub}</div>
+      </div>
+    </div>`).join('')}
+    <div class="ref-note">Precios de nuestra lista vigente. Si el costo es distinto al de la lista, los precios se ajustan proporcionalmente hacia arriba.</div>`;
+}
+
+// ══════════════════════════════════════
+//  AUTO-CATEGORIZACIÓN
+// ══════════════════════════════════════
+const MOTO_MARCAS = ['honda','yamaha','suzuki','kawasaki','italika','tvs','bajaj','kinlon','um ','haojue','akt','hero','royal enfield','qingqi','lifan','loncin'];
+const MOTO_KW     = ['moto','motocicleta','125cc','150cc','200cc','250cc','cilindrada','cc ','enduro','cross'];
+const SCOOTER_KW  = ['scooter','automatica','automática','pcx','dio','beat','activa','urban','ciudad'];
+const SPORT_KW    = ['sport','deportiv','racing','cbr','r15','fz','xtreme','velocidad'];
+const ELECTRO_KW  = ['lavadora','refrigerador','nevera','estufa','cocina','microondas','televisor',' tv ','tv,','secadora','aire acondicionado','ventilador','licuadora','batidora','plancha','cafetera'];
+const DORMI_KW    = ['cama','colchon','colchón','dormitorio','recamara','recámara','armario','closet','velador','camarote','cuna'];
+const SALA_KW     = ['sala','comedor','sofá','sofa','sillón','sillon','mesa','sillas','juego de sala','juego de comedor','escritorio','mueble'];
+
+function autoCategoria(texto) {
+  const t = (texto || '').toLowerCase();
+  const esMoto = MOTO_MARCAS.some(k=>t.includes(k)) || MOTO_KW.some(k=>t.includes(k));
+  if (esMoto) {
+    if (SCOOTER_KW.some(k=>t.includes(k))) return cats.find(c=>c.nombre==='Scooters') || cats.find(c=>c.tipo==='moto');
+    if (SPORT_KW.some(k=>t.includes(k)))   return cats.find(c=>c.nombre==='Motos Deportivas') || cats.find(c=>c.tipo==='moto');
+    return cats.find(c=>c.nombre==='Motos de Trabajo') || cats.find(c=>c.tipo==='moto');
+  }
+  if (ELECTRO_KW.some(k=>t.includes(k))) return cats.find(c=>c.nombre==='Electrodomésticos') || cats.find(c=>c.tipo==='hogar');
+  if (DORMI_KW.some(k=>t.includes(k)))   return cats.find(c=>c.nombre==='Dormitorio')        || cats.find(c=>c.tipo==='hogar');
+  if (SALA_KW.some(k=>t.includes(k)))    return cats.find(c=>c.nombre==='Sala y Comedor')    || cats.find(c=>c.tipo==='hogar');
+  return cats.find(c=>c.tipo==='hogar') || cats[0]; // fallback
+}
+
+// ══════════════════════════════════════
+//  PRECIOS
+// ══════════════════════════════════════
+function calcPx(costo, cat) {
+  const cash    = costo * (1 + cat.margen_cash    / 100);
+  const mayoreo = costo * (1 + cat.margen_mayoreo / 100);
+  const pagos   = costo * (1 + cat.margen_pagos   / 100);
+  const t6      = pagos * (1 + cat.tasa_6m  / 100);
+  const t12     = pagos * (1 + cat.tasa_12m / 100);
+  return { cash, mayoreo, pagos, t6, c6: t6/6, t12, c12: t12/12 };
+}
+
+function lps(n) {
+  return 'Lps. ' + Number(n).toLocaleString('es-HN',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function priceCardHTML(titulo, subtitulo, px) {
+  return `
+    <div class="price-card-head">
+      <h3>${titulo}</h3>
+      ${subtitulo ? `<p>${subtitulo}</p>` : ''}
+    </div>
+    <div class="divider">Precios de venta</div>
+    <div class="price-row">
+      <div class="price-label"><div class="ico ico-2">🏪</div>Mayoreo</div>
+      <div class="price-right"><div class="price-main">${lps(px.mayoreo)}</div></div>
+    </div>
+    <div class="price-row">
+      <div class="price-label"><div class="ico ico-1">🏷️</div>Promoción</div>
+      <div class="price-right"><div class="price-main">${lps(px.cash)}</div></div>
+    </div>
+    <div class="price-row">
+      <div class="price-label"><div class="ico ico-3">💵</div>Contado</div>
+      <div class="price-right"><div class="price-main">${lps(px.pagos)}</div></div>
+    </div>
+    <div class="divider">Financiamiento</div>
+    <div class="price-row">
+      <div class="price-label">
+        <div class="ico ico-4">📅</div>
+        <div><div>6 Meses</div><div style="font-size:12px;color:var(--g400)">Total ${lps(px.t6)}</div></div>
+      </div>
+      <div class="price-right"><div class="price-main">${lps(px.c6)}</div><div class="price-sub">/ mes</div></div>
+    </div>
+    <div class="price-row">
+      <div class="price-label">
+        <div class="ico ico-5">📆</div>
+        <div><div>12 Meses</div><div style="font-size:12px;color:var(--g400)">Total ${lps(px.t12)}</div></div>
+      </div>
+      <div class="price-right"><div class="price-main">${lps(px.c12)}</div><div class="price-sub">/ mes</div></div>
+    </div>`;
+}
+
+// ══════════════════════════════════════
+//  TAB: BUSCAR
+// ══════════════════════════════════════
+let searchTimer;
+function onSearch(v) {
+  clearTimeout(searchTimer);
+  const el = document.getElementById('search-results');
+  if (!v.trim()) { el.classList.add('hidden'); return; }
+  searchTimer = setTimeout(() => {
+    const q = v.toLowerCase();
+    const hits = prods.filter(p =>
+      p.nombre.toLowerCase().includes(q) ||
+      (p.modelo||'').toLowerCase().includes(q) ||
+      (p.codigo||'').toLowerCase().includes(q) ||
+      (p.descripcion||'').toLowerCase().includes(q)
+    ).slice(0,8);
+    if (!hits.length) {
+      el.innerHTML = '<div class="result-item"><span class="ri-sub">Sin resultados</span></div>';
+    } else {
+      el.innerHTML = hits.map(p => {
+        const cat = cats.find(c=>c.id===p.categoria_id);
+        const cash = cat ? lps(calcPx(p.costo,cat).cash) : '—';
+        return `<div class="result-item" onclick="verProducto(${p.id})">
+          <div class="ri-name">${p.nombre}${p.modelo?' '+p.modelo:''}</div>
+          <div class="ri-sub">${p.codigo?'Cód: '+p.codigo+' · ':''}Cash: ${cash}</div>
+        </div>`;
+      }).join('');
+    }
+    el.classList.remove('hidden');
+  }, 200);
+}
+
+function verProducto(id) {
+  const p = prods.find(x=>x.id===id);
+  if (!p) return;
+  document.getElementById('search-q').value = [p.nombre,p.modelo].filter(Boolean).join(' ');
+  document.getElementById('search-results').classList.add('hidden');
+
+  const cat = cats.find(c=>c.id===p.categoria_id) || autoCategoria([p.nombre,p.modelo,p.descripcion].join(' '));
+  if (!cat) { toast('No se pudo determinar la categoría'); return; }
+
+  const px  = calcPx(p.costo, cat);
+  const sub = [p.codigo?'Cód: '+p.codigo:null, cat.nombre].filter(Boolean).join(' · ');
+  document.getElementById('price-card-buscar').innerHTML = priceCardHTML(p.nombre+(p.modelo?' '+p.modelo:''), sub, px);
+  document.getElementById('buscar-empty').classList.add('hidden');
+  document.getElementById('buscar-result').classList.remove('hidden');
+
+  renderSimilares(p.id, px.cash, p.tipo);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function renderSimilares(excId, cashRef, tipo) {
+  const [min,max] = [cashRef*0.75, cashRef*1.28];
+  const sims = prods.filter(p => {
+    if (p.id===excId) return false;
+    const cat = cats.find(c=>c.id===p.categoria_id);
+    if (!cat) return false;
+    const cash = p.costo*(1+cat.margen_cash/100);
+    return cash>=min && cash<=max;
+  }).slice(0,6);
+
+  const tEl = document.getElementById('sim-title');
+  const gEl = document.getElementById('sim-grid');
+  if (!sims.length) { tEl.style.display='none'; gEl.innerHTML=''; return; }
+  tEl.style.display='block';
+  gEl.innerHTML = sims.map(p => {
+    const cat  = cats.find(c=>c.id===p.categoria_id);
+    const cash = p.costo*(1+cat.margen_cash/100);
+    return `<div class="sim-card" onclick="verProducto(${p.id})">
+      <div class="sim-name">${p.nombre}${p.modelo?' '+p.modelo:''}</div>
+      <div class="sim-price">${lps(cash)}</div>
+      <div class="sim-lbl">Precio Cash</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════
+//  TAB: COTIZAR RÁPIDO
+// ══════════════════════════════════════
+function cotizarRapido() {
+  const desc  = document.getElementById('r-desc').value.trim();
+  const costo = parseFloat(document.getElementById('r-costo').value);
+  if (!desc)           { toast('Escribe una descripción del producto'); return; }
+  if (!costo||costo<=0){ toast('Ingresa un costo válido'); return; }
+
+  const cat = autoCategoria(desc);
+  if (!cat) { toast('No se pudo detectar la categoría — revisa la descripción'); return; }
+
+  const px = calcPx(costo, cat);
+  document.getElementById('r-cat-detected').innerHTML =
+    `Categoría detectada: <span class="auto-cat ${cat.tipo}">${cat.nombre}</span>`;
+
+  const refEl = document.getElementById('ref-card');
+  const ref = buscarReferencia(desc, costo);
+  if (ref) {
+    // Aplicar piso: precios de venta nunca menores a los de la referencia de mercado
+    // — solo si nuestro costo es igual o mayor al de la referencia. Si el producto
+    // es más barato que la referencia, no se fuerza el piso (el precio baja proporcional).
+    const floorOk = costo >= ref.costoRef;
+    if (floorOk) {
+      if (ref.mayoreo)  px.mayoreo = Math.max(px.mayoreo, ref.mayoreo);
+      if (ref.promo)    px.cash    = Math.max(px.cash,    ref.promo);
+      if (ref.contado)  px.pagos   = Math.max(px.pagos,   ref.contado);
+      if (ref.t6)  { px.t6 = Math.max(px.t6, ref.t6);  px.c6  = Math.max(px.c6,  ref.c6  || ref.t6/6);  }
+      if (ref.t12) { px.t12= Math.max(px.t12,ref.t12); px.c12 = Math.max(px.c12, ref.c12 || ref.t12/12); }
+    }
+    refEl.innerHTML = refCardHTML(ref);
+    refEl.classList.remove('hidden');
+    document.getElementById('mini-comp').innerHTML = miniCompHTML(ref.ref.cat, costo);
+  } else {
+    refEl.classList.add('hidden');
+    document.getElementById('mini-comp').innerHTML = '';
+  }
+
+  document.getElementById('price-card-rapido').innerHTML = priceCardHTML(desc, `Costo: ${lps(costo)}`, px);
+
+  document.getElementById('rapido-result').classList.remove('hidden');
+}
+
+// ══════════════════════════════════════
+//  TAB: SUBIR LISTA (CSV)
+// ══════════════════════════════════════
+function dzOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('over'); }
+function dzOut()   { document.getElementById('drop-zone').classList.remove('over'); }
+function dzDrop(e) { e.preventDefault(); dzOut(); processFile(e.dataTransfer.files[0]); }
+function loadCSV(e){ if(e.target.files[0]) processFile(e.target.files[0]); }
+
+function dlTemplate(e) {
+  if (e) e.preventDefault();
+  if (typeof XLSX === 'undefined') { toast('Librería Excel aún cargando, intenta en un momento'); return; }
+  const data = [
+    ['nombre', 'costo', 'codigo', 'modelo'],
+    ['Refrigeradora Samsung 14 pies Inverter', 13685, 'REF001', 'RT38DG6224'],
+    ['Refrigeradora Mabe 10 pies 2 puertas', 8500, 'REF002', ''],
+    ['Cama Matrimonial Antiestress DL', 5672.94, 'CAM001', ''],
+    ['Cama Queen Top 20 Firme', 10900, 'CAM002', ''],
+    ['Estufa Gas Mabe 20" 4 quemadores', 5175, 'EST001', ''],
+    ['Lavadora Whirlpool 18Kg con agitador', 10005, 'LAV001', ''],
+    ['Sofá 3 puestos tela gris', 8500, 'SAL001', ''],
+    ['Comedor 4 sillas madera', 6200, 'COM001', ''],
+    ['Honda CB125F', 12000, 'MOT001', 'CB125F'],
+    ['Yamaha YBR125 deportiva', 14500, 'MOT002', 'YBR125'],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:42},{wch:12},{wch:10},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+  XLSX.writeFile(wb, 'Plantilla_La_Roca.xlsx');
+}
+
+function processFile(file) {
+  if (/\.xlsx?$/i.test(file.name)) {
+    if (typeof XLSX === 'undefined') { toast('Librería Excel aún cargando, intenta en un momento'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+      // Buscar fila de encabezados (hasta fila 10)
+      let hIdx = -1, hdrs = [];
+      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const r = rows[i].map(c => String(c).toLowerCase().trim());
+        if (r.some(h => h.includes('descripci') || h === 'nombre') &&
+            r.some(h => h.includes('costo') || h.includes('precio'))) {
+          hIdx = i; hdrs = r; break;
+        }
+      }
+
+      // Si no encuentra encabezados propios, convertir CSV normal
+      if (hIdx === -1) { parseCSV(XLSX.utils.sheet_to_csv(ws)); return; }
+
+      // Detectar columnas por nombre
+      const ci = name => hdrs.findIndex(h => h.includes(name));
+      const iDesc  = [ci('descripci'), ci('nombre')].find(i => i >= 0) ?? -1;
+      const iCosto = hdrs.findIndex(h => h.includes('costo') && !h.includes('mayor') && !h.includes('promo') && !h.includes('contado'));
+      const iCod   = [ci('codigo'), ci('código')].find(i => i >= 0) ?? -1;
+
+      if (iDesc < 0 || iCosto < 0) { parseCSV(XLSX.utils.sheet_to_csv(ws)); return; }
+
+      const esc = v => `"${String(v).replace(/"/g,'""')}"`;
+      const lines = ['nombre,costo,descripcion,modelo,codigo'];
+
+      for (let i = hIdx + 1; i < rows.length; i++) {
+        const r      = rows[i];
+        const status = String(r[0] || '').toLowerCase();
+        const desc   = String(r[iDesc] || '').trim();
+        const costo  = parseFloat(r[iCosto]) || 0;
+        const codigo = iCod >= 0 ? String(r[iCod] || '').trim() : '';
+
+        if (!desc || costo <= 0) continue;           // sin nombre o sin costo
+        if (status.includes('anterior')) continue;   // versión antigua
+        if (desc.toLowerCase().startsWith('retiro')) continue; // devolución/retiro
+        lines.push(`${esc(desc)},${costo},,,${esc(codigo)}`);
+      }
+
+      if (lines.length <= 1) { toast('No se encontraron productos válidos en el archivo'); return; }
+      parseCSV(lines.join('\n'));
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    const reader = new FileReader();
+    reader.onload = e => parseCSV(e.target.result);
+    reader.readAsText(file,'UTF-8');
+  }
+}
+
+function parseCSV(raw) {
+  const lines = raw.trim().split(/\r?\n/).filter(l=>l.trim());
+  if (lines.length < 2) { toast('El archivo parece vacío'); return; }
+
+  const header = lines[0].split(',').map(h=>h.trim().toLowerCase());
+  csvData = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const vals = splitCSVLine(lines[i]);
+    const row  = {};
+    header.forEach((h,j) => row[h] = (vals[j]||'').trim());
+
+    const nombre = row.nombre || '';
+    const costo  = parseFloat(row.costo);
+    const desc   = [row.descripcion||'', row.nombre||'', row.modelo||''].join(' ');
+    const cat    = autoCategoria(desc);
+    const errors = [];
+
+    if (!nombre)        errors.push('nombre vacío');
+    if (!costo||costo<=0) errors.push('costo inválido');
+
+    csvData.push({ row, nombre, costo, desc: row.descripcion||'', modelo: row.modelo||'', codigo: row.codigo||'', cat, errors });
+  }
+
+  renderCSVTable();
+}
+
+function splitCSVLine(line) {
+  const result = []; let cur = '', inQ = false;
+  for (const ch of line) {
+    if (ch==='"') { inQ=!inQ; continue; }
+    if (ch===',' && !inQ) { result.push(cur); cur=''; continue; }
+    cur += ch;
+  }
+  result.push(cur);
+  return result;
+}
+
+function renderCSVTable() {
+  const ok  = csvData.filter(r=>r.errors.length===0).length;
+  const bad = csvData.length - ok;
+
+  document.getElementById('csv-summary-box').innerHTML = `
+    <div class="csv-summary">
+      📋 <b>${csvData.length}</b> filas en el archivo &nbsp;·&nbsp;
+      ✅ <b>${ok}</b> listas para importar &nbsp;·&nbsp;
+      ❌ <b>${bad}</b> con error
+    </div>`;
+  document.getElementById('csv-summary-box').classList.remove('hidden');
+
+  document.getElementById('csv-table-box').innerHTML = `
+    <div class="csv-wrap" style="margin-top:12px">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Nombre</th><th>Costo</th>
+          <th>Categoría detectada</th><th>Estado</th>
+        </tr></thead>
+        <tbody>${csvData.map((r,i)=>`
+          <tr class="${r.errors.length?'row-err':'row-ok'}">
+            <td>${i+1}</td>
+            <td>${r.nombre||'—'}${r.modelo?' <span style="color:var(--g400)">'+r.modelo+'</span>':''}</td>
+            <td>${r.costo?lps(r.costo):'—'}</td>
+            <td>${r.cat
+              ? `<span class="auto-cat ${r.cat.tipo}">${r.cat.nombre}</span>`
+              : '<span style="color:var(--g400)">Sin categoría</span>'}</td>
+            <td>${r.errors.length
+              ? `<span class="badge-err">✗ ${r.errors.join(', ')}</span>`
+              : '<span class="badge-ok">✓ OK</span>'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  document.getElementById('csv-table-box').classList.remove('hidden');
+
+  if (ok > 0) {
+    document.getElementById('btn-import').textContent = `Importar ${ok} producto${ok>1?'s':''}`;
+    document.getElementById('csv-btn-box').classList.remove('hidden');
+  }
+}
+
+async function importarLista() {
+  const valid = csvData.filter(r=>r.errors.length===0 && r.cat);
+  if (!valid.length) return;
+
+  const btn = document.getElementById('btn-import');
+  btn.innerHTML = '<span class="spin"></span> Importando…';
+  btn.disabled  = true;
+
+  let ok=0, fail=0;
+  for (const item of valid) {
+    try {
+      const res = await sbPost('cotizador_productos', {
+        tipo:        item.cat.tipo,
+        nombre:      item.nombre,
+        modelo:      item.modelo || null,
+        codigo:      item.codigo || null,
+        costo:       item.costo,
+        descripcion: item.desc   || null,
+        categoria_id: item.cat.id,
+        activo:      true
+      });
+      prods.push(res[0]);
+      ok++;
+    } catch(e) { fail++; }
+  }
+
+  document.getElementById('prod-count').textContent = prods.length + ' productos';
+  toast(`${ok} producto${ok>1?'s':''} importado${ok>1?'s':''}${fail?' · '+fail+' errores':''}`, true);
+  btn.innerHTML = `Importar productos`;
+  btn.disabled  = false;
+  resetCSV();
+}
+
+function resetCSV() {
+  csvData = [];
+  document.getElementById('csv-file').value = '';
+  ['csv-summary-box','csv-table-box','csv-btn-box'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+}
+
+// ══════════════════════════════════════
+//  TAB: EXCEL — GENERADOR DE PRECIOS
+// ══════════════════════════════════════
+let excelRows = [];
+
+function parsearLinea(line) {
+  // Tab separado
+  let parts = line.split('\t');
+  if (parts.length >= 2) {
+    const desc = parts[0].trim();
+    const nums = parts.slice(1).map(p => parseFloat((p||'').replace(/[^\d.]/g,''))).filter(n=>n>0);
+    return { desc, costo: nums[0]||0 };
+  }
+  // Dos o más espacios como separador
+  const m2 = line.match(/^(.+?)\s{2,}([\d,]+\.?\d*)\s*$/);
+  if (m2) return { desc: m2[1].trim(), costo: parseFloat(m2[2].replace(/,/g,'')) };
+  // Último número en la línea
+  const m3 = line.match(/^([\s\S]+?)\s+([\d,]+\.?\d*)\s*$/);
+  if (m3) return { desc: m3[1].trim(), costo: parseFloat(m3[2].replace(/,/g,'')) };
+  return null;
+}
+
+function procesarExcel() {
+  const raw = document.getElementById('excel-raw').value.trim();
+  if (!raw) { toast('Pega datos primero'); return; }
+
+  const lines = raw.split(/\r?\n/).filter(l => l.trim());
+  excelRows = [];
+
+  for (const line of lines) {
+    const parsed = parsearLinea(line);
+    if (!parsed || !parsed.desc || !parsed.costo || parsed.costo <= 0) {
+      excelRows.push({ _err: true, DESCRIPCION: line, _raw: line });
+      continue;
+    }
+    const { desc, costo } = parsed;
+    const ref = buscarReferencia(desc, costo);
+    const cat = autoCategoria(desc);
+
+    if (ref) {
+      const mc  = ref.ref.contado / ref.ref.costo;
+      const mm  = cat ? (1 + cat.margen_mayoreo/100) : mc * 0.82;
+      excelRows.push({
+        _tipo:      'ref',
+        CATEGORIA:  ref.ref.cat.toUpperCase(),
+        PROVEEDOR:  '',
+        DESCRIPCION: desc,
+        COSTO:       costo,
+        MAYORISTA:   Math.round(costo * mm * 100) / 100,
+        PROMOCION:   '',
+        CONTADO:     Math.round(ref.contado * 100) / 100,
+        'TOTAL 6M':  ref.t6  ? Math.round(ref.t6  * 100) / 100 : '',
+        'PRIMA 6M':  '',
+        'CUOTA 6M':  ref.c6  ? Math.round(ref.c6  * 100) / 100 : '',
+        'TOTAL 12M': ref.t12 ? Math.round(ref.t12 * 100) / 100 : '',
+        'PRIMA 12M': '',
+        'CUOTA 12M': ref.c12 ? Math.round(ref.c12 * 100) / 100 : '',
+        '% MARGEN CONTADO': ref.pctContado + '%',
+        REFERENCIA:  ref.ref.nombre + ' · ' + ref.ref.proveedor + (ref.diffPct > 10 ? ' (±'+ref.diffPct+'% costo)' : ''),
+      });
+    } else if (cat) {
+      const px = calcPx(costo, cat);
+      excelRows.push({
+        _tipo:      'cat',
+        CATEGORIA:  cat.nombre,
+        PROVEEDOR:  '',
+        DESCRIPCION: desc,
+        COSTO:       costo,
+        MAYORISTA:   Math.round(px.mayoreo * 100) / 100,
+        PROMOCION:   Math.round(px.pagos   * 100) / 100,
+        CONTADO:     Math.round(px.cash    * 100) / 100,
+        'TOTAL 6M':  Math.round(px.t6  * 100) / 100,
+        'PRIMA 6M':  '',
+        'CUOTA 6M':  Math.round(px.c6  * 100) / 100,
+        'TOTAL 12M': Math.round(px.t12 * 100) / 100,
+        'PRIMA 12M': '',
+        'CUOTA 12M': Math.round(px.c12 * 100) / 100,
+        '% MARGEN CONTADO': cat.margen_cash + '%',
+        REFERENCIA:  'Margen categoría · ' + cat.nombre,
+      });
+    } else {
+      excelRows.push({ _err: true, DESCRIPCION: desc, COSTO: costo, REFERENCIA: 'Sin categoría detectada', _raw: line });
+    }
+  }
+
+  renderExcelPreview();
+}
+
+function renderExcelPreview() {
+  const ok  = excelRows.filter(r => !r._err).length;
+  const bad = excelRows.filter(r =>  r._err).length;
+  const cols = ['DESCRIPCION','COSTO','CONTADO','CUOTA 6M','CUOTA 12M','% MARGEN CONTADO','REFERENCIA'];
+
+  document.getElementById('excel-meta').innerHTML =
+    `<span style="color:#2e7d32">✓ ${ok} producto${ok!==1?'s':''} calculado${ok!==1?'s':''}</span>` +
+    (bad ? ` &nbsp;·&nbsp; <span style="color:var(--red)">✗ ${bad} sin parsear</span>` : '');
+
+  document.getElementById('excel-preview-wrap').innerHTML = `
+    <table>
+      <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>${excelRows.map(r=>`
+        <tr class="${r._err?'row-err':r._tipo==='ref'?'row-ok':'row-warn'}">
+          ${cols.map(c=>`<td>${r[c]!==undefined?r[c]:''}</td>`).join('')}
+          <td>${r._err?'<span class="xl-chip xl-err">Error</span>':r._tipo==='ref'?'<span class="xl-chip xl-ref">Ref. real</span>':'<span class="xl-chip xl-cat">Categoría</span>'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  document.getElementById('excel-result').classList.remove('hidden');
+}
+
+function descargarXLSX() {
+  if (!excelRows.length) return;
+  if (typeof XLSX === 'undefined') { toast('Librería Excel aún cargando, intenta en un momento'); return; }
+
+  const data = excelRows.map(({ _err, _tipo, _raw, ...rest }) => rest);
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const keys = Object.keys(data[0] || {});
+  ws['!cols'] = keys.map(k => ({ wch: Math.max(k.length + 2, k === 'DESCRIPCION' ? 35 : k === 'REFERENCIA' ? 40 : 14) }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Precios La Roca');
+  XLSX.writeFile(wb, `Precios_LaRoca_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Excel descargado ✓', true);
+}
+
+function limpiarExcel() {
+  excelRows = [];
+  document.getElementById('excel-raw').value = '';
+  document.getElementById('excel-result').classList.add('hidden');
+}
+
+// ══════════════════════════════════════
+//  TAB: COMPARAR PROVEEDORES
+// ══════════════════════════════════════
+const COMP_CATS = [
+  { key:'refrigeradora', label:'❄️ Refris' },
+  { key:'estufa',        label:'🔥 Estufas' },
+  { key:'lavadora',      label:'🫧 Lavadoras' },
+  { key:'television',    label:'📺 TVs' },
+  { key:'aire',          label:'🌬️ Aires' },
+  { key:'sala',          label:'🛋️ Salas' },
+  { key:'closet',        label:'🚪 Closets' },
+  { key:'comedor',       label:'🍽️ Comedores' },
+  { key:'cama',          label:'🛏️ Camas DIVECO' },
+  { key:'cabecera',      label:'🛏️ Cabeceras' },
+  { key:'recamara',      label:'🛏️ Recámaras' },
+];
+
+function initCompTab() {
+  const pills = document.getElementById('comp-pills');
+  if (pills.innerHTML) return;
+  pills.innerHTML = COMP_CATS.map(c =>
+    `<button class="cat-pill" id="cp-${c.key}" onclick="mostrarComparacion('${c.key}')">${c.label}</button>`
+  ).join('');
+}
+
+function catForRef(catKey) {
+  const map = {
+    refrigeradora:'Electrodomésticos', estufa:'Electrodomésticos',
+    lavadora:'Electrodomésticos', television:'Electrodomésticos',
+    aire:'Electrodomésticos', sala:'Sala y Comedor',
+    comedor:'Sala y Comedor', closet:'Dormitorio',
+    cama:'Dormitorio', chifonier:'Dormitorio', cabecera:'Dormitorio', recamara:'Dormitorio',
+  };
+  return cats.find(c => c.nombre === map[catKey]) || cats[0];
+}
+
+function enrichRef(r, catObj) {
+  // Usar precios reales del REF si existen, sino calcular con márgenes de categoría
+  const mayoreo = r.mayoreo || (catObj ? Math.round(r.costo * (1 + catObj.margen_mayoreo/100) * 100)/100 : null);
+  const promo   = r.promo   || (catObj ? Math.round(r.costo * (1 + catObj.margen_pagos/100)   * 100)/100 : null);
+  const pct     = Math.round((r.contado / r.costo - 1) * 100);
+  const c6      = r.c6  || (r.t6  ? Math.round(r.t6  / 6  * 100)/100 : null);
+  const c12     = r.c12 || (r.t12 ? Math.round(r.t12 / 12 * 100)/100 : null);
+  return { ...r, mayoreo, promo, pct, c6, c12 };
+}
+
+function mostrarComparacion(catKey) {
+  COMP_CATS.forEach(c => {
+    const el = document.getElementById('cp-'+c.key);
+    if (el) el.classList.toggle('active', c.key === catKey);
+  });
+
+  const catObj = catForRef(catKey);
+  const pool = REF.filter(r => r.cat === catKey)
+    .map(r => enrichRef(r, catObj))
+    .sort((a, b) => b.pct - a.pct);
+
+  if (!pool.length) {
+    document.getElementById('comp-table-wrap').innerHTML =
+      '<p style="text-align:center;color:var(--g400);padding:24px">Sin datos para esta categoría</p>';
+    return;
+  }
+
+  const provs    = [...new Set(pool.map(r => r.proveedor))];
+  const catLabel = COMP_CATS.find(c => c.key === catKey)?.label || catKey;
+
+  const rows = pool.map((r, i) => {
+    const isBest = i === 0;
+    const cls    = isBest ? 'comp-best' : r.pct >= 65 ? 'comp-high' : r.pct >= 40 ? 'comp-mid' : 'comp-low';
+    const mgCls  = r.pct >= 65 ? 'mg-high' : r.pct >= 40 ? 'mg-mid' : 'mg-low';
+    return `<tr class="${cls}">
+      <td style="text-align:center;font-weight:700;color:var(--g400)">${isBest?'⭐':i+1}</td>
+      <td><span class="prov-tag">${r.proveedor}</span></td>
+      <td style="font-size:12px;white-space:normal;min-width:140px">${r.nombre}</td>
+      <td style="text-align:right;white-space:nowrap">${lps(r.costo)}</td>
+      <td style="text-align:right;white-space:nowrap">${r.mayoreo?lps(r.mayoreo):'—'}</td>
+      <td style="text-align:right;white-space:nowrap">${r.promo?lps(r.promo):'—'}</td>
+      <td style="text-align:right;font-weight:700;color:var(--red);white-space:nowrap">${lps(r.contado)}</td>
+      <td style="text-align:right;white-space:nowrap">${r.t6?lps(r.t6):'—'}</td>
+      <td style="text-align:right;white-space:nowrap;color:#1565c0;font-weight:700">${r.c6?lps(r.c6):'—'}</td>
+      <td style="text-align:right;white-space:nowrap">${r.t12?lps(r.t12):'—'}</td>
+      <td style="text-align:right;white-space:nowrap;color:#6a1b9a;font-weight:700">${r.c12?lps(r.c12):'—'}</td>
+      <td style="text-align:center;white-space:nowrap"><span class="mg-badge ${mgCls}">+${r.pct}%</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('comp-table-wrap').innerHTML = `
+    <p style="font-size:13px;color:var(--g600);margin-bottom:4px">
+      ${catLabel} — <b>${pool.length} productos</b> de <b>${provs.length} proveedor${provs.length>1?'es':''}</b>: ${provs.join(' · ')}
+    </p>
+    <div class="comp-wrap">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Proveedor</th><th>Producto</th>
+          <th style="text-align:right">Costo</th>
+          <th style="text-align:right">Mayoreo</th>
+          <th style="text-align:right">Promo</th>
+          <th style="text-align:right">Contado</th>
+          <th style="text-align:right">Total 6M</th>
+          <th style="text-align:right">Cuota 6M</th>
+          <th style="text-align:right">Total 12M</th>
+          <th style="text-align:right">Cuota 12M</th>
+          <th style="text-align:center">% Margen</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <p style="font-size:11px;color:var(--g400);margin-top:8px;line-height:1.6">
+      ⭐ mejor margen &nbsp;·&nbsp; 🟢 alto (+65%) &nbsp;·&nbsp; 🔵 medio (+40%) &nbsp;·&nbsp; 🟡 bajo (&lt;40%)
+      &nbsp;·&nbsp; Mayoreo/Promo calculados con márgenes La Roca · Contado/6M/12M = precios reales de proveedor
+    </p>`;
+}
+
+function miniCompHTML(catKey, costoInput) {
+  const catObj = catForRef(catKey);
+  const pool = REF.filter(r => r.cat === catKey)
+    .map(r => enrichRef(r, catObj))
+    .sort((a, b) => b.pct - a.pct);
+  if (pool.length <= 1) return '';
+
+  const show    = pool.slice(0, 5);
+  const closest = [...pool].sort((a, b) =>
+    Math.abs(a.costo - costoInput) - Math.abs(b.costo - costoInput))[0];
+  const catLabel = COMP_CATS.find(c => c.key === catKey)?.label || catKey;
+
+  const rows = show.map(r => {
+    const isClose = r === closest;
+    const mgCls   = r.pct >= 65 ? 'mg-high' : r.pct >= 40 ? 'mg-mid' : 'mg-low';
+    return `<tr${isClose?' style="background:#fffde7"':''}>
+      <td><span class="prov-tag">${r.proveedor}</span></td>
+      <td style="font-size:11px;white-space:normal">${r.nombre}${isClose?' <b style="color:#f9a825;font-size:10px">◀</b>':''}</td>
+      <td style="text-align:right;font-size:11px;white-space:nowrap">${lps(r.costo)}</td>
+      <td style="text-align:right;font-size:11px;white-space:nowrap">${r.mayoreo?lps(r.mayoreo):'—'}</td>
+      <td style="text-align:right;font-size:11px;white-space:nowrap">${r.promo?lps(r.promo):'—'}</td>
+      <td style="text-align:right;font-weight:700;font-size:11px;color:var(--red);white-space:nowrap">${lps(r.contado)}</td>
+      <td style="text-align:right;font-size:11px;color:#1565c0;font-weight:700;white-space:nowrap">${r.c6?lps(r.c6):'—'}</td>
+      <td style="text-align:right;font-size:11px;color:#6a1b9a;font-weight:700;white-space:nowrap">${r.c12?lps(r.c12):'—'}</td>
+      <td style="text-align:center"><span class="mg-badge ${mgCls}">+${r.pct}%</span></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div style="background:white;border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;border:2px solid #c8e6c9;margin-top:12px">
+      <div style="background:#2e7d32;color:white;padding:12px 16px">
+        <div style="font-size:14px;font-weight:700">🔄 Comparación — ${catLabel}</div>
+        <div style="font-size:12px;opacity:0.85;margin-top:2px">Top 5 por margen · ${pool.length} productos disponibles</div>
+      </div>
+      <div class="comp-wrap" style="margin:0;border:none;border-radius:0">
+        <table>
+          <thead><tr>
+            <th>Proveedor</th><th>Producto</th>
+            <th style="text-align:right">Costo</th>
+            <th style="text-align:right">Mayoreo</th>
+            <th style="text-align:right">Promo</th>
+            <th style="text-align:right">Contado</th>
+            <th style="text-align:right">Cuota 6M</th>
+            <th style="text-align:right">Cuota 12M</th>
+            <th style="text-align:center">% Margen</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid var(--g100);text-align:center">
+        <button onclick="showTab('comp');mostrarComparacion('${catKey}')"
+                style="background:none;border:none;color:#2e7d32;font-size:13px;font-weight:700;cursor:pointer">
+          Ver los ${pool.length} productos en detalle ↗
+        </button>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════
+function showTab(tab) {
+  ['rapido','comp','subir'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('hidden', t!==tab);
+    document.getElementById('t-'+t).classList.toggle('active', t===tab);
+  });
+  if (tab === 'comp') initCompTab();
+}
+
+// ══════════════════════════════════════
+//  PIN
+// ══════════════════════════════════════
+function openPin() {
+  document.getElementById('pin-val').value='';
+  document.getElementById('pin-modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('pin-val').focus(),100);
+}
+function checkPin() {
+  if (document.getElementById('pin-val').value===PIN) {
+    document.getElementById('pin-modal').classList.add('hidden');
+    openAdmin();
+  } else {
+    toast('PIN incorrecto');
+    document.getElementById('pin-val').value='';
+  }
+}
+
+// ══════════════════════════════════════
+//  ADMIN
+// ══════════════════════════════════════
+function openAdmin() {
+  renderCatsList();
+  renderProdList();
+  showAdmTab('cats');
+  document.getElementById('admin-modal').classList.remove('hidden');
+}
+function closeAdmin() { document.getElementById('admin-modal').classList.add('hidden'); }
+
+function showAdmTab(tab) {
+  document.getElementById('adm-cats').classList.toggle('hidden', tab!=='cats');
+  document.getElementById('adm-prod').classList.toggle('hidden', tab!=='prod');
+  document.getElementById('at-cats').classList.toggle('active', tab==='cats');
+  document.getElementById('at-prod').classList.toggle('active', tab==='prod');
+}
+
+// Categorías / Márgenes
+function renderCatsList() {
+  document.getElementById('cats-list').innerHTML = cats.map(cat => `
+    <div class="cat-block">
+      <h4>${cat.nombre} <span class="auto-cat ${cat.tipo}">${cat.tipo}</span></h4>
+      <div class="mgrid">
+        <div class="mfield"><label>% Cash</label>
+          <input type="number" value="${cat.margen_cash}" min="0"
+                 onchange="dirtyCat(${cat.id},'margen_cash',this.value)"></div>
+        <div class="mfield"><label>% Mayoreo</label>
+          <input type="number" value="${cat.margen_mayoreo}" min="0"
+                 onchange="dirtyCat(${cat.id},'margen_mayoreo',this.value)"></div>
+        <div class="mfield"><label>% Contado Pagos</label>
+          <input type="number" value="${cat.margen_pagos}" min="0"
+                 onchange="dirtyCat(${cat.id},'margen_pagos',this.value)"></div>
+        <div class="mfield"><label>% Interés 6m</label>
+          <input type="number" value="${cat.tasa_6m}" min="0"
+                 onchange="dirtyCat(${cat.id},'tasa_6m',this.value)"></div>
+        <div class="mfield"><label>% Interés 12m</label>
+          <input type="number" value="${cat.tasa_12m}" min="0"
+                 onchange="dirtyCat(${cat.id},'tasa_12m',this.value)"></div>
+      </div>
+      <button class="btn-save-cat" onclick="saveCat(${cat.id})">Guardar márgenes</button>
+    </div>`).join('');
+}
+
+function dirtyCat(id,field,val) {
+  if (!catChanges[id]) catChanges[id]={};
+  catChanges[id][field]=parseFloat(val);
+  const cat=cats.find(c=>c.id===id); if(cat) cat[field]=parseFloat(val);
+}
+
+async function saveCat(id) {
+  if (!catChanges[id]) { toast('Sin cambios pendientes'); return; }
+  try {
+    await sbPatch('cotizador_categorias', id, catChanges[id]);
+    delete catChanges[id];
+    toast('Márgenes guardados ✓', true);
+  } catch(e) { toast('Error al guardar'); }
+}
+
+// Productos
+function renderProdList() {
+  const el = document.getElementById('prod-list');
+  if (!prods.length) { el.innerHTML='<p style="text-align:center;color:var(--g400);padding:20px">Sin productos aún</p>'; return; }
+  el.innerHTML = `<p style="font-size:13px;font-weight:700;color:var(--g600);margin-bottom:10px">${prods.length} productos</p>` +
+    [...prods].reverse().map(p => {
+      const cat = cats.find(c=>c.id===p.categoria_id);
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--g50);border-radius:10px;margin-bottom:8px">
+        <div>
+          <div style="font-weight:600;font-size:14px">${p.nombre}${p.modelo?' '+p.modelo:''} <span class="auto-cat ${p.tipo}" style="margin-left:4px">${p.tipo}</span></div>
+          <div style="font-size:12px;color:var(--g400);margin-top:2px">Costo: ${lps(p.costo)} · ${cat?cat.nombre:'—'}</div>
+        </div>
+        <button onclick="eliminarProd(${p.id})"
+          style="background:#fff0ef;border:none;padding:6px 12px;border-radius:6px;font-size:13px;cursor:pointer;color:var(--red);flex-shrink:0;margin-left:10px">
+          Eliminar
+        </button>
+      </div>`;
+    }).join('');
+}
+
+async function eliminarProd(id) {
+  if (!confirm('¿Eliminar este producto?')) return;
+  try {
+    await sbDel('cotizador_productos', id);
+    prods = prods.filter(p=>p.id!==id);
+    document.getElementById('prod-count').textContent = prods.length + ' productos';
+    renderProdList();
+    toast('Producto eliminado', true);
+  } catch(e) { toast('Error al eliminar'); }
+}
+
+// ══════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════
+let toastT;
+function toast(msg, ok=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (ok?' ok':'');
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>el.classList.remove('show'), 2800);
+}
+
+init();
+</script>
+</body>
+</html>
