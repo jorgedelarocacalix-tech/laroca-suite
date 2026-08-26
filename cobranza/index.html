@@ -662,7 +662,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260826-35';
+var APP_VERSION='20260826-36';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -2749,11 +2749,13 @@ function buildCierreHoy(cartId,rows){
   withMora.sort(function(a,b){return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);});
   var totalCuota=rows.reduce(function(s,r){return s+(r.cuota||0);},0);
   var totalMora=withMora.reduce(function(s,x){return s+x.mora;},0);
+  var totalAcordado=rows.reduce(function(s,r){var p=PROMESAS[cartId+'::'+r.nombre];return s+(p&&p.monto?p.monto:0);},0);
   window._cierreExcelData={cartId:cartId,rows:withMora.map(function(x){return x.r;})};
   var uid='CH'+Math.random().toString(36).slice(2,6);
   var html='<div class="tbl-note">Clientes con mora real (aunque hayan pagado su cuota de este mes) o que aún no han pagado nada este mes. Usalo para llamar a los equipos y confirmar con cuánto se espera cerrar el mes.</div>'
     +'<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Clientes</div><div class="kpi-v">'+rows.length+'</div></div>'
+      +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total acordado</div><div class="kpi-v" style="color:var(--purple)">L '+fmt(totalAcordado)+'</div></div>'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total cuota</div><div class="kpi-v" style="color:var(--blue)">L '+fmt(totalCuota)+'</div></div>'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total mora</div><div class="kpi-v" style="color:var(--red)">L '+fmt(totalMora)+'</div></div>'
     +'</div>'
