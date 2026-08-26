@@ -662,7 +662,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260826-33';
+var APP_VERSION='20260826-34';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -2777,8 +2777,9 @@ function buildCierreHoy(cartId,rows){
       +'<td>'+moraHtml+'</td>'
       +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
       +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
-      +'<td style="display:flex;gap:3px;flex-wrap:wrap">'
+      +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
         +(p?promBadge(p):'')
+        +(p&&p.monto?'<span style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:700">L '+fmt(p.monto)+'</span>':'')
         +'<span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">'+(p?'✏️ editar':'📅 Registrar acuerdo')+'</span>'
       +'</td>'
       +'<td><span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬 Comentar / historial</span></td>'
