@@ -662,12 +662,12 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260822-29';
+var APP_VERSION='20260826-30';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
 var PIN_VAL='', CAL_Y=HOY.getFullYear(), CAL_M=HOY.getMonth();
-var MODAL_AC=null, ECG_DATA={}, SHOWN_ALERTS={}, SYNC_T=null;
+var MODAL_AC=null, ECG_DATA={}, SHOWN_ALERTS={}, SYNC_T=null, VERCHECK_T=null;
 var LAST_ALERT_CHECK=new Date(Date.now()-24*60*60*1000).toISOString();
 var REP_SORT={col:'dia_pago',dir:1};
 var _AUTOR={};   // 'cartId::cliente' -> gestor del último comentario humano
@@ -892,7 +892,7 @@ async function syncNow(){
           +'<b>¿Qué hacer?</b><br>'
           +'Toca el botón verde para recargar la app.<br>'
           +'<span style="color:#b01020">⚠️ No perderás ningún dato</span> — todo está guardado en la nube.</div>'
-          +'<button onclick="location.reload(true)" style="width:100%;padding:13px;background:#1a7a3c;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px">✅ Actualizar ahora</button>'
+          +'<button onclick="location.href=location.pathname+\'?_v=\'+Date.now()" style="width:100%;padding:13px;background:#1a7a3c;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px">✅ Actualizar ahora</button>'
           +'<button onclick="document.getElementById(\'update-modal\').remove()" style="width:100%;padding:10px;background:transparent;color:#888;border:1px solid #ddd;border-radius:10px;font-size:13px;cursor:pointer">Recordar después</button>'
           +'</div>';
         document.body.appendChild(overlay);
@@ -918,8 +918,13 @@ function startSync(){
       checkAlertas();
     }catch(e){}
   },3000);
+  // Chequeo automático de versión: la app no se actualiza sola en PWAs/pestañas
+  // que quedan abiertas dias — antes solo se revisaba si alguien tocaba "Sync" a mano.
+  clearInterval(VERCHECK_T);
+  setTimeout(syncNow,8000); // al entrar, dale tiempo a que cargue todo primero
+  VERCHECK_T=setInterval(syncNow,5*60*1000);
 }
-function stopSync(){if(SYNC_T){clearInterval(SYNC_T);SYNC_T=null;}}
+function stopSync(){if(SYNC_T){clearInterval(SYNC_T);SYNC_T=null;}clearInterval(VERCHECK_T);VERCHECK_T=null;}
 async function dbSaveCartera(id){
   if(!supa)return;var c=CARTERAS[id];if(!c)return;
   try{
