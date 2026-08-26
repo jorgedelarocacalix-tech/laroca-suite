@@ -662,7 +662,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260826-30';
+var APP_VERSION='20260826-31';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -879,23 +879,21 @@ async function syncNow(){
     var html=await res.text();
     var m=html.match(/APP_VERSION='([^']+)'/);
     if(m&&m[1]!==APP_VERSION){
+      // Auto-actualización obligatoria: sin botón para posponer.
+      // El usuario decidió que la app no debe quedarse en versiones viejas por decisión de nadie.
       if(!document.getElementById('update-modal')){
         var overlay=document.createElement('div');
         overlay.id='update-modal';
-        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .25s ease';
+        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .25s ease';
         overlay.innerHTML=''
           +'<div style="background:#fff;border-radius:16px;padding:32px 28px;max-width:360px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.3)">'
-          +'<div style="font-size:44px;margin-bottom:12px">🆕</div>'
-          +'<div style="font-size:18px;font-weight:800;color:#18202c;margin-bottom:8px">¡Nueva versión disponible!</div>'
-          +'<div style="font-size:13px;color:#555;margin-bottom:6px;line-height:1.5">El sistema tiene una actualización con mejoras y correcciones.</div>'
-          +'<div style="font-size:12px;color:#888;background:#f4f5f7;border-radius:8px;padding:10px 14px;margin-bottom:22px;line-height:1.6">'
-          +'<b>¿Qué hacer?</b><br>'
-          +'Toca el botón verde para recargar la app.<br>'
-          +'<span style="color:#b01020">⚠️ No perderás ningún dato</span> — todo está guardado en la nube.</div>'
-          +'<button onclick="location.href=location.pathname+\'?_v=\'+Date.now()" style="width:100%;padding:13px;background:#1a7a3c;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px">✅ Actualizar ahora</button>'
-          +'<button onclick="document.getElementById(\'update-modal\').remove()" style="width:100%;padding:10px;background:transparent;color:#888;border:1px solid #ddd;border-radius:10px;font-size:13px;cursor:pointer">Recordar después</button>'
+          +'<div style="font-size:44px;margin-bottom:12px">🔄</div>'
+          +'<div style="font-size:18px;font-weight:800;color:#18202c;margin-bottom:8px">Actualizando la app…</div>'
+          +'<div style="font-size:13px;color:#555;line-height:1.5">Hay correcciones importantes. La app se va a recargar sola en un momento.</div>'
+          +'<div style="font-size:12px;color:#b01020;margin-top:10px">No perderás datos — todo está guardado en la nube.</div>'
           +'</div>';
         document.body.appendChild(overlay);
+        setTimeout(function(){location.href=location.pathname+'?_v='+Date.now();},2500);
       }
     }
   }catch(e){}
@@ -922,7 +920,7 @@ function startSync(){
   // que quedan abiertas dias — antes solo se revisaba si alguien tocaba "Sync" a mano.
   clearInterval(VERCHECK_T);
   setTimeout(syncNow,8000); // al entrar, dale tiempo a que cargue todo primero
-  VERCHECK_T=setInterval(syncNow,5*60*1000);
+  VERCHECK_T=setInterval(syncNow,2*60*1000);
 }
 function stopSync(){if(SYNC_T){clearInterval(SYNC_T);SYNC_T=null;}clearInterval(VERCHECK_T);VERCHECK_T=null;}
 async function dbSaveCartera(id){
