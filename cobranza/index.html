@@ -1060,7 +1060,7 @@ function parseCartera(lines){
         segments.forEach(function(grpLines){
           var allD=[],allN=[];
           grpLines.forEach(function(dl){
-            var dd=dl.match(/\b(\d{2}\/\d{2}\/\d{4})\b/g)||[];dd.forEach(function(d){if(!allD.includes(d))allD.push(d);});
+            var dd=dl.match(/\b(\d{2}\/\d{2}\/\d{4})\b/g)||[];dd.forEach(function(d){allD.push(d);});
             var st=dl.replace(/\b\d{2}\/\d{2}\/\d{4}\b/g,'');
             var ns=(st.match(/[\d,]+\.?\d*/g)||[]).map(function(s){return parseFloat(s.replace(/,/g,''));}).filter(function(n){return !isNaN(n)&&n>=0;});
             ns.forEach(function(n){allN.push(n);});
@@ -1154,46 +1154,61 @@ function pagoMesAnterior(s){var d=parseHNDate(s);if(!d)return false;var am=new D
 // ══ CRUCE CON ARQUEOS: detectar primas pagadas ══
 async function cruzarPrimasConArqueos(cartId,clientes){
   try{
-    var mesStr=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
-    var desde=mesStr+'-01';
     var hasta=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1)+'-'+(HOY.getDate()<10?'0':'')+HOY.getDate();
-    var r=await supa.from('arqueos').select('sucursal,fecha,analisis_json').gte('fecha',desde).lte('fecha',hasta);
-    if(r.error||!r.data)return;
+    console.log('[PRIMA] Consultando todos los arqueos hasta',hasta,'para cartera',cartId);
+    var r=await supa.from('arqueos').select('sucursal,fecha,analisis_json').lte('fecha',hasta);
+    if(r.error){console.log('[PRIMA] Error arqueos:',r.error);return;}
+    if(!r.data||!r.data.length){console.log('[PRIMA] Sin arqueos');return;}
+    console.log('[PRIMA] Arqueos encontrados:',r.data.length);
     // Mapear sucursal → cartera_id
     var sucMap={'R1':'LA_ROCA_COMERCIAL_1','R2':'LA_ROCA_MOTORS_BARRIO_ARRIBA_1','R3':'LA_ROCA_MOTORS_LA_LIBERTAD_2','R4':'SU_MUEBLE','R5':'SU_MOTO_DANLI'};
     var sucCart={};Object.keys(sucMap).forEach(function(s){sucCart[sucMap[s]]=s;});
-    var miSuc=sucCart[cartId];if(!miSuc)return;
-    // Recopilar cobros PRIMA de esta sucursal
+    var miSuc=sucCart[cartId];if(!miSuc){console.log('[PRIMA] No mapeo para cartera',cartId);return;}
+    console.log('[PRIMA] Sucursal mapeada:',miSuc);
+    // Recopilar cobros PRIMA de esta sucursal: lista de candidatos por nombre (un cliente puede tener varios créditos/primas)
     var primas={};
     (r.data||[]).forEach(function(a){
       if(a.sucursal!==miSuc)return;
-      var aj=a.analisis_json||{};
+      var aj=typeof a.analisis_json==='string'?JSON.parse(a.analisis_json):(a.analisis_json||{});
       (aj.cobros||[]).forEach(function(c){
         if((c.tipo||'').toUpperCase()==='PRIMA'&&c.cliente){
           var nombre=c.cliente.trim().toUpperCase();
-          if(!primas[nombre])primas[nombre]=a.fecha;
+          if(!primas[nombre])primas[nombre]=[];
+          primas[nombre].push({fecha:a.fecha,monto:Math.round(Number(c.monto)||0)});
         }
       });
     });
+    console.log('[PRIMA] Primas encontradas:',Object.keys(primas).length,primas);
     if(!Object.keys(primas).length)return;
     // Fecha HN del arqueo
     function isoToHN(iso){var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+    // Elige el candidato correcto: si el nombre tiene varios créditos, desambigua por monto==pagado; si no hay match de monto, usa el más antiguo
+    function elegirCandidato(cands,pagado){
+      if(cands.length===1)return cands[0];
+      var pm=Math.round(Number(pagado)||0);
+      var porMonto=cands.filter(function(x){return x.monto===pm;});
+      if(porMonto.length)return porMonto.slice().sort(function(a,b){return a.fecha<b.fecha?-1:1;})[0];
+      return cands.slice().sort(function(a,b){return a.fecha<b.fecha?-1:1;})[0];
+    }
+    // Clientes sin ultimo_pago
+    var sinPago=clientes.filter(function(c){return c.sin_ultimo_pago&&!c.ultimo_pago;});
+    console.log('[PRIMA] Clientes sin ultimo_pago:',sinPago.length,sinPago.map(function(c){return c.nombre;}));
     // Matchear clientes sin ultimo_pago con primas
     clientes.forEach(function(c){
       if(!c.sin_ultimo_pago||c.ultimo_pago)return;
-      var nombreUp=c.nombre.trim().toUpperCase();
+      var nombreUp=c.nombre.replace(/\s*\(\d+\)$/,'').trim().toUpperCase();
       // Match exacto
-      if(primas[nombreUp]){c.ultimo_pago=isoToHN(primas[nombreUp]);c.sin_ultimo_pago=false;return;}
+      if(primas[nombreUp]){var cand=elegirCandidato(primas[nombreUp],c.pagado);c.ultimo_pago=isoToHN(cand.fecha);c.sin_ultimo_pago=false;console.log('[PRIMA] MATCH exacto:',c.nombre,'→',c.ultimo_pago,'(monto',cand.monto,')');return;}
       // Match parcial: nombre del cliente contenido en la prima o viceversa
       var keys=Object.keys(primas);
       for(var i=0;i<keys.length;i++){
         var k=keys[i];
         if(k.length>=4&&nombreUp.length>=4&&(k.indexOf(nombreUp)>=0||nombreUp.indexOf(k)>=0)){
-          c.ultimo_pago=isoToHN(primas[k]);c.sin_ultimo_pago=false;return;
+          var cand2=elegirCandidato(primas[k],c.pagado);c.ultimo_pago=isoToHN(cand2.fecha);c.sin_ultimo_pago=false;console.log('[PRIMA] MATCH parcial:',c.nombre,'con',k,'→',c.ultimo_pago,'(monto',cand2.monto,')');return;
         }
       }
     });
-  }catch(e){console.error('cruzarPrimasConArqueos:',e);}
+  }catch(e){console.error('[PRIMA] Error:',e);}
 }
 
 // ══ FILE HANDLING ══
@@ -1678,6 +1693,16 @@ function renderDash(id){
     return !pagoMesAnterior(c.ultimo_pago)&&!pagoEsteMes(c.ultimo_pago);
   }).length;
 
+  // ── Proyección hoy → cierre: clientes con mora real (aunque hayan pagado este mes) o que no han pagado este mes ──
+  var cierreHoyList=activos.filter(function(c){
+    var p=PROMESAS[id+'::'+c.nombre];
+    var pagoManualEsteMes=p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
+    var pagado=(pagoEsteMes(c.ultimo_pago)||pagoManualEsteMes)&&!(p&&p.mora_pendiente);
+    var m=calcMoraCliente(c,id);
+    var tieneMora=m&&m.diferencia>0;
+    return tieneMora||!pagado;
+  });
+
   // ── Estructura de grupos con subpestañas ──
   var GRUPOS=[
     {
@@ -1743,6 +1768,13 @@ function renderDash(id){
       ]
     },
   ];
+  // Pestaña "Hoy → Cierre": visible para admin y gerente, al comienzo
+  if(USER&&(USER.rol==='admin'||USER.rol==='gerente')){
+    GRUPOS.unshift({
+      id:'CIERRE_HOY', lbl:'🏁 Hoy → Cierre', direct:true,
+      badge: cierreHoyList.length>0?cierreHoyList.length:null, badgeColor:'var(--red)'
+    });
+  }
 
   // Determinar grupo y sub activos desde CURRENT_TAB
   var activeGrupoId=null, activeSubId=null;
@@ -1782,6 +1814,7 @@ function renderDash(id){
 
   // Todos los panes de contenido (todos los sub IDs posibles)
   var allPanes=[
+    {id:'CIERRE_HOY',build:function(d){d.innerHTML=buildCierreHoy(id,cierreHoyList);}},
     {id:'HOY',       build:function(d){d.innerHTML=buildHoy(id,cl,G);}},
     {id:'REPORTE',   build:function(d){d.innerHTML=buildReporte(id,cl,G);}},
     {id:'VENCIDO',   build:function(d){d.innerHTML=buildTbl(id,G.VENCIDO||[],'bo','');}},
@@ -2651,6 +2684,76 @@ function exportTramoExcel(){
     XLSX.writeFile(wb,'mora_'+tramoLabel+'_'+empresa.replace(/[^a-zA-Z0-9]/g,'_')+'_'+HOY.toISOString().split('T')[0]+'.xlsx',{cellStyles:true});
   }
   if(typeof XLSX==='undefined'){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=_do;document.head.appendChild(s);}else{_do();}
+}
+
+// ══ PROYECCION HOY → CIERRE (solo admin) ══
+function exportCierreExcel(){
+  var d=window._cierreExcelData;
+  if(!d||!d.rows||!d.rows.length){alert('Sin datos para exportar.');return;}
+  function _do(){
+    var header=['#','Cliente','Saldo (L)','Cuota (L)','Mora (L)','Ultimo pago','Tramo','Ultima gestion'];
+    var wsData=[header];
+    var totalCuota=0,totalMora=0;
+    d.rows.forEach(function(r,i){
+      var m=calcMoraCliente(r,d.cartId);
+      var mora=m&&m.diferencia>0?m.diferencia:0;
+      totalCuota+=r.cuota||0;totalMora+=mora;
+      var tl=r.tramo==='INACTIVO'?'+180d':r.tramo==='MES'?'Al dia':r.tramo==='VENCIDO'?'Este mes':(r.tramo||'')+'d';
+      var p=PROMESAS[d.cartId+'::'+r.nombre]||{};
+      var gest=p.estado?({promesa:'Promesa',pago:'Pago',visita:'Visita',visita_agenda:'Visita agendada','no-contesta':'No contesta',no_contesta:'No contesta',nota:'Nota',posponer:'Posponer'}[p.estado]||p.estado):'Sin gestion';
+      wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest]);
+    });
+    wsData.push(['','TOTAL ('+d.rows.length+' clientes)','',totalCuota,totalMora,'','','']);
+    var wb=XLSX.utils.book_new();
+    var ws=XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols']=[{wch:4},{wch:32},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:16}];
+    header.forEach(function(_,ci){var a=XLSX.utils.encode_cell({r:0,c:ci});if(ws[a])ws[a].s={font:{bold:true}};});
+    var tr=wsData.length-1;
+    [0,1,3,4].forEach(function(ci){var a=XLSX.utils.encode_cell({r:tr,c:ci});if(ws[a])ws[a].s={font:{bold:true}};});
+    var empresa=(CARTERAS[d.cartId]||{}).empresa||d.cartId;
+    XLSX.utils.book_append_sheet(wb,ws,'Hoy a cierre');
+    XLSX.writeFile(wb,'hoy_cierre_'+empresa.replace(/[^a-zA-Z0-9]/g,'_')+'_'+HOY.toISOString().split('T')[0]+'.xlsx',{cellStyles:true});
+  }
+  if(typeof XLSX==='undefined'){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=_do;document.head.appendChild(s);}else{_do();}
+}
+function buildCierreHoy(cartId,rows){
+  if(!rows.length)return '<div class="empty">🎉 Todos al día — nadie con mora ni pagos pendientes este mes.</div>';
+  var withMora=rows.map(function(r){var m=calcMoraCliente(r,cartId);return {r:r,mora:m&&m.diferencia>0?m.diferencia:0};});
+  withMora.sort(function(a,b){return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);});
+  var totalCuota=rows.reduce(function(s,r){return s+(r.cuota||0);},0);
+  var totalMora=withMora.reduce(function(s,x){return s+x.mora;},0);
+  window._cierreExcelData={cartId:cartId,rows:withMora.map(function(x){return x.r;})};
+  var uid='CH'+Math.random().toString(36).slice(2,6);
+  var html='<div class="tbl-note">Clientes con mora real (aunque hayan pagado su cuota de este mes) o que aún no han pagado nada este mes. Usalo para llamar a los equipos y confirmar con cuánto se espera cerrar el mes.</div>'
+    +'<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">'
+      +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Clientes</div><div class="kpi-v">'+rows.length+'</div></div>'
+      +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total cuota</div><div class="kpi-v" style="color:var(--blue)">L '+fmt(totalCuota)+'</div></div>'
+      +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total mora</div><div class="kpi-v" style="color:var(--red)">L '+fmt(totalMora)+'</div></div>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="exportCierreExcel()" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid rgba(26,122,60,.4);background:var(--greenbg);color:var(--green);cursor:pointer;font-family:var(--mono);font-weight:600">📗 Excel</button></div>'
+    +'<input class="tbl-search" id="S'+uid+'" onkeyup="flt(\''+uid+'\',\'S'+uid+'\')" placeholder="Buscar...">'
+    +'<div class="tbl-wrap"><table id="'+uid+'"><thead><tr>'
+    +'<th>#</th><th>Cliente</th><th>Saldo</th><th>Cuota</th><th>Mora</th><th>Último pago</th><th>Tramo</th><th>Acción</th>'
+    +'</tr></thead><tbody>';
+  withMora.forEach(function(x,i){
+    var r=x.r;
+    var tl=r.tramo==='INACTIVO'?'+180d':r.tramo==='MES'?'Al dia':r.tramo==='VENCIDO'?'Este mes':(r.tramo||'—')+'d';
+    var moraHtml=x.mora>0?'<span style="font-family:var(--mono);font-size:11px;color:var(--red);font-weight:700">L '+fmt(x.mora)+'</span>':'<span style="color:var(--text3);font-family:var(--mono);font-size:10px">—</span>';
+    var upStr=r.ultimo_pago||'—';
+    var upColor=pagoEsteMes(r.ultimo_pago)?'color:var(--green);font-weight:600':'color:var(--text2)';
+    html+='<tr>'
+      +'<td class="mono">'+(i+1)+'</td>'
+      +'<td class="td-name nombre-link" onclick="irAHistorialCliente(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">'+r.nombre+'</td>'
+      +'<td class="mono" style="font-weight:600">L '+fmt(r.saldo||0)+'</td>'
+      +'<td class="mono">L '+fmt(r.cuota||0)+'</td>'
+      +'<td>'+moraHtml+'</td>'
+      +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
+      +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
+      +'<td><span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬 Comentar / historial</span></td>'
+      +'</tr>';
+  });
+  html+='<tr class="total-row"><td colspan="2">TOTAL · '+rows.length+'</td><td class="mono"></td><td class="mono">L '+fmt(totalCuota)+'</td><td class="mono">L '+fmt(totalMora)+'</td><td colspan="3"></td></tr></tbody></table></div>';
+  return html;
 }
 
 function buildTbl(cartId,rows,cls,note){
@@ -5933,7 +6036,7 @@ function parseBloqueCliente(nombre,lineas,clientes){
   segments.forEach(function(grp){
     var allD=[],allN=[];
     grp.forEach(function(dl){
-      var dd=dl.match(/\b(\d{2}\/\d{2}\/\d{4})\b/g)||[];dd.forEach(function(d){if(!allD.includes(d))allD.push(d);});
+      var dd=dl.match(/\b(\d{2}\/\d{2}\/\d{4})\b/g)||[];dd.forEach(function(d){allD.push(d);});
       var st=dl.replace(/\b\d{2}\/\d{2}\/\d{4}\b/g,'');
       var ns=(st.match(/[\d,]+\.?\d*/g)||[]).map(function(s){return parseFloat(s.replace(/,/g,''));}).filter(function(n){return !isNaN(n)&&n>=0;});
       ns.forEach(function(n){allN.push(n);});
