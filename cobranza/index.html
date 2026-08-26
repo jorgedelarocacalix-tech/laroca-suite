@@ -662,7 +662,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260826-37';
+var APP_VERSION='20260826-38';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -1403,15 +1403,19 @@ async function _renderGerentePanel(){
   var pctMeta=metaTotal>0?Math.round(cobradoGlobal/metaTotal*100):0;
 
   // ── Proyección sistema vs gestores por cartera ──
-  var proyGlobal=[];var totSisGlobal=0,totGesGlobal=0;
+  var proyGlobal=[];var totSisGlobal=0,totGesGlobal=0,totAcordadoGlobal=0;
   ids.forEach(function(id){
     var c=CARTERAS[id];if(!c||!c.clientes)return;
-    var totalSis=0,totalGes=0,nEditados=0,nPendientes=0;
+    var totalSis=0,totalGes=0,nEditados=0,nPendientes=0,totalAcordado=0;
     c.clientes.forEach(function(x){
       if(x.tramo==='INACTIVO')return;
       var p=PROMESAS[id+'::'+x.nombre];
       var pagoM=p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
       var pagado=(pagoEsteMes(x.ultimo_pago)||pagoM)&&!(p&&p.mora_pendiente);
+      // Acordado en "Hoy → Cierre": mismo criterio que esa pestaña (tiene mora real, o no ha pagado este mes)
+      var m=calcMoraCliente(x,id);
+      var tieneMora=m&&m.diferencia>0;
+      if((tieneMora||!pagado)&&p&&p.monto)totalAcordado+=p.monto;
       if(pagado)return;
       nPendientes++;
       var best=_getBestProy(id,x.nombre);
@@ -1420,9 +1424,9 @@ async function _renderGerentePanel(){
       totalSis+=x.cuota||0;
       totalGes+=montoExp||x.cuota||0;
     });
-    totSisGlobal+=totalSis;totGesGlobal+=totalGes;
+    totSisGlobal+=totalSis;totGesGlobal+=totalGes;totAcordadoGlobal+=totalAcordado;
     var cierre=cierreMap[id]||0;totCierreGlobal+=cierre;
-    proyGlobal.push({id:id,nombre:c.empresa,totalSis:totalSis,totalGes:totalGes,nEditados:nEditados,nPendientes:nPendientes,cierre:cierre});
+    proyGlobal.push({id:id,nombre:c.empresa,totalSis:totalSis,totalGes:totalGes,nEditados:nEditados,nPendientes:nPendientes,cierre:cierre,acordado:totalAcordado});
   });
 
   // ── Proyección global hasta fin de mes ──
@@ -1487,6 +1491,7 @@ async function _renderGerentePanel(){
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Sistema</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--orange);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de montoAsesor del cierre de proyección (Excel)">Proyectado</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Asesores</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--purple);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de montos acordados en la pestaña Hoy → Cierre">Acordado (Hoy→Cierre)</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Diferencia</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:center;padding:4px 6px;text-transform:uppercase">Editados</th>';
   h+='</tr></thead><tbody>';
@@ -1501,6 +1506,7 @@ async function _renderGerentePanel(){
     h+='<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--blue);font-weight:600">L '+fmt(r.totalSis)+'</td>';
     h+='<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--orange);font-weight:600">'+(r.cierre?'L '+fmt(r.cierre):'—')+'</td>';
     h+='<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--green);font-weight:600">L '+fmt(r.totalGes)+'</td>';
+    h+='<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--purple);font-weight:600">'+(r.acordado?'L '+fmt(r.acordado):'—')+'</td>';
     h+='<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:'+diffCol+';font-weight:600">'+diffLabel+'</td>';
     h+='<td style="padding:5px 6px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text3)">'+r.nEditados+'/'+r.nPendientes+' ('+pctEdit+'%)</td>';
     h+='</tr>';
@@ -1512,6 +1518,7 @@ async function _renderGerentePanel(){
   h+='<td style="padding:6px 6px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--blue)">L '+fmt(totSisGlobal)+'</td>';
   h+='<td style="padding:6px 6px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--orange)">L '+fmt(totCierreGlobal)+'</td>';
   h+='<td style="padding:6px 6px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--green)">L '+fmt(totGesGlobal)+'</td>';
+  h+='<td style="padding:6px 6px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--purple)">L '+fmt(totAcordadoGlobal)+'</td>';
   h+='<td style="padding:6px 6px;text-align:right;font-family:var(--mono);font-size:12px;color:'+(diffT>=0?'var(--green)':'var(--red)')+'">'+( diffT>0?'▲ L '+fmt(diffT):diffT<0?'▼ L '+fmt(Math.abs(diffT)):'=')+'</td>';
   h+='<td></td></tr>';
   h+='</tbody></table>';
