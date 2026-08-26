@@ -662,7 +662,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260826-31';
+var APP_VERSION='20260826-32';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -1795,8 +1795,8 @@ function renderDash(id){
       ]
     },
   ];
-  // Pestaña "Hoy → Cierre": visible para admin y gerente, al comienzo
-  if(USER&&(USER.rol==='admin'||USER.rol==='gerente')){
+  // Pestaña "Hoy → Cierre": visible para todos los usuarios con acceso a cobros, al comienzo
+  if(USER){
     GRUPOS.unshift({
       id:'CIERRE_HOY', lbl:'🏁 Hoy → Cierre', direct:true,
       badge: cierreHoyList.length>0?cierreHoyList.length:null, badgeColor:'var(--red)'
