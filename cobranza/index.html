@@ -662,7 +662,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260826-36';
+var APP_VERSION='20260826-37';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -2714,6 +2714,40 @@ function exportTramoExcel(){
 }
 
 // ══ PROYECCION HOY → CIERRE (solo admin) ══
+// Acuerdo de pago rápido: solo fecha + monto (es una promesa, no necesita el modal completo de gestión)
+function abrirAcuerdoRapido(cartId,nombre,montoDefault){
+  var ex=PROMESAS[cartId+'::'+nombre]||{};
+  var old=document.getElementById('acuerdo-rapido-overlay');if(old)old.remove();
+  var div=document.createElement('div');
+  div.id='acuerdo-rapido-overlay';
+  div.className='overlay show';
+  div.innerHTML=''
+    +'<div class="modal-card" style="max-width:320px;width:100%;padding:24px">'
+    +'<button class="modal-x" onclick="document.getElementById(\'acuerdo-rapido-overlay\').remove()">×</button>'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:4px">📅 Acuerdo de pago</div>'
+    +'<div class="cart-meta" style="margin-bottom:16px">'+ibEsc(nombre)+'</div>'
+    +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Fecha comprometida</label>'
+    +'<input type="date" class="form-inp" id="ar-fecha" value="'+(ex.fecha||HOY.toISOString().split('T')[0])+'" style="width:100%;margin-bottom:14px;box-sizing:border-box">'
+    +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Monto (L)</label>'
+    +'<input type="number" class="form-inp" id="ar-monto" value="'+(ex.monto||montoDefault||0)+'" style="width:100%;margin-bottom:20px;box-sizing:border-box">'
+    +'<button class="btn btn-g" style="width:100%" onclick="guardarAcuerdoRapido(\''+cartId+'\',\''+esc(nombre)+'\')">Guardar acuerdo</button>'
+    +'</div>';
+  document.body.appendChild(div);
+  setTimeout(function(){var f=document.getElementById('ar-monto');if(f)f.focus();},60);
+}
+async function guardarAcuerdoRapido(cartId,nombre){
+  var fecha=(document.getElementById('ar-fecha')||{}).value||'';
+  var monto=parseFloat((document.getElementById('ar-monto')||{}).value)||0;
+  var key=cartId+'::'+nombre;
+  var ex=PROMESAS[key]||{};
+  var notaFinal='📅 Prometió pagar el '+(fecha||'—')+(monto?' por L '+fmt(monto):'');
+  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'promesa',nota:notaFinal,monto:monto||null,fecha_accion:fecha||null,gestor:(USER&&USER.nombre)||'—',created_at:new Date().toISOString()});
+  PROMESAS[key]=Object.assign({},ex,{estado:'promesa',fecha:fecha,monto:monto,nota:ex.nota||'',ts:new Date().toISOString()});
+  await dbSaveProm(cartId,nombre);
+  var ov=document.getElementById('acuerdo-rapido-overlay');if(ov)ov.remove();
+  if(CURRENT)refreshSoft(CURRENT);
+  setConn(true,'Guardado ✓');setTimeout(function(){setConn(true,'Conectado');},2000);
+}
 function exportCierreExcel(){
   var d=window._cierreExcelData;
   if(!d||!d.rows||!d.rows.length){alert('Sin datos para exportar.');return;}
@@ -2782,7 +2816,7 @@ function buildCierreHoy(cartId,rows){
       +'<td class="mono">'+(p&&p.fecha?p.fecha:'<span style="color:var(--text3)">—</span>')+'</td>'
       +'<td class="mono" style="color:var(--green);font-weight:600">'+(p&&p.monto?'L '+fmt(p.monto):'<span style="color:var(--text3);font-weight:400">—</span>')+'</td>'
       +'<td style="display:flex;gap:3px">'
-        +'<span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
+        +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
         +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span>'
       +'</td>'
       +'</tr>';
