@@ -1022,6 +1022,8 @@ function parseCartera(lines){
     var si=-1;for(var ni3=pi+1;ni3<allN.length;ni3++){if(allN[ni3]>=0){saldo=allN[ni3];si=ni3;break;}}
     var dpi=-1;for(var ni4=si+1;ni4<allN.length;ni4++){if(allN[ni4]>=1&&allN[ni4]<=31&&Number.isInteger(allN[ni4])){diaPago=Math.round(allN[ni4]);dpi=ni4;break;}}
     for(var ni5=Math.max(dpi,si)+1;ni5<allN.length;ni5++){if(allN[ni5]>=100){cuota=allN[ni5];break;}}
+    // Dato mal cargado en el ERP: cuota mensual no puede ser varias veces el saldo restante
+    if(saldo>=0&&cuota>saldo*3)cuota=saldo;
     var mor=calcMora(uPago,diaPago,sinP,fFact);
     var nombreFinal=nombre;var cnt=2;
     while(clientes.find(function(c){return c.nombre===nombreFinal;})){nombreFinal=nombre+' ('+cnt+')';cnt++;}
@@ -6049,6 +6051,8 @@ function parseBloqueCliente(nombre,lineas,clientes){
     var si=-1,saldo=0;for(var ni3=pi+1;ni3<allN.length;ni3++){if(allN[ni3]>=0){saldo=allN[ni3];si=ni3;break;}}
     var dpi=-1,diaPago=0;for(var ni4=si+1;ni4<allN.length;ni4++){if(allN[ni4]>=1&&allN[ni4]<=31&&Number.isInteger(allN[ni4])){diaPago=Math.round(allN[ni4]);dpi=ni4;break;}}
     var cuota=0;for(var ni5=Math.max(dpi,si)+1;ni5<allN.length;ni5++){if(allN[ni5]>=100){cuota=allN[ni5];break;}}
+    // Dato mal cargado en el ERP: cuota mensual no puede ser varias veces el saldo restante
+    if(saldo>=0&&cuota>saldo*3)cuota=saldo;
     var mor=calcMora(uPago,diaPago,sinP,fFact);
     var nf=nombre;var cnt=2;while(clientes.find(function(c){return c.nombre===nf;})){nf=nombre+' ('+cnt+')';cnt++;}
     clientes.push({nombre:nf,saldo:Math.round(saldo),cuota:Math.round(cuota),num_cuotas:nCuotas,pagado:Math.round(pagado),fecha_factura:fFact||'',ultimo_pago:uPago||'',dia_pago:diaPago,dias_mora:mor.dias,tramo:mor.tramo,sin_ultimo_pago:sinP,accion:getAccion(mor.tramo),mensaje_wa:genMsg(nf,cuota,saldo,mor.tramo)});
