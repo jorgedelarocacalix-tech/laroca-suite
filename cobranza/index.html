@@ -662,7 +662,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260826-34';
+var APP_VERSION='20260826-35';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var supa=null, DB_OK=false, PDFJS_OK=false;
@@ -2760,7 +2760,7 @@ function buildCierreHoy(cartId,rows){
     +'<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="exportCierreExcel()" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid rgba(26,122,60,.4);background:var(--greenbg);color:var(--green);cursor:pointer;font-family:var(--mono);font-weight:600">📗 Excel</button></div>'
     +'<input class="tbl-search" id="S'+uid+'" onkeyup="flt(\''+uid+'\',\'S'+uid+'\')" placeholder="Buscar...">'
     +'<div class="tbl-wrap"><table id="'+uid+'"><thead><tr>'
-    +'<th>#</th><th>Cliente</th><th>Saldo</th><th>Cuota</th><th>Mora</th><th>Último pago</th><th>Tramo</th><th>Acuerdo de pago</th><th>Acción</th>'
+    +'<th>#</th><th>Cliente</th><th>Saldo</th><th>Cuota</th><th>Mora</th><th>Último pago</th><th>Tramo</th><th>Fecha acuerdo</th><th>Monto acuerdo</th><th>Acción</th>'
     +'</tr></thead><tbody>';
   withMora.forEach(function(x,i){
     var r=x.r;
@@ -2777,15 +2777,15 @@ function buildCierreHoy(cartId,rows){
       +'<td>'+moraHtml+'</td>'
       +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
       +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
-      +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
-        +(p?promBadge(p):'')
-        +(p&&p.monto?'<span style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:700">L '+fmt(p.monto)+'</span>':'')
-        +'<span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">'+(p?'✏️ editar':'📅 Registrar acuerdo')+'</span>'
+      +'<td class="mono">'+(p&&p.fecha?p.fecha:'<span style="color:var(--text3)">—</span>')+'</td>'
+      +'<td class="mono" style="color:var(--green);font-weight:600">'+(p&&p.monto?'L '+fmt(p.monto):'<span style="color:var(--text3);font-weight:400">—</span>')+'</td>'
+      +'<td style="display:flex;gap:3px">'
+        +'<span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
+        +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span>'
       +'</td>'
-      +'<td><span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬 Comentar / historial</span></td>'
       +'</tr>';
   });
-  html+='<tr class="total-row"><td colspan="2">TOTAL · '+rows.length+'</td><td class="mono"></td><td class="mono">L '+fmt(totalCuota)+'</td><td class="mono">L '+fmt(totalMora)+'</td><td colspan="4"></td></tr></tbody></table></div>';
+  html+='<tr class="total-row"><td colspan="2">TOTAL · '+rows.length+'</td><td class="mono"></td><td class="mono">L '+fmt(totalCuota)+'</td><td class="mono">L '+fmt(totalMora)+'</td><td colspan="5"></td></tr></tbody></table></div>';
   return html;
 }
 
