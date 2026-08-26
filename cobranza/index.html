@@ -1023,11 +1023,12 @@ function parseCartera(lines){
     var dpi=-1;for(var ni4=si+1;ni4<allN.length;ni4++){if(allN[ni4]>=1&&allN[ni4]<=31&&Number.isInteger(allN[ni4])){diaPago=Math.round(allN[ni4]);dpi=ni4;break;}}
     for(var ni5=Math.max(dpi,si)+1;ni5<allN.length;ni5++){if(allN[ni5]>=100){cuota=allN[ni5];break;}}
     // Dato mal cargado en el ERP: cuota mensual no puede ser varias veces el saldo restante
-    if(saldo>=0&&cuota>saldo*3)cuota=saldo;
+    var cuotaCorregida=false;
+    if(saldo>=0&&cuota>saldo*3){cuota=saldo;cuotaCorregida=true;}
     var mor=calcMora(uPago,diaPago,sinP,fFact);
     var nombreFinal=nombre;var cnt=2;
     while(clientes.find(function(c){return c.nombre===nombreFinal;})){nombreFinal=nombre+' ('+cnt+')';cnt++;}
-    clientes.push({nombre:nombreFinal,saldo:Math.round(saldo),cuota:Math.round(cuota),num_cuotas:nCuotas,pagado:Math.round(pagado),fecha_factura:fFact||'',ultimo_pago:uPago||'',dia_pago:diaPago,dias_mora:mor.dias,tramo:mor.tramo,sin_ultimo_pago:sinP,accion:getAccion(mor.tramo),mensaje_wa:genMsg(nombreFinal,cuota,saldo,mor.tramo)});
+    clientes.push({nombre:nombreFinal,saldo:Math.round(saldo),cuota:Math.round(cuota),cuota_corregida:cuotaCorregida,num_cuotas:nCuotas,pagado:Math.round(pagado),fecha_factura:fFact||'',ultimo_pago:uPago||'',dia_pago:diaPago,dias_mora:mor.dias,tramo:mor.tramo,sin_ultimo_pago:sinP,accion:getAccion(mor.tramo),mensaje_wa:genMsg(nombreFinal,cuota,saldo,mor.tramo)});
   };
   var clientes=[],i=0;
   while(i<lines.length){
@@ -1227,6 +1228,25 @@ async function processFiles(files){
   setProg(100,'Listo!');
   setTimeout(function(){document.getElementById('prog-wrap').style.display='none';renderHome();},600);
 }
+// ══ CHEQUEO DE INTEGRIDAD: detecta las firmas de los 3 bugs de datos ya resueltos ══
+function chequearIntegridad(clientes){
+  var hallazgos=[];
+  clientes.forEach(function(c){
+    if(c.cuota_corregida){
+      hallazgos.push({nombre:c.nombre,detalle:'Cuota mensual del ERP era muy superior al saldo — se ajustó automáticamente a L '+fmt(c.saldo)});
+    }
+    if(c.dia_pago===0&&!c.sin_ultimo_pago){
+      hallazgos.push({nombre:c.nombre,detalle:'Día de pago no se pudo leer del PDF (quedó en 0)'});
+    }
+    if(c.sin_ultimo_pago&&c.pagado>0){
+      hallazgos.push({nombre:c.nombre,detalle:'Ya pagó L '+fmt(c.pagado)+' pero no se encontró fecha de último pago (ni en el PDF ni en arqueos)'});
+    }
+    if((c.saldo||0)<0||(c.pagado||0)<0){
+      hallazgos.push({nombre:c.nombre,detalle:'Valor negativo — saldo: L '+fmt(c.saldo)+', pagado: L '+fmt(c.pagado)});
+    }
+  });
+  return hallazgos;
+}
 async function processPDF(file){
   try{
     var ab=await file.arrayBuffer();var lines=await extractText(ab);var data=parseCartera(lines);
@@ -1242,6 +1262,8 @@ async function processPDF(file){
     });
     data.no_capturados=noSePudo.length?noSePudo.map(function(n){return{nombre:n,lineas:[]};}):[]; // solo quedan los que fallaron
     data._autoAgregados=autoAgregados;
+    // Chequeo de Integridad: firmas de los bugs de datos ya resueltos, para que no vuelvan a pasar desapercibidos
+    data._integridad=chequearIntegridad(data.clientes);
     // Si hay clientes sin datos suficientes → alerta urgente automática al programador
     if(noSePudo.length>0){
       try{
@@ -6052,10 +6074,11 @@ function parseBloqueCliente(nombre,lineas,clientes){
     var dpi=-1,diaPago=0;for(var ni4=si+1;ni4<allN.length;ni4++){if(allN[ni4]>=1&&allN[ni4]<=31&&Number.isInteger(allN[ni4])){diaPago=Math.round(allN[ni4]);dpi=ni4;break;}}
     var cuota=0;for(var ni5=Math.max(dpi,si)+1;ni5<allN.length;ni5++){if(allN[ni5]>=100){cuota=allN[ni5];break;}}
     // Dato mal cargado en el ERP: cuota mensual no puede ser varias veces el saldo restante
-    if(saldo>=0&&cuota>saldo*3)cuota=saldo;
+    var cuotaCorregida2=false;
+    if(saldo>=0&&cuota>saldo*3){cuota=saldo;cuotaCorregida2=true;}
     var mor=calcMora(uPago,diaPago,sinP,fFact);
     var nf=nombre;var cnt=2;while(clientes.find(function(c){return c.nombre===nf;})){nf=nombre+' ('+cnt+')';cnt++;}
-    clientes.push({nombre:nf,saldo:Math.round(saldo),cuota:Math.round(cuota),num_cuotas:nCuotas,pagado:Math.round(pagado),fecha_factura:fFact||'',ultimo_pago:uPago||'',dia_pago:diaPago,dias_mora:mor.dias,tramo:mor.tramo,sin_ultimo_pago:sinP,accion:getAccion(mor.tramo),mensaje_wa:genMsg(nf,cuota,saldo,mor.tramo)});
+    clientes.push({nombre:nf,saldo:Math.round(saldo),cuota:Math.round(cuota),cuota_corregida:cuotaCorregida2,num_cuotas:nCuotas,pagado:Math.round(pagado),fecha_factura:fFact||'',ultimo_pago:uPago||'',dia_pago:diaPago,dias_mora:mor.dias,tramo:mor.tramo,sin_ultimo_pago:sinP,accion:getAccion(mor.tramo),mensaje_wa:genMsg(nf,cuota,saldo,mor.tramo)});
     agregados++;
   });
   return agregados;
@@ -6081,8 +6104,16 @@ function showInforme(data,existing){
       +'<span style="font-family:var(--mono)">'+noSePudo.map(function(b){return esc2(b.nombre);}).join(' · ')+'</span><br>'
       +'<span style="font-size:11px;opacity:.8">Se generó una alerta automática — el programador revisará el error.</span></div>';
   }
+  // Sección: Chequeo de Integridad — firmas de bugs de datos ya resueltos
+  var integridad=data._integridad||[];
+  if(integridad.length>0){
+    warn+='<div style="background:#fff3e0;border:1px solid #fb8c00;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:#e65100">'
+      +'⚠️ <b>Chequeo de Integridad — '+integridad.length+' dato'+(integridad.length>1?'s sospechosos detectados':' sospechoso detectado')+' automáticamente:</b><br>'
+      +integridad.map(function(h){return '<div style="margin-top:4px"><span style="font-family:var(--mono);font-weight:600">'+esc2(h.nombre)+'</span> — '+esc2(h.detalle)+'</div>';}).join('')
+      +'<div style="font-size:11px;opacity:.8;margin-top:6px">Revisar con el ERP de origen si el dato real es distinto.</div></div>';
+  }
   // PDF completo
-  if(autoAgr.length===0&&noSePudo.length===0&&pdfCount>0){
+  if(autoAgr.length===0&&noSePudo.length===0&&integridad.length===0&&pdfCount>0){
     warn='<div style="background:#e8f5e9;border:1px solid #4caf50;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:#2e7d32">✅ PDF completo — todos los <b>'+pdfCount+'</b> clientes capturados correctamente.</div>';
   }
   document.getElementById('inf-titulo').textContent=data.empresa+' — Informe de Carga';
