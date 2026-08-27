@@ -676,6 +676,17 @@ function autorLinea(cartId,nombre){
   return g?'<span style="color:var(--text3);font-size:10px"> ✍ '+ibEsc(g)+'</span>':'';
 }
 
+// ══ Alerta: comentario dejado por OTRO usuario ══
+// Devuelve el nombre del autor si el último comentario del cliente lo dejó
+// alguien distinto al usuario actual (para que los demás vean la alerta de color).
+function comentarioDeOtro(cartId,nombre){
+  if(!USER||!USER.nombre)return null;
+  var g=_AUTOR[cartId+'::'+nombre];
+  if(!g)return null;
+  if(String(g).toLowerCase().trim()===String(USER.nombre).toLowerCase().trim())return null;
+  return g;
+}
+
 document.getElementById('hdate').textContent=HOY.toLocaleDateString('es-HN',{weekday:'short',year:'numeric',month:'short',day:'numeric'}).toUpperCase();
 
 // ══ LIBRARY LOADER ══
@@ -2812,9 +2823,12 @@ function buildCierreHoy(cartId,rows){
     var upStr=r.ultimo_pago||'—';
     var upColor=pagoEsteMes(r.ultimo_pago)?'color:var(--green);font-weight:600':'color:var(--text2)';
     var p=PROMESAS[cartId+'::'+r.nombre];
-    html+='<tr>'
+    var cOtro=comentarioDeOtro(cartId,r.nombre);
+    var rowAlert=cOtro?'style="background:rgba(184,68,0,.10);border-left:3px solid var(--orange)"':'';
+    var cellAlert=cOtro?' <span title="Comentario de '+ibEsc(cOtro)+'" style="background:var(--orangebg);color:var(--orange);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px">💬 comentario · '+ibEsc(cOtro)+'</span>':'';
+    html+='<tr '+rowAlert+'>'
       +'<td class="mono">'+(i+1)+'</td>'
-      +'<td class="td-name nombre-link" onclick="irAHistorialCliente(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">'+r.nombre+'</td>'
+      +'<td class="td-name nombre-link" onclick="irAHistorialCliente(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">'+r.nombre+cellAlert+'</td>'
       +'<td class="mono" style="font-weight:600">L '+fmt(r.saldo||0)+'</td>'
       +'<td class="mono">L '+fmt(r.cuota||0)+'</td>'
       +'<td>'+moraHtml+'</td>'
