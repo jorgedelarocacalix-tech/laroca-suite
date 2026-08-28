@@ -2798,7 +2798,10 @@ async function loadMonitor(){
   }
 
   var _eqSeen=new Set();
-  var MON_TODO=CU.role==='admin'||CU.role==='subadmin';
+  // Un subadmin con crm_monitor (Ana Castro, Sayda) queda limitado a su propio equipo/cartera,
+  // igual que un vendedor con permiso de monitoreo — solo el admin (Jorge) y los subadmin
+  // sin ese flag (Johana, Milagro) ven el Monitor completo de toda la empresa.
+  var MON_TODO=CU.role==='admin'||(CU.role==='subadmin'&&!CU.crmMonitor);
   var MON_CARTS=(Array.isArray(CU.cartera)?CU.cartera:[CU.cartera||'']).filter(Boolean);
   var EQUIPO=DB.users.filter(function(u){
     if(u.role!=='vendedor'&&u.role!=='subadmin')return false;
