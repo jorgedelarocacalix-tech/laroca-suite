@@ -326,6 +326,8 @@ let S = {
   catalogoTarjetas: [],// ft_tarjetas
   pagosProv: [],       // ft_pagos_proveedor + ft_proveedores_catalogo
   catalogoProv: [],    // ft_proveedores_catalogo
+  estadosProv: null,   // últimos ft_estados_proveedor por proveedor+sociedad (se carga bajo demanda)
+  detalleAbierto: {},  // estadoId -> facturas cargadas
 };
 
 function mesActual() {
@@ -525,7 +527,7 @@ function render() {
   // tabs secundarios
   const subItems = S.tabMain === 'tarjetas'
     ? [['resumen','Resumen'],['jorge','Jorge'],['isis','Isis'],['calendario','📅 Fechas'],['estado','📤 Estado'],['agregar','＋ Registrar']]
-    : [['resumen','Resumen'],['agregar','＋ Agregar'],['lista','Lista']];
+    : [['resumen','Resumen'],['cartera','📊 Cartera'],['estado','📤 Estado'],['agregar','＋ Agregar'],['lista','Lista']];
 
   document.getElementById('tabs-sub-wrap').innerHTML =
     `<div class="tabs-sub ${S.tabMain === 'proveedores' ? 'prov' : ''}">` +
@@ -544,6 +546,8 @@ function render() {
     else if (S.tabSub === 'agregar')    c.innerHTML = renderFormTarjeta();
   } else {
     if (S.tabSub === 'resumen')  c.innerHTML = renderResumenProv();
+    else if (S.tabSub === 'cartera') { c.innerHTML = renderCarteraProv(); cargarCarteraProv(); }
+    else if (S.tabSub === 'estado')  c.innerHTML = renderSubirEstadoProv();
     else if (S.tabSub === 'agregar') c.innerHTML = renderFormProv();
     else if (S.tabSub === 'lista')   c.innerHTML = renderListaProv();
   }
@@ -792,6 +796,512 @@ function renderListaProv() {
         <button class="btn-pagar" onclick="irTabSub('agregar');rellProv('${p.id}')">Registrar pago</button>
       </div>`).join('')
   ).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// CARTERA PROVEEDORES (proyección / agotamiento por mes)
+// ═══════════════════════════════════════════════════
+function mesLabelISO(mes) {
+  if (!mes) return '—';
+  const [y, m] = mes.split('-').map(Number);
+  return capitalizar(MESES_ES[m - 1] || '') + ' ' + y;
+}
+
+async function cargarCarteraProv() {
+  const estados = await sbGet('ft_estados_proveedor',
+    'select=*,ft_proveedores_catalogo(nombre,categoria)&order=creado_at.desc');
+  if (!Array.isArray(estados)) { S.estadosProv = []; render(); return; }
+
+  // último estado por combinación proveedor+sociedad
+  const vistos = new Set();
+  const ultimos = [];
+  for (const e of estados) {
+    const key = e.proveedor_id + '|' + (e.sociedad || '');
+    if (vistos.has(key)) continue;
+    vistos.add(key);
+    ultimos.push(e);
+  }
+  S.estadosProv = ultimos;
+  if (S.tabMain === 'proveedores' && S.tabSub === 'cartera') render();
+}
+
+function renderCarteraProv() {
+  if (S.estadosProv === null) return '<div class="empty"><div class="spinner"></div>Cargando cartera...</div>';
+  if (!S.estadosProv.length) return '<div class="empty">Aún no has subido ningún estado de cuenta de proveedor.<br><br><button class="btn-submit btn-p" style="width:auto;padding:8px 18px" onclick="irTabSub(\'estado\')">📤 Subir estado</button></div>';
+
+  const totalProy = S.estadosProv.reduce((s, e) => s + (Number(e.proyeccion_proximo_mes) || 0), 0);
+  const totalPend = S.estadosProv.reduce((s, e) => s + (Number(e.total_pendiente) || 0), 0);
+
+  return `
+    <div class="chips">
+      <div class="chip" style="background:#FCEBEB;border-left:3px solid #A32D2D"><div class="n" style="font-size:17px;color:#A32D2D">${fmtChip(totalPend)}</div><div class="l">Total pendiente (cartera)</div></div>
+      <div class="chip" style="background:#EEF5FF;border-left:3px solid #185FA5"><div class="n" style="font-size:17px;color:#185FA5">${fmtChip(totalProy)}</div><div class="l">Proyección próximo mes</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      ${S.estadosProv.map(e => cardEstadoProv(e)).join('')}
+    </div>`;
+}
+
+function cardEstadoProv(e) {
+  const cat = e.ft_proveedores_catalogo || {};
+  const nombre = (cat.nombre || '?') + (e.sociedad ? ` (${e.sociedad})` : '');
+  const abierto = !!S.detalleAbierto[e.id];
+  return `<div class="form-card" style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer" onclick="fpToggleDetalle('${e.id}')">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#333">${esc(nombre)}</div>
+        <div style="font-size:11px;color:#888">${e.periodo_corte ? 'Corte: ' + fmtFecha(e.periodo_corte) : ''}${e.nombre_archivo ? ' · ' + esc(e.nombre_archivo) : ''}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px;font-weight:700;color:#B5185F">L ${fmt(e.total_pendiente || 0)}</div>
+        <div style="font-size:10px;color:#888">pendiente</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;margin-top:8px;font-size:11px;color:#555;flex-wrap:wrap">
+      <div>Próx. mes: <b>L ${fmt(e.proyeccion_proximo_mes || 0)}</b></div>
+      ${e.total_facturado !== null && e.total_facturado !== undefined ? `<div>Facturado del mes: <b>L ${fmt(e.total_facturado)}</b></div>` : ''}
+    </div>
+    ${conciliacionHtml(e)}
+    <div style="margin-top:6px">
+      <button class="btn-mini" onclick="event.stopPropagation();fpToggleDetalle('${e.id}')">${abierto ? '▲ Ocultar' : '▼ Ver detalle (agotamiento + facturas)'}</button>
+    </div>
+    ${abierto ? renderDetalleEstadoProv(e) : ''}
+  </div>`;
+}
+
+// Compara lo que se había proyectado el mes pasado vs lo que realmente se abonó (calculado al subir este estado)
+function conciliacionHtml(e) {
+  if (e.abono_calculado == null) return '';
+  const esperado = e.proyeccion_esperada_anterior;
+  const diff = e.diferencia_abono;
+  const ok = diff == null || Math.abs(diff) < 1;
+  const color = ok ? '#3B6D11' : '#A32D2D';
+  const bg = ok ? '#EAF3DE' : '#FCEBEB';
+  const canceladas = Array.isArray(e.facturas_canceladas) ? e.facturas_canceladas : [];
+  return `<div style="background:${bg};border-left:3px solid ${color};border-radius:6px;padding:8px 10px;margin-top:8px;font-size:11px;color:${color}">
+    <div style="font-weight:700">Conciliación vs. mes anterior</div>
+    <div style="margin-top:2px">Abonado (calculado): <b>L ${fmt(e.abono_calculado)}</b>${esperado != null ? ` · Se esperaba: <b>L ${fmt(esperado)}</b>` : ''}</div>
+    ${diff != null ? `<div>${ok ? '✓ Coincide con lo proyectado' : (diff > 0 ? `Se abonó L ${fmt(diff)} de más` : `Falta abonar L ${fmt(Math.abs(diff))}`)}</div>` : ''}
+    ${canceladas.length ? `<div style="margin-top:2px">${canceladas.length} factura(s) canceladas este período (L ${fmt(canceladas.reduce((s,f)=>s+(f.monto||0),0))})</div>` : ''}
+  </div>`;
+}
+
+async function fpToggleDetalle(estadoId) {
+  if (S.detalleAbierto[estadoId]) {
+    delete S.detalleAbierto[estadoId];
+    render();
+    return;
+  }
+  S.detalleAbierto[estadoId] = { cargando: true, facturas: [] };
+  render();
+  const facturas = await sbGet('ft_facturas_proveedor', `select=*&estado_id=eq.${estadoId}&order=fecha_vencimiento.asc`);
+  S.detalleAbierto[estadoId] = { cargando: false, facturas: Array.isArray(facturas) ? facturas : [] };
+  render();
+}
+
+function renderDetalleEstadoProv(e) {
+  const det = S.detalleAbierto[e.id];
+  if (!det || det.cargando) return '<div style="font-size:12px;color:#888;margin-top:6px">Cargando facturas...</div>';
+  const facturas = det.facturas;
+
+  const porMes = {};
+  facturas.forEach(f => {
+    if (!f.mes_cuota) return;
+    porMes[f.mes_cuota] = (porMes[f.mes_cuota] || 0) + (Number(f.saldo_pendiente) || 0);
+  });
+  const meses = Object.keys(porMes).sort();
+  const mesCorte = e.periodo_corte ? e.periodo_corte.slice(0, 7) : (meses[0] || null);
+
+  const tablaMeses = meses.length ? `
+    <div style="font-size:11px;font-weight:700;color:#555;margin-top:10px">Agotamiento mes a mes (si no se factura de nuevo)</div>
+    <table class="ft-table" style="margin-top:4px"><tbody>
+      ${meses.map(m => {
+        const etq = m === mesCorte ? ' <span style="color:#A32D2D;font-weight:700">· vence este mes</span>' : (m === sumarMesLabel(mesCorte, 1) ? ' <span style="color:#185FA5;font-weight:700">· próximo mes</span>' : '');
+        return `<tr><td>${mesLabelISO(m)}${etq}</td><td class="ft-td-monto">L ${fmt(porMes[m])}</td></tr>`;
+      }).join('')}
+    </tbody></table>` : '';
+
+  const canceladas = Array.isArray(e.facturas_canceladas) ? e.facturas_canceladas : [];
+  const tablaCanceladas = canceladas.length ? `
+    <div style="font-size:11px;font-weight:700;color:#3B6D11;margin-top:10px">Facturas canceladas desde el estado anterior</div>
+    <table class="ft-table" style="margin-top:4px"><tbody>
+      ${canceladas.map(c => `<tr><td>${esc(c.numero_factura || '—')}</td><td class="ft-td-monto">L ${fmt(c.monto || 0)}</td></tr>`).join('')}
+    </tbody></table>` : '';
+
+  const tablaFacturas = `
+    <div style="font-size:11px;font-weight:700;color:#555;margin-top:10px">Facturas (${facturas.length}) — para comparar contra el ERP</div>
+    <div style="max-height:260px;overflow:auto;margin-top:4px">
+    <table class="ft-table"><thead><tr>
+      <th>Factura</th><th>Cliente</th><th>Vence</th><th>Saldo</th>
+    </tr></thead><tbody>
+      ${facturas.map(f => `<tr>
+        <td>${esc(f.numero_factura || '—')}</td>
+        <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.cliente_final || '—')}</td>
+        <td>${f.fecha_vencimiento ? fmtFecha(f.fecha_vencimiento) : '—'}</td>
+        <td class="ft-td-monto">L ${fmt(f.saldo_pendiente || 0)}</td>
+      </tr>`).join('')}
+    </tbody></table>
+    </div>`;
+
+  return tablaMeses + tablaCanceladas + tablaFacturas;
+}
+
+function sumarMesLabel(mes, delta) {
+  if (!mes) return null;
+  const [y, m] = mes.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// ═══════════════════════════════════════════════════
+// SUBIR ESTADO DE PROVEEDOR (PDF o Excel, cualquier formato)
+// ═══════════════════════════════════════════════════
+function matchProveedor(nombreDet) {
+  const nNorm = normTexto(nombreDet);
+  if (!nNorm) return null;
+  const encontrados = S.catalogoProv.filter(p => {
+    const pn = normTexto(p.nombre);
+    return pn && (pn.includes(nNorm) || nNorm.includes(pn));
+  });
+  return encontrados.length === 1 ? encontrados[0] : (encontrados[0] || null);
+}
+
+function fpAgregar(facturas, periodoCorte) {
+  const porMes = {};
+  facturas.forEach(f => {
+    if (!f.mes_cuota) return;
+    porMes[f.mes_cuota] = (porMes[f.mes_cuota] || 0) + (Number(f.saldo_pendiente) || 0);
+  });
+  const meses = Object.keys(porMes).sort();
+  const mesCorte = periodoCorte ? periodoCorte.slice(0, 7) : (meses[0] || null);
+  let mesSig = null;
+  if (mesCorte) {
+    const [y, m] = mesCorte.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m, 1));
+    mesSig = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+  const totalPend = facturas.reduce((s, f) => s + (Number(f.saldo_pendiente) || 0), 0);
+  const totalFacturado = facturas
+    .filter(f => f.fecha_emision && f.fecha_emision.slice(0, 7) === mesCorte)
+    .reduce((s, f) => s + (Number(f.valor_original) || 0), 0);
+  return {
+    total_pendiente: Math.round(totalPend * 100) / 100,
+    proyeccion_proximo_mes: mesSig ? Math.round((porMes[mesSig] || 0) * 100) / 100 : 0,
+    total_facturado_periodo: Math.round(totalFacturado * 100) / 100,
+  };
+}
+
+function renderSubirEstadoProv() {
+  return `<div class="form-card">
+    <div class="form-title p">📤 Estado de cuenta de proveedor</div>
+    <div id="fp-msg"></div>
+    <div class="frow">
+      <label>Sube uno o varios estados (PDF o Excel) — la IA extrae las facturas de cualquier formato</label>
+      <div id="fp-dropzone" onclick="document.getElementById('fp-file').click()"
+        style="border:2px dashed #F0C5DC;border-radius:10px;padding:20px;text-align:center;cursor:pointer;background:#FFF4FA;transition:.2s"
+        ondragover="event.preventDefault();this.style.borderColor='#B5185F';this.style.background='#FFEAF4'"
+        ondragleave="this.style.borderColor='#F0C5DC';this.style.background='#FFF4FA'"
+        ondrop="fpDrop(event)">
+        <div style="font-size:28px;margin-bottom:6px">📄</div>
+        <div style="font-size:13px;color:#B5185F;font-weight:700">Toca para subir uno o varios estados</div>
+        <div style="font-size:11px;color:#888;margin-top:3px">PDF o Excel (.xlsx/.xls) — cada proveedor puede tener un formato distinto</div>
+      </div>
+      <input type="file" id="fp-file" accept=".pdf,.xlsx,.xls" multiple class="hidden" onchange="fpArchivosSeleccionados(this)">
+    </div>
+  </div>
+  <div id="fp-cola"></div>`;
+}
+
+let _fpCola = [];
+let _fpSeq = 0;
+
+function fpDrop(e) {
+  e.preventDefault();
+  const dz = document.getElementById('fp-dropzone');
+  if (dz) { dz.style.borderColor = '#F0C5DC'; dz.style.background = '#FFF4FA'; }
+  const files = Array.from(e.dataTransfer.files).filter(f => /\.(pdf|xlsx|xls)$/i.test(f.name));
+  if (files.length) fpAgregarArchivos(files);
+}
+
+function fpArchivosSeleccionados(input) {
+  const files = Array.from(input.files || []);
+  if (files.length) fpAgregarArchivos(files);
+  input.value = '';
+}
+
+function fpAgregarArchivos(files) {
+  for (const file of files) {
+    const item = { id: ++_fpSeq, file, status: 'analizando', datos: null, proveedorId: null, error: null };
+    _fpCola.push(item);
+    fpProcesarItem(item);
+  }
+  fpRenderCola();
+}
+
+async function fpProcesarItem(item) {
+  try {
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(item.file);
+    });
+
+    const tipo = /\.(xlsx|xls)$/i.test(item.file.name) ? 'xlsx' : 'pdf';
+    const resp = await fetch(`${SB_URL}/functions/v1/analizar-estado-proveedor`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+      body: JSON.stringify({ archivo_base64: base64, tipo_archivo: tipo, nombre_archivo: item.file.name }),
+    });
+    const datos = await resp.json();
+    if (datos.error) throw new Error(datos.error);
+
+    item.datos = datos;
+    const prov = matchProveedor(datos.proveedor_detectado);
+    item.proveedorId = prov?.id || null;
+    item.status = (item.proveedorId && (datos.facturas || []).length) ? 'listo' : 'revisar';
+    if (!(datos.facturas || []).length) item.error = 'No se detectaron facturas en el archivo.';
+  } catch (err) {
+    item.status = 'error';
+    item.error = err.message;
+  }
+  fpRenderCola();
+}
+
+function fpOpsProv(selectedId) {
+  const mk = p => `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${esc(p.nombre)}</option>`;
+  return '<option value="">— Elegir proveedor —</option>' + S.catalogoProv.map(mk).join('');
+}
+
+function fpRenderCola() {
+  const cont = document.getElementById('fp-cola');
+  if (!cont) return;
+  if (!_fpCola.length) { cont.innerHTML = ''; return; }
+
+  const guardables = _fpCola.filter(i => i.status === 'listo' || (i.status === 'revisar' && i.proveedorId));
+
+  cont.innerHTML = `
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+      ${_fpCola.map(item => fpRenderItem(item)).join('')}
+    </div>
+    ${guardables.length > 1 ? `<button class="btn-submit btn-p" style="margin-top:10px" onclick="fpGuardarTodos()">✓ Guardar todos (${guardables.length})</button>` : ''}
+  `;
+}
+
+function fpRenderItem(item) {
+  const d = item.datos || {};
+  const disabled = (item.status === 'analizando' || item.status === 'guardando' || item.status === 'guardado') ? 'disabled' : '';
+
+  let statusHtml = '';
+  if (item.status === 'analizando') {
+    statusHtml = `<div style="color:#B5185F;font-size:12px;margin-top:6px"><span style="animation:spin .8s linear infinite;display:inline-block">⏳</span> Analizando con IA (puede tardar si es un Excel grande)...</div>`;
+  } else if (item.status === 'guardando') {
+    statusHtml = `<div style="color:#B5185F;font-size:12px;margin-top:6px"><span style="animation:spin .8s linear infinite;display:inline-block">⏳</span> Guardando...</div>`;
+  } else if (item.status === 'error') {
+    statusHtml = `<div class="msg-err" style="margin-top:6px">⚠ ${esc(item.error)}</div>`;
+  } else if (item.status === 'guardado') {
+    statusHtml = `<div style="color:#3B6D11;font-size:12px;font-weight:700;margin-top:6px">✓ Guardado</div>`;
+  } else if (item.status === 'revisar') {
+    statusHtml = `<div style="color:#854F0B;font-size:12px;font-weight:700;margin-top:6px">⚠ ${item.proveedorId ? 'Revisa el proveedor detectado' : 'No se identificó el proveedor — selecciónalo'}</div>`;
+    if (item.error) statusHtml += `<div class="msg-err" style="margin-top:4px">⚠ ${esc(item.error)}</div>`;
+  }
+
+  const facturas = d.facturas || [];
+  const resumen = (item.status === 'listo' || item.status === 'revisar' || item.status === 'guardando' || item.status === 'guardado') && facturas.length ? `
+    <div class="frow" style="margin-top:8px">
+      <label>Proveedor${item.status === 'listo' ? ' (detectado automáticamente)' : ''}${d.sociedades_detectadas?.length > 1 ? ' — archivo mezcla varias sociedades, se separan solas' : ''}</label>
+      <select onchange="fpCambiarProveedor(${item.id}, this.value)" ${disabled}>${fpOpsProv(item.proveedorId)}</select>
+    </div>
+    <div style="font-size:11px;color:#666;margin-top:6px;display:flex;flex-direction:column;gap:2px">
+      <div><b>${facturas.length}</b> facturas detectadas${d.periodo_corte ? ' · corte ' + fmtFecha(d.periodo_corte) : ''}</div>
+      <div>Total pendiente: <b>L ${fmt(d.total_pendiente || 0)}</b></div>
+      <div>Proyección próximo mes: <b>L ${fmt(d.proyeccion_proximo_mes || 0)}</b></div>
+      ${d.total_facturado_periodo ? `<div>Facturado este período (comparar ERP): <b>L ${fmt(d.total_facturado_periodo)}</b></div>` : ''}
+    </div>
+    ${item.status !== 'guardado' ? `<button class="btn-submit btn-p" style="margin-top:8px;font-size:12px;padding:8px" onclick="fpGuardarItem(${item.id})" ${item.proveedorId ? '' : 'disabled'} ${disabled}>✓ Guardar este</button>` : ''}
+  ` : '';
+
+  return `<div class="form-card" style="padding:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="font-size:12px;font-weight:700;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.file.name)}</div>
+      ${item.status !== 'analizando' && item.status !== 'guardando' && item.status !== 'guardado' ? `<button onclick="fpQuitarItem(${item.id})" style="background:none;border:none;color:#999;font-size:16px;cursor:pointer;padding:0 4px">✕</button>` : ''}
+    </div>
+    ${statusHtml}
+    ${resumen}
+  </div>`;
+}
+
+function fpQuitarItem(id) {
+  _fpCola = _fpCola.filter(i => i.id !== id);
+  fpRenderCola();
+}
+
+function fpCambiarProveedor(id, val) {
+  const item = _fpCola.find(i => i.id === id);
+  if (!item) return;
+  item.proveedorId = val || null;
+  fpRenderCola();
+}
+
+async function fpGuardarItem(id) {
+  const item = _fpCola.find(i => i.id === id);
+  if (!item || !item.proveedorId) return;
+  item.status = 'guardando';
+  fpRenderCola();
+  try {
+    await fpGuardarUnItem(item);
+    item.status = 'guardado';
+  } catch (err) {
+    item.status = 'revisar';
+    item.error = err.message;
+  }
+  fpRenderCola();
+}
+
+async function fpGuardarTodos() {
+  const items = _fpCola.filter(i => (i.status === 'listo' || i.status === 'revisar') && i.proveedorId);
+  for (const item of items) { item.status = 'guardando'; }
+  fpRenderCola();
+  for (const item of items) {
+    try {
+      await fpGuardarUnItem(item);
+      item.status = 'guardado';
+    } catch (err) {
+      item.status = 'revisar';
+      item.error = err.message;
+    }
+    fpRenderCola();
+  }
+}
+
+// Compara las facturas nuevas contra el último estado guardado del mismo proveedor+sociedad:
+// qué se abonó/canceló realmente vs lo que se había proyectado el mes pasado para este mes.
+function fpClaveFactura(f) {
+  return (f.numero_factura || '') + '|' + (f.fecha_vencimiento || '');
+}
+
+async function fpConciliar(proveedorId, sociedad, facturasNuevas) {
+  const filtroSociedad = sociedad ? `eq.${encodeURIComponent(sociedad)}` : 'is.null';
+  const anteriores = await sbGet('ft_estados_proveedor',
+    `select=*&proveedor_id=eq.${proveedorId}&sociedad=${filtroSociedad}&order=creado_at.desc&limit=1`);
+  const anterior = Array.isArray(anteriores) ? anteriores[0] : null;
+  if (!anterior) {
+    return { estadoAnteriorId: null, abonoCalculado: null, proyeccionEsperada: null, diferenciaAbono: null, facturasCanceladas: [] };
+  }
+
+  const facturasAnt = await sbGet('ft_facturas_proveedor',
+    `select=numero_factura,fecha_vencimiento,saldo_pendiente&estado_id=eq.${anterior.id}`);
+  const mapaAnt = new Map();
+  (Array.isArray(facturasAnt) ? facturasAnt : []).forEach(f => {
+    const k = fpClaveFactura(f);
+    mapaAnt.set(k, (mapaAnt.get(k) || 0) + (Number(f.saldo_pendiente) || 0));
+  });
+  const mapaNuevo = new Map();
+  facturasNuevas.forEach(f => {
+    const k = fpClaveFactura(f);
+    mapaNuevo.set(k, (mapaNuevo.get(k) || 0) + (Number(f.saldo_pendiente) || 0));
+  });
+
+  let abonoCalculado = 0;
+  const facturasCanceladas = [];
+  for (const [k, saldoAnt] of mapaAnt.entries()) {
+    const saldoNuevo = mapaNuevo.has(k) ? mapaNuevo.get(k) : 0;
+    const abonoEste = Math.max(0, saldoAnt - saldoNuevo);
+    abonoCalculado += abonoEste;
+    if (saldoNuevo <= 0.01 && saldoAnt > 0.01) {
+      const [numero, venc] = k.split('|');
+      facturasCanceladas.push({ numero_factura: numero, fecha_vencimiento: venc || null, monto: Math.round(saldoAnt * 100) / 100 });
+    }
+  }
+
+  const proyeccionEsperada = anterior.proyeccion_proximo_mes ?? null;
+  const diferenciaAbono = proyeccionEsperada != null ? Math.round((abonoCalculado - proyeccionEsperada) * 100) / 100 : null;
+
+  return {
+    estadoAnteriorId: anterior.id,
+    abonoCalculado: Math.round(abonoCalculado * 100) / 100,
+    proyeccionEsperada,
+    diferenciaAbono,
+    facturasCanceladas,
+  };
+}
+
+async function fpGuardarUnItem(item) {
+  const datos = item.datos || {};
+  const facturas = datos.facturas || [];
+
+  // agrupar por sociedad (archivos como Ultramotor traen varias empresas mezcladas)
+  const grupos = {};
+  for (const f of facturas) {
+    let provId = item.proveedorId;
+    if (f.sociedad) {
+      const m = matchProveedor(f.sociedad);
+      if (m) provId = m.id;
+    }
+    if (!provId) continue;
+    const key = provId + '|' + (f.sociedad || '');
+    if (!grupos[key]) grupos[key] = { proveedorId: provId, sociedad: f.sociedad || null, facturas: [] };
+    grupos[key].facturas.push(f);
+  }
+  if (!Object.keys(grupos).length) throw new Error('No hay facturas con proveedor resuelto para guardar.');
+
+  // subir el archivo original una sola vez
+  let archivoUrl = null;
+  const nombreLimpio = item.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const ruta = `proveedores/${Date.now()}_${nombreLimpio}`;
+  const upRes = await fetch(`${SB_URL}/storage/v1/object/estados-cuenta/${ruta}`, {
+    method: 'POST',
+    headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': item.file.type || 'application/octet-stream', 'x-upsert': 'true' },
+    body: item.file,
+  });
+  if (upRes.ok) archivoUrl = `${SB_URL}/storage/v1/object/public/estados-cuenta/${ruta}`;
+
+  for (const key in grupos) {
+    const g = grupos[key];
+    const agg = fpAgregar(g.facturas, datos.periodo_corte);
+    const conc = await fpConciliar(g.proveedorId, g.sociedad, g.facturas);
+
+    const estadoRes = await sbPost('ft_estados_proveedor', {
+      proveedor_id: g.proveedorId,
+      sociedad: g.sociedad,
+      nombre_archivo: item.file.name,
+      archivo_url: archivoUrl,
+      periodo_corte: datos.periodo_corte || null,
+      total_facturado: agg.total_facturado_periodo,
+      total_pendiente: agg.total_pendiente,
+      proyeccion_proximo_mes: agg.proyeccion_proximo_mes,
+      estado_anterior_id: conc.estadoAnteriorId,
+      abono_calculado: conc.abonoCalculado,
+      proyeccion_esperada_anterior: conc.proyeccionEsperada,
+      diferencia_abono: conc.diferenciaAbono,
+      facturas_canceladas: conc.facturasCanceladas,
+    });
+    if (estadoRes?.error) throw new Error(estadoRes.message || 'Error creando estado');
+    const estadoId = Array.isArray(estadoRes) ? estadoRes[0]?.id : estadoRes?.id;
+    if (!estadoId) throw new Error('No se pudo crear el estado de cuenta.');
+
+    const filas = g.facturas.map(f => ({
+      estado_id: estadoId,
+      proveedor_id: g.proveedorId,
+      sociedad: g.sociedad,
+      numero_factura: f.numero_factura || null,
+      cliente_final: f.cliente_final || null,
+      fecha_emision: f.fecha_emision || null,
+      fecha_vencimiento: f.fecha_vencimiento || null,
+      valor_original: f.valor_original ?? null,
+      monto_aplicado: f.monto_aplicado ?? null,
+      saldo_pendiente: f.saldo_pendiente ?? 0,
+      plazo: f.plazo || null,
+      mes_cuota: f.mes_cuota || null,
+    }));
+    for (let i = 0; i < filas.length; i += 200) {
+      const chunk = filas.slice(i, i + 200);
+      const res = await sbPost('ft_facturas_proveedor', chunk);
+      if (res?.error) throw new Error(res.message || 'Error guardando facturas');
+    }
+  }
+
+  S.estadosProv = null; // forzar recarga de cartera
 }
 
 // ═══════════════════════════════════════════════════
