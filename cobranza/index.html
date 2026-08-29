@@ -1119,10 +1119,13 @@ function calcMora(up,dp,sinP,fFact){
   var hD=HOY.getDate();
   if(sinP){
     var diasDesdeFactura=daysSince(fFact);
+    var fd=parseHNDate(fFact);
+    // Cliente facturado este mismo mes: aun esta en su mes de gracia, la primera
+    // cuota vence hasta el dia_pago del MES SIGUIENTE. Nunca VENCIDO en el mes de compra.
+    var compraEsteMes=fd&&fd.getMonth()===HOY.getMonth()&&fd.getFullYear()===HOY.getFullYear();
     if(diasDesdeFactura!==null&&diasDesdeFactura<=45){
-      if(dp>0&&dp<hD){
+      if(!compraEsteMes&&dp>0&&dp<hD){
         var fp=new Date(HOY.getFullYear(),HOY.getMonth(),dp);fp.setHours(0,0,0,0);
-        var fd=parseHNDate(fFact);
         if(fd&&HOY>fp&&fd<fp)return{dias:Math.floor((HOY-fp)/86400000),tramo:'VENCIDO'};
       }
       return{dias:null,tramo:'MES'};
@@ -1167,6 +1170,17 @@ function parseHNDate(s){if(!s)return null;var p=s.split('/');if(p.length!==3)ret
 function daysSince(s){var d=parseHNDate(s);if(!d)return null;return Math.max(0,Math.floor((HOY-d)/86400000));}
 function pagoEsteMes(s){var d=parseHNDate(s);if(!d)return false;return d.getMonth()===HOY.getMonth()&&d.getFullYear()===HOY.getFullYear();}
 function pagoMesAnterior(s){var d=parseHNDate(s);if(!d)return false;var am=new Date(HOY.getFullYear(),HOY.getMonth()-1,1);return d.getFullYear()===am.getFullYear()&&d.getMonth()===am.getMonth();}
+// Cliente facturado este mismo mes y sin pago aun: esta en su mes de gracia,
+// su primera cuota vence hasta el dia_pago del MES SIGUIENTE.
+function compraEsteMes(c){if(!c||!c.sin_ultimo_pago)return false;var fd=parseHNDate(c.fecha_factura);return !!(fd&&fd.getMonth()===HOY.getMonth()&&fd.getFullYear()===HOY.getFullYear());}
+// Cliente facturado este mes que YA dio prima o primer pago (pagado>0): no es urgente,
+// se saca de Hoy -> Cierre. Si no ha pagado nada todavia, sigue urgente y se mantiene.
+// Si el gestor ya le registro una promesa activa, tambien se mantiene visible.
+function enGraciaSinPrima(c,p){
+  if(!compraEsteMes(c))return false;
+  if(p&&p.estado==='promesa'&&p.monto)return false;
+  return (c.pagado||0)>0;
+}
 
 // ══ CRUCE CON ARQUEOS: detectar primas pagadas ══
 async function cruzarPrimasConArqueos(cartId,clientes){
@@ -1423,11 +1437,14 @@ async function _renderGerentePanel(){
       var p=PROMESAS[id+'::'+x.nombre];
       var pagoM=p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
       var pagado=(pagoEsteMes(x.ultimo_pago)||pagoM)&&!(p&&p.mora_pendiente);
+      // Cliente facturado este mes que ya dio prima/primer pago: no cuenta como pendiente
+      // del ciclo. Si no ha pagado nada, sigue pendiente (hay que cobrarle la prima).
+      var enGracia=enGraciaSinPrima(x,p);
       // Acordado en "Hoy → Cierre": mismo criterio que esa pestaña (tiene mora real, o no ha pagado este mes)
       var m=calcMoraCliente(x,id);
       var tieneMora=m&&m.diferencia>0;
       if((tieneMora||!pagado)&&p&&p.monto)totalAcordado+=p.monto;
-      if(pagado)return;
+      if(pagado||enGracia)return;
       nPendientes++;
       var best=_getBestProy(id,x.nombre);
       var montoExp=best&&best.monto_proyectado?best.monto_proyectado:(p&&p.monto?p.monto:null);
@@ -1741,6 +1758,9 @@ function renderDash(id){
   // ── Proyección hoy → cierre: clientes con mora real (aunque hayan pagado este mes) o que no han pagado este mes ──
   var cierreHoyList=activos.filter(function(c){
     var p=PROMESAS[id+'::'+c.nombre];
+    // Facturado este mismo mes: si ya dio prima/primer pago no es urgente, se excluye.
+    // Si no ha pagado nada, sigue en Hoy -> Cierre (hay que cobrarle la prima).
+    if(enGraciaSinPrima(c,p))return false;
     var pagoManualEsteMes=p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
     var pagado=(pagoEsteMes(c.ultimo_pago)||pagoManualEsteMes)&&!(p&&p.mora_pendiente);
     var m=calcMoraCliente(c,id);
@@ -2079,9 +2099,9 @@ function moraBadge(c, cartId){
 function buildHoy(cartId,cl,G){
   var hD=HOY.getDate();var todStr=HOY.toISOString().split('T')[0];
   var yPO=function(c){return pagoEsteMes(c.ultimo_pago)&&!(PROMESAS[cartId+'::'+c.nombre]||{}).mora_pendiente;};
-  var paganHoy=cl.filter(function(c){if(c.tramo==='INACTIVO')return false;if(c.dia_pago!==hD)return false;return !yPO(c);});
+  var paganHoy=cl.filter(function(c){if(c.tramo==='INACTIVO')return false;if(enGraciaSinPrima(c,PROMESAS[cartId+'::'+c.nombre]))return false;if(c.dia_pago!==hD)return false;return !yPO(c);});
   var acum=cl.filter(function(c){
-    if(c.tramo==='INACTIVO')return false;if(yPO(c))return false;if(c.dia_pago===hD)return false;
+    if(c.tramo==='INACTIVO')return false;if(enGraciaSinPrima(c,PROMESAS[cartId+'::'+c.nombre]))return false;if(yPO(c))return false;if(c.dia_pago===hD)return false;
     if(c.dia_pago>0&&c.dia_pago<hD)return true;
     if(c.tramo==='VENCIDO')return true;
     if(['60','90','120','150'].includes(c.tramo))return true;
