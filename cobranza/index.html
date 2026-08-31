@@ -1334,9 +1334,13 @@ async function processPDF(file){
             data.clientes.push(c);
             newNames.add(c.nombre);
           } else {
+            // Solo se deja constancia en el historial. NO se borra la promesa/historial
+            // del cliente: que no aparezca en ESTE PDF no prueba que canceló su cuenta
+            // (puede ser un PDF parcial o con paginas faltantes) — borrar aqui perdia
+            // promesas de clientes activos cada vez que pasaba eso (visto 2026-08-29 y
+            // 2026-08-31 con Su Mueble). Si de verdad cancelo, su promesa vieja queda
+            // huerfana sin causar dano; si fue un PDF incompleto, no se pierde nada.
             histPromises.push(dbSaveHist({cartera_id:id,cliente_nombre:c.nombre,tipo:'pago',monto:c.saldo,nota:'Cliente cancelado — ya no aparece en la cartera (saldo anterior: L '+fmt(c.saldo)+')',fecha_accion:HOY.toISOString().split('T')[0],gestor:'Sistema',created_at:new Date().toISOString()}));
-            var key=id+'::'+c.nombre;
-            if(PROMESAS[key]){delete PROMESAS[key];dbSaveProm(id,c.nombre);}
           }
         }
       });
@@ -2997,8 +3001,7 @@ function buildPagaron(cartId,rows,clTodos){
     return html+'<div class="empty">'+msgs[filtro]+'</div>';
   }
 
-  var delAll=USER&&USER.rol==='admin'&&filtro!=='cancelados'?'<div style="margin-bottom:10px"><button class="btn btn-red btn-sm" onclick="delTodasPromesas(\''+cartId+'\')">🗑️ Borrar todas las promesas</button></div>':'';
-  html+=delAll;
+  html+='';
   html+='<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Saldo</th><th>Cuota</th><th>Último pago</th><th>Estado</th><th>Acción</th></tr></thead><tbody>';
 
   lista.forEach(function(r,i){
@@ -3168,8 +3171,7 @@ function buildPromeTab(cartId,cl,modo){
     return (pa.fecha||'').localeCompare(pb.fecha||'');
   });
 
-  var delAll=USER&&USER.rol==='admin'?'<div style="margin-bottom:10px"><button class="btn btn-red btn-sm" onclick="delTodasPromesas(\''+cartId+'\')">🗑️ Borrar todas las promesas</button></div>':'';
-  html+=delAll;
+  html+='';
 
   // Tabla con columna de confiabilidad
   html+='<div class="tbl-wrap"><table><thead><tr>';
@@ -6110,13 +6112,6 @@ async function mgMarcarCumplida(cartId, nombre, cuota, saldo){
   setConn(true,'✅ Promesa marcada como cumplida');
   setTimeout(function(){setConn(true,'Conectado');},2500);
 }
-async function delTodasPromesas(cartId){
-  if(!confirm('Borrar TODAS las promesas de esta cartera?'))return;
-  Object.keys(PROMESAS).forEach(function(k){if(k.startsWith(cartId+'::'))delete PROMESAS[k];});
-  if(supa)await supa.from('promesas').delete().eq('cartera_id',cartId);
-  if(CURRENT)refreshSoft(CURRENT);
-}
-
 // ══ ALERTAS ══
 async function checkAlertas(){
   if(!USER||!supa)return;
