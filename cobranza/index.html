@@ -628,6 +628,7 @@ var SUPA_URL='https://ixskgawbpwwxdjnkiixt.supabase.co';
 var SUPA_KEY='sb_publishable_-JUaSYPPkq8n4wJIKPtXGw_XMyj3EE7';
 var USUARIOS={
   '12345':{nombre:'Administrador',rol:'admin',carteras:[]},
+  '2660':{nombre:'Administrador',rol:'admin',carteras:[]},
   '7777':{nombre:'Jorge',rol:'gerente',carteras:[]},
   '1111':{nombre:'Equipo Roca',rol:'cobrador',carteras:['ROCA_COMERCIAL','MOTORS','LIBERTAD','BARRIO']},
   '2222':{nombre:'Equipo Su Mueble',rol:'cobrador',carteras:['MUEBLE','MOTO','DANLI']}
@@ -643,9 +644,15 @@ var RRHH_CARTERAS={
 var RRHH_EQUIPO={
   'u1784044319284':'roca',   // Erick
   'v_ale':'roca',            // Alejandra
-  'v_jor':'roca',            // Jorge
-  'u1779318896833':'roca',   // Ana Castro
-  'v_say':'mueble'           // Sayda
+  'v_jor':'roca'             // Jorge
+};
+// Gerentes de línea de negocio: entran con rol 'gerente' (vista global + subir cartera)
+// en vez del 'cobrador' que les daría RRHH_EQUIPO.
+var RRHH_GERENTES={
+  'u1779318896833':1,   // Ana Castro
+  'v_say':1,             // Sayda Hernández
+  'v_kar':1,             // Karla
+  'v_gab':1              // Gabriela
 };
 function loginRRHH(pin){
   return fetch(RRHH_URL+'/rest/v1/rpc/rrhh_login_por_pin',{
@@ -655,6 +662,7 @@ function loginRRHH(pin){
   }).then(function(r){return r.ok?r.json():null;}).then(function(rrhh){
     if(!rrhh) return null;
     if(!rrhh.accesos_apps||!rrhh.accesos_apps.cobranza) return null;
+    if(RRHH_GERENTES[rrhh.codigo]) return {nombre:rrhh.nombre,rol:'gerente',carteras:[]};
     var equipo=RRHH_EQUIPO[rrhh.codigo];
     if(!equipo) return null;
     return {nombre:rrhh.nombre,rol:'cobrador',carteras:RRHH_CARTERAS[equipo]};
@@ -720,7 +728,7 @@ function usuarioDesdeSuite(){
     var s=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
     if(!s||!s.codigo)return null;
     if(!s.accesos_apps||s.accesos_apps.cobranza!==true)return null;
-    if(s.nivel_admin||s.codigo==='ADMIN')return {nombre:s.nombre,rol:'gerente',carteras:[],codigo:s.codigo};
+    if(s.nivel_admin||s.codigo==='ADMIN'||RRHH_GERENTES[s.codigo])return {nombre:s.nombre,rol:'gerente',carteras:[],codigo:s.codigo};
     var equipo=RRHH_EQUIPO[s.codigo];
     if(equipo)return {nombre:s.nombre,rol:'cobrador',carteras:RRHH_CARTERAS[equipo],codigo:s.codigo};
     return {__validar:true,s:s};   // codigo no mapeado — validar contra RRHH
@@ -741,6 +749,10 @@ async function ssoDesdeSuite(){
     if(r.ok){
       var d=await r.json();
       if(d&&d.accesos_apps&&d.accesos_apps.cobranza===true){
+        if(RRHH_GERENTES[d.codigo]){
+          entrarConUsuario({nombre:d.nombre||s.nombre,rol:'gerente',carteras:[],codigo:d.codigo});
+          return true;
+        }
         var eq=RRHH_EQUIPO[d.codigo];
         entrarConUsuario({nombre:d.nombre||s.nombre,rol:'cobrador',
           carteras:eq?RRHH_CARTERAS[eq]:[].concat(RRHH_CARTERAS.roca,RRHH_CARTERAS.mueble),
@@ -1248,8 +1260,8 @@ dropEl.addEventListener('dragover',function(e){e.preventDefault();if(canUpload()
 dropEl.addEventListener('dragleave',function(){dropEl.classList.remove('over');});
 dropEl.addEventListener('drop',function(e){e.preventDefault();dropEl.classList.remove('over');if(!canUpload())return;processFiles(Array.from(e.dataTransfer.files).filter(function(f){return f.type==='application/pdf';}));});
 fileEl.addEventListener('change',function(e){processFiles(Array.from(e.target.files));e.target.value='';});
-function dropClick(){if(!canUpload()){alert('Solo el administrador puede subir carteras.');return;}if(!PDFJS_OK){showErr('PDF.js no cargo. Recarga la pagina.');return;}fileEl.click();}
-function canUpload(){return USER&&USER.rol==='admin';}
+function dropClick(){if(!canUpload()){alert('Debes iniciar sesion para subir carteras.');return;}if(!PDFJS_OK){showErr('PDF.js no cargo. Recarga la pagina.');return;}fileEl.click();}
+function canUpload(){return !!USER;}
 async function processFiles(files){
   if(!files.length)return;setProg(5,'Iniciando...');
   for(var i=0;i<files.length;i++){setProg(10+(i/files.length)*80,'Leyendo '+files[i].name+'...');await processPDF(files[i]);}
@@ -1621,7 +1633,7 @@ function renderHome(){
   else{document.getElementById('home-zone').classList.remove('wide');var gp=document.getElementById('gerente-panel');if(gp)gp.style.display='none';}
   var dz=document.getElementById('drop-zone');
   dz.className='drop-zone'+(canUpload()?'':' disabled');
-  document.getElementById('drop-lbl').textContent=canUpload()?'Arrastra el PDF aqui o haz clic':'Solo el admin puede subir PDFs';
+  document.getElementById('drop-lbl').textContent=canUpload()?'Arrastra el PDF aqui o haz clic':'Inicia sesion para subir PDFs';
   document.getElementById('sync-lbl').textContent=DB_OK?'🟢 Conectado':'🟡 Sin conexion';
   var vl=document.getElementById('ver-lbl');if(vl){var vp=APP_VERSION.match(/^(\d{4})(\d{2})(\d{2})-(\d+)$/);vl.textContent=vp?'v'+vp[4]+' · '+vp[3]+'/'+vp[2]+'/'+vp[1]:'v'+APP_VERSION;}
   var vis=getVisibles();
