@@ -170,7 +170,18 @@ let state = {
   examen: null, // preguntas del examen activo
   examenRespuestas: {},
   nuevasPreguntas: [], // borrador de preguntas al crear capacitación (admin)
+  adelantosAdmin: null,
+  planillasAdmin: null,
+  filtroAdelantoEmpleado: null, // codigo de empleado para filtrar la tabla de Adelantos (llegando desde Planilla)
 };
+
+// Quincena a partir de una fecha: 1-15 = Q1, 16-fin = Q2. Formato "2026-08 Q1".
+function quincenaDe(fechaIso){
+  if(!fechaIso) return '—';
+  const d = new Date(fechaIso);
+  const ym = d.toISOString().slice(0,7);
+  return ym + ' Q' + (d.getDate() <= 15 ? '1' : '2');
+}
 
 function saveSession(s){ state.session = s; sessionStorage.setItem('rrhh_session', JSON.stringify(s)); }
 function logout(){ sessionStorage.removeItem('rrhh_session'); state.session=null; location.href='/'; }
@@ -367,6 +378,18 @@ async function loadPermisosAdmin(){
   if(error){ toast('Error: '+error.message); return; }
   state.permisosAdmin = data;
 }
+async function loadAdelantosAdmin(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_admin_adelantos_historial', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
+  if(error){ toast('Error: '+error.message); return; }
+  state.adelantosAdmin = data;
+}
+async function loadPlanillasAdmin(){
+  const {session} = state;
+  const {data, error} = await sb.rpc('rrhh_admin_listar_planillas', {p_admin_codigo: session.codigo, p_admin_pin: session.pin});
+  if(error){ toast('Error: '+error.message); return; }
+  state.planillasAdmin = data;
+}
 async function loadCapacitacionesEmpleado(){
   const {session} = state;
   const {data, error} = await sb.rpc('rrhh_listar_capacitaciones', {p_empleado_id: session.empleado_id, p_pin: session.pin});
@@ -388,6 +411,8 @@ function navItemsFor(rol){
       ['dashboard-empleados','Dashboard empleados'],
       ['empleados','Asociados'],
       ['vacaciones-admin','Vacaciones y Permisos'],
+      ['adelantos-admin','Adelantos'],
+      ['planilla-admin','Planilla'],
       ['pagos-admin','Pagos y bonos'],
       ['incapacidades-admin','Incapacidades'],
       ['llamadas-admin','Llamadas de atención'],
@@ -843,6 +868,71 @@ function viewVacacionesAdmin(){
       <td><span class="stamp ${p.estado}">${p.estado}</span></td><td>${p.aprobado_por||'—'}</td>
       <td><button class="btn-chat" data-chat-historial="permisos|${p.id}">💬 Ver</button></td>
     </tr>`).join('') || `<tr><td colspan="8" class="empty">Aún no hay solicitudes de permiso</td></tr>`}</tbody></table></div>`;
+}
+
+function viewAdelantosAdmin(){
+  const filtro = state.filtroAdelantoEmpleado;
+  let list = state.adelantosAdmin || [];
+  if(filtro) list = list.filter(a=>a.codigo===filtro);
+  const empFiltrado = filtro && list[0] ? list[0].empleado : null;
+  return `<div style="display:flex;justify-content:space-between;align-items:center">
+    <div><h1 class="page-title">Adelantos${empFiltrado?' — '+empFiltrado:''}</h1>
+    <p class="page-sub">Historial completo por asociado: fecha, quincena, entrega y si ya quedó declarado en el arqueo de caja</p></div>
+    ${filtro?`<button class="link" id="btn-quitar-filtro-adelanto">✕ Quitar filtro</button>`:''}</div>
+    <div class="card"><table><thead><tr><th>Asociado</th><th>Sucursal</th><th>Fecha</th><th>Quincena</th><th>Monto</th><th>Motivo</th><th>Estado</th><th>Entregado</th><th>Declarado en arqueo</th><th>Comentarios</th></tr></thead>
+    <tbody>${list.map(a=>`<tr>
+      <td>${a.empleado}<div style="font-size:11px;color:var(--slate)">${a.codigo||''}</div></td>
+      <td>${a.sucursal||'—'}</td>
+      <td>${fmtDate(a.created_at?.slice(0,10))}</td>
+      <td class="mono">${quincenaDe(a.created_at)}</td>
+      <td class="mono">${fmtL(a.monto)}</td>
+      <td>${a.motivo||'—'}</td>
+      <td><span class="stamp ${a.estado==='pagado'?'aprobado':a.estado}">${a.estado}</span></td>
+      <td>${a.estado==='aprobado'||a.estado==='pagado' ? `<button class="link" data-toggle-entrega="${a.id}" data-val="${a.entregado_at?'0':'1'}">${a.entregado_at?'✅ '+fmtDate(a.entregado_at?.slice(0,10)):'Marcar entregado'}</button>` : '—'}</td>
+      <td>${a.estado==='aprobado'||a.estado==='pagado' ? `<button class="link" data-toggle-arqueo="${a.id}" data-val="${a.declarado_en_arqueo?'0':'1'}">${a.declarado_en_arqueo?'✅ Declarado':'Marcar declarado'}</button>${a.declarado_en_arqueo_nota?`<div style="font-size:11px;color:var(--slate)">${a.declarado_en_arqueo_nota}</div>`:''}` : '—'}</td>
+      <td><button class="btn-chat" data-chat-historial="adelantos|${a.id}">💬 Ver</button></td>
+    </tr>`).join('') || `<tr><td colspan="10" class="empty">Aún no hay solicitudes de adelanto</td></tr>`}</tbody></table></div>`;
+}
+
+function sucursalesConocidas(){
+  const set = new Set((state.empleados||[]).map(e=>e.sucursal).filter(Boolean));
+  return Array.from(set);
+}
+
+function viewPlanillaAdmin(){
+  const list = state.planillasAdmin || [];
+  const adelantos = state.adelantosAdmin || [];
+  const sucs = sucursalesConocidas();
+  return `<h1 class="page-title">Planilla</h1><p class="page-sub">Sube el respaldo de la planilla de cada quincena por sucursal. Los adelantos de esa quincena quedan listados debajo, con enlace directo al historial del asociado.</p>
+  <div class="card" style="max-width:560px">
+    <div class="form-row">
+      <div class="field"><label>Sucursal</label>${sucs.length?`<select id="pl-sucursal">${sucs.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>`:`<input id="pl-sucursal" placeholder="Ej: La Roca Comercial">`}</div>
+      <div class="field"><label>Quincena</label><input id="pl-quincena" value="${quincenaDe(new Date().toISOString())}" placeholder="2026-08 Q2"></div>
+    </div>
+    <div class="field"><label>Archivo de planilla (Excel o PDF)</label><input type="file" id="pl-file" accept=".xlsx,.xls,.pdf,.csv"></div>
+    <div class="field"><label>Notas (opcional)</label><textarea id="pl-notas" rows="2" placeholder="Ej: ya se rebajaron los adelantos de esta quincena"></textarea></div>
+    <button class="btn gold" id="btn-subir-planilla">Subir planilla</button>
+  </div>
+  <div style="height:16px"></div>
+  <div class="card"><h3 style="margin-top:0">Planillas subidas</h3>
+  ${list.map(p=>{
+    const rel = adelantos.filter(a=>a.sucursal===p.sucursal && quincenaDe(a.created_at)===p.quincena);
+    return `<div style="border-bottom:1px solid var(--stone-line);padding:12px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><b>${p.sucursal}</b> — ${p.quincena} <span style="color:var(--slate);font-size:12px">subida por ${p.subido_por||'—'} el ${fmtDate((p.created_at||'').slice(0,10))}</span>
+        ${p.notas?`<div style="font-size:12px;color:var(--slate)">${p.notas}</div>`:''}</div>
+        ${p.archivo_url?`<a class="link" href="${p.archivo_url}" target="_blank">📄 Ver archivo</a>`:''}
+      </div>
+      ${rel.length?`<table style="margin-top:8px"><thead><tr><th>Asociado</th><th>Monto adelanto</th><th>Entregado</th><th>Declarado en arqueo</th></tr></thead>
+      <tbody>${rel.map(a=>`<tr>
+        <td><button class="link" data-ver-adelanto-emp="${a.codigo}">${a.empleado}</button></td>
+        <td class="mono">-${fmtL(a.monto)}</td>
+        <td>${a.entregado_at?'✅':'—'}</td>
+        <td>${a.declarado_en_arqueo?'✅':'—'}</td>
+      </tr>`).join('')}</tbody></table>` : `<div style="font-size:12px;color:var(--slate);margin-top:6px">Sin adelantos registrados para esta sucursal/quincena</div>`}
+    </div>`;
+  }).join('') || `<div class="empty">Aún no se ha subido ninguna planilla</div>`}
+  </div>`;
 }
 
 function empSelectOptions(){
@@ -1382,6 +1472,8 @@ async function render(){
     else if(state.view==='dashboard-empleados'){ if(!state.dashEmp) await loadDashEmpleados(); renderShell(viewDashboardEmpleados()); bindDashboardEmpleados(); }
     else if(state.view==='empleados'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewEmpleadosAdmin()); bindEmpleadosAdmin(); }
     else if(state.view==='vacaciones-admin'){ await Promise.all([loadVacacionesAdmin(), loadPermisosAdmin()]); renderShell(viewVacacionesAdmin()); bindVacacionesAdmin(); }
+    else if(state.view==='adelantos-admin'){ if(!state.adelantosAdmin) await loadAdelantosAdmin(); renderShell(viewAdelantosAdmin()); bindAdelantosAdmin(); }
+    else if(state.view==='planilla-admin'){ if(!state.empleados) await loadAdminEmpleados(); if(!state.adelantosAdmin) await loadAdelantosAdmin(); if(!state.planillasAdmin) await loadPlanillasAdmin(); renderShell(viewPlanillaAdmin()); bindPlanillaAdmin(); }
     else if(state.view==='asistencias-admin'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewAsistenciasAdmin()); bindAsistenciasAdmin(); }
     else if(state.view==='pagos-admin'){ if(!state.empleados) await loadAdminEmpleados(); if(!state.adminData) await loadAdminDashboard(); renderShell(viewPagosAdmin()); bindPagosAdmin(); }
     else if(state.view==='incapacidades-admin'){ if(!state.empleados) await loadAdminEmpleados(); renderShell(viewIncapacidadesAdmin()); bindIncapacidadesAdmin(); }
@@ -1902,6 +1994,50 @@ function bindVacacionesAdmin(){
     };
   });
   bindChatButtons();
+}
+function bindAdelantosAdmin(){
+  bindChatButtons();
+  const btnQuitar = document.getElementById('btn-quitar-filtro-adelanto');
+  if(btnQuitar) btnQuitar.onclick = () => { state.filtroAdelantoEmpleado = null; render(); };
+  document.querySelectorAll('[data-toggle-entrega]').forEach(btn=>{
+    btn.onclick = async () => {
+      const val = btn.getAttribute('data-val') === '1';
+      const {error} = await sb.rpc('rrhh_admin_marcar_adelanto_entrega', { p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_id: btn.getAttribute('data-toggle-entrega'), p_entregado: val });
+      if(error){ toast('Error: '+error.message); return; }
+      toast(val ? 'Marcado como entregado' : 'Entrega revertida');
+      state.adelantosAdmin = null; await loadAdelantosAdmin(); render();
+    };
+  });
+  document.querySelectorAll('[data-toggle-arqueo]').forEach(btn=>{
+    btn.onclick = async () => {
+      const val = btn.getAttribute('data-val') === '1';
+      let nota = null;
+      if(val) nota = prompt('Nota (opcional) sobre el arqueo donde quedó declarado:') || null;
+      const {error} = await sb.rpc('rrhh_admin_marcar_adelanto_arqueo', { p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_id: btn.getAttribute('data-toggle-arqueo'), p_declarado: val, p_nota: nota });
+      if(error){ toast('Error: '+error.message); return; }
+      toast(val ? 'Marcado como declarado en arqueo' : 'Se quitó la marca');
+      state.adelantosAdmin = null; await loadAdelantosAdmin(); render();
+    };
+  });
+}
+function bindPlanillaAdmin(){
+  document.querySelectorAll('[data-ver-adelanto-emp]').forEach(btn=>{
+    btn.onclick = () => { state.filtroAdelantoEmpleado = btn.getAttribute('data-ver-adelanto-emp'); state.view = 'adelantos-admin'; render(); };
+  });
+  document.getElementById('btn-subir-planilla').onclick = async () => {
+    const sucursal = document.getElementById('pl-sucursal').value.trim();
+    const quincena = document.getElementById('pl-quincena').value.trim();
+    if(!sucursal || !quincena){ toast('Completa sucursal y quincena'); return; }
+    const file = document.getElementById('pl-file').files[0];
+    const url = file ? await uploadDoc(file) : null;
+    const {error} = await sb.rpc('rrhh_admin_subir_planilla', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin,
+      p_sucursal: sucursal, p_quincena: quincena, p_archivo_url: url,
+      p_archivo_nombre: file ? file.name : null, p_notas: document.getElementById('pl-notas').value || null });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Planilla subida');
+    state.planillasAdmin = null; await loadPlanillasAdmin(); render();
+  };
 }
 function bindSolicitudesAdmin(){
   bindChatButtons();
