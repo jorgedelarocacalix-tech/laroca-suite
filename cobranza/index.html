@@ -1441,12 +1441,13 @@ async function _renderGerentePanel(){
     var cl=c.clientes;
     var activos=cl.filter(function(x){return x.tramo!=='INACTIVO';});
     var pagaron=0,vencidos=0,mora60=0,mora90=0,mora120=0,mora150=0,nProm=0;
+    var cobradoCart=0,sinRecuperarCart=0;
     activos.forEach(function(x){
       var p=PROMESAS[id+'::'+x.nombre];
       var pagoM=p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
       var pago=(pagoEsteMes(x.ultimo_pago)||pagoM)&&!(p&&p.mora_pendiente);
-      if(pago){pagaron++;cobradoGlobal+=(x.cuota||0);return;}
-      metaGlobal+=(x.cuota||0);
+      if(pago){pagaron++;cobradoGlobal+=(x.cuota||0);cobradoCart+=(x.cuota||0);return;}
+      metaGlobal+=(x.cuota||0);sinRecuperarCart+=(x.cuota||0);
       if(x.tramo==='VENCIDO')vencidos++;
       else if(x.tramo==='60')mora60++;
       else if(x.tramo==='90')mora90++;
@@ -1458,7 +1459,7 @@ async function _renderGerentePanel(){
     totVencidos+=vencidos;totMora60+=mora60+mora90;totMora120+=mora120+mora150;
     var nMora=mora60+mora90+mora120+mora150;
     var score=activos.length>0?Math.max(0,Math.round(100-(nMora/activos.length*55)-(vencidos/activos.length*35))):100;
-    cartStats.push({id:id,nombre:c.empresa,activos:activos.length,pagaron:pagaron,score:score,mora120:mora120+mora150,vencidos:vencidos,nProm:nProm});
+    cartStats.push({id:id,nombre:c.empresa,activos:activos.length,pagaron:pagaron,score:score,mora120:mora120+mora150,vencidos:vencidos,nProm:nProm,cobrado:cobradoCart,sinRecuperar:sinRecuperarCart,proyectado:cobradoCart+sinRecuperarCart});
   });
   var metaTotal=metaGlobal+cobradoGlobal;
   var pctMeta=metaTotal>0?Math.round(cobradoGlobal/metaTotal*100):0;
@@ -1529,6 +1530,41 @@ async function _renderGerentePanel(){
     +'<div style="background:var(--redbg);border:1px solid rgba(176,16,32,.2);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--red)">'+totMora120+'</div><div style="font-size:10px;color:var(--text3)">Mora 120d+</div></div>'
     +'<div style="background:var(--purplebg);border:1px solid rgba(124,58,237,.2);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--purple)">L '+fmt(totalProy)+'</div><div style="font-size:10px;color:var(--text3)">Prometido</div></div>'
     +'</div>';
+
+  // Bloque Proyectado / Cobrado / Sin recuperar por tienda
+  h+='<div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;background:var(--bg2)">';
+  h+='<div style="font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">💰 PROYECTADO / COBRADO / SIN RECUPERAR — POR TIENDA (mes actual)</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h+='<thead><tr style="border-bottom:1px solid var(--border)">';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Tienda</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--blue);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de todos los clientes activos del mes (cobrado + sin recuperar)">Proyectado</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--green);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de clientes que ya pagaron este mes">Cobrado</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--red);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de clientes que aun no han pagado este mes">Sin recuperar</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">% cobrado</th>';
+  h+='</tr></thead><tbody>';
+  var totProyectadoT=0,totCobradoT=0,totSinRecuperarT=0;
+  cartStats.slice().sort(function(a,b){return b.proyectado-a.proyectado;}).forEach(function(c){
+    totProyectadoT+=c.proyectado;totCobradoT+=c.cobrado;totSinRecuperarT+=c.sinRecuperar;
+    var pctC=c.proyectado>0?Math.round(c.cobrado/c.proyectado*100):0;
+    var pctCol=pctC>=70?'var(--green)':pctC>=40?'var(--orange)':'var(--red)';
+    h+='<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="openCartera(\''+esc(c.id)+'\')">';
+    h+='<td style="padding:5px 6px;font-weight:600;color:var(--text)">'+esc2(c.nombre)+'</td>';
+    h+='<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--blue);font-weight:600">L '+fmt(c.proyectado)+'</td>';
+    h+='<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--green);font-weight:600">L '+fmt(c.cobrado)+'</td>';
+    h+='<td style="padding:5px 6px;text-align:right;font-family:var(--mono);color:var(--red);font-weight:600">L '+fmt(c.sinRecuperar)+'</td>';
+    h+='<td style="padding:5px 6px;text-align:right;font-family:var(--mono);font-weight:700;color:'+pctCol+'">'+pctC+'%</td>';
+    h+='</tr>';
+  });
+  var pctCT=totProyectadoT>0?Math.round(totCobradoT/totProyectadoT*100):0;
+  h+='<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border)">';
+  h+='<td style="padding:6px 6px;font-family:var(--mono);font-size:11px;color:var(--text3)">TOTAL GLOBAL</td>';
+  h+='<td style="padding:6px 6px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--blue)">L '+fmt(totProyectadoT)+'</td>';
+  h+='<td style="padding:6px 6px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--green)">L '+fmt(totCobradoT)+'</td>';
+  h+='<td style="padding:6px 6px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--red)">L '+fmt(totSinRecuperarT)+'</td>';
+  h+='<td style="padding:6px 6px;text-align:right;font-family:var(--mono);font-size:12px">'+pctCT+'%</td>';
+  h+='</tr>';
+  h+='</tbody></table>';
+  h+='</div>';
 
   // Bloque sistema vs gestores
   var diffGlobal=totGesGlobal-totSisGlobal;
@@ -1653,7 +1689,7 @@ function renderHome(){
   if(USER&&USER.rol==='admin'){rn.style.cssText='background:var(--greenbg);color:var(--green);border:1px solid rgba(26,122,60,.2);border-radius:5px;padding:9px 13px;font-family:var(--mono);font-size:11px;margin-bottom:16px';rn.textContent='Administrador - acceso completo. Sube PDFs y gestiona carteras.';}
   else if(USER&&USER.rol==='gerente'){rn.style.cssText='background:var(--purplebg,#f3e8ff);color:var(--purple,#7c3aed);border:1px solid rgba(124,58,237,.2);border-radius:5px;padding:9px 13px;font-family:var(--mono);font-size:11px;margin-bottom:16px';rn.textContent='Gerente — Vista global y análisis IA';}
   else{rn.style.cssText='background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.2);border-radius:5px;padding:9px 13px;font-family:var(--mono);font-size:11px;margin-bottom:16px';rn.textContent=(USER?USER.nombre:'') + ' - Registra promesas y visitas en tu cartera';}
-  if(USER&&USER.rol==='gerente'){document.getElementById('home-zone').classList.add('wide');_renderGerentePanel();}
+  if(USER&&(USER.rol==='gerente'||USER.rol==='admin')){document.getElementById('home-zone').classList.add('wide');_renderGerentePanel();}
   else{document.getElementById('home-zone').classList.remove('wide');var gp=document.getElementById('gerente-panel');if(gp)gp.style.display='none';}
   var dz=document.getElementById('drop-zone');
   dz.className='drop-zone'+(canUpload()?'':' disabled');
