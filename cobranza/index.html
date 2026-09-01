@@ -151,7 +151,8 @@ tr:hover td{background:#f5f8ff}
 .bx{background:var(--bg4);color:var(--text2);border:1px solid var(--border2)}
 .bp{background:var(--purplebg);color:var(--purple);border:1px solid rgba(96,48,176,.2)}
 .bb{background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.2)}
-.add-p{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-family:var(--mono);font-size:10px;background:var(--bg4);color:var(--text2);cursor:pointer;border:1px dashed var(--border2);transition:all .15s}
+.add-p{position:relative;display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-family:var(--mono);font-size:10px;background:var(--bg4);color:var(--text2);cursor:pointer;border:1px dashed var(--border2);transition:all .15s}
+.chat-dot{position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--red);border:1.5px solid var(--bg2)}
 .add-p:hover{color:var(--amber);border-color:var(--amber);background:var(--amberbg)}
 .sec-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
 .sec-title{font-family:var(--mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
@@ -905,8 +906,54 @@ async function loadData(){
     CARTERA_SUCURSAL={};
     if(!r3.error)(r3.data||[]).forEach(function(cs){CARTERA_SUCURSAL[cs.cartera_id]=cs.sucursal;});
     await loadAutores();
+    await loadChatEstado();
     DB_OK=true;setConn(true,'Conectado');
   }catch(e){DB_OK=false;setConn(false,'Sin conexión');console.error('loadData:',e);}
+}
+// ── Punto de no-leído en el icono 💬: último comentario por cliente vs. última vez que ESTE usuario lo abrió ──
+var _CHAT_ULTIMO={}; // cartId::nombre -> {gestor, ts}
+var _CHAT_LEIDO={};  // cartId::nombre -> ISO ts (ultima vez que el usuario actual vio el chat de ese cliente)
+async function loadChatEstado(){
+  if(!supa)return;
+  try{
+    var autor=nombreComentaristaActual();
+    var r1=await supa.from('historial_clientes').select('cartera_id,cliente_nombre,gestor,created_at')
+      .eq('tipo','nota').order('created_at',{ascending:false}).limit(800);
+    _CHAT_ULTIMO={};
+    if(!r1.error)(r1.data||[]).forEach(function(h){
+      var k=h.cartera_id+'::'+h.cliente_nombre;
+      if(!_CHAT_ULTIMO[k])_CHAT_ULTIMO[k]={gestor:h.gestor,ts:h.created_at};
+    });
+    if(autor){
+      var r2=await supa.from('chat_lecturas').select('cartera_id,cliente_nombre,last_read_at').eq('usuario',autor);
+      _CHAT_LEIDO={};
+      if(!r2.error)(r2.data||[]).forEach(function(l){_CHAT_LEIDO[l.cartera_id+'::'+l.cliente_nombre]=l.last_read_at;});
+    }
+  }catch(e){console.error('loadChatEstado:',e);}
+}
+function chatNoLeido(cartId,nombre){
+  var u=_CHAT_ULTIMO[cartId+'::'+nombre];
+  if(!u)return false;
+  var autor=nombreComentaristaActual();
+  if(autor&&u.gestor===autor)return false; // tu propio mensaje no cuenta como no-leido
+  var leido=_CHAT_LEIDO[cartId+'::'+nombre];
+  if(!leido)return true;
+  return new Date(u.ts).getTime()>new Date(leido).getTime();
+}
+function chatBadge(cartId,nombre){
+  return chatNoLeido(cartId,nombre)?'<span class="chat-dot"></span>':'';
+}
+async function chatMarcarLeido(cartId,nombre){
+  var autor=nombreComentaristaActual();
+  if(!autor)return;
+  var nowIso=new Date().toISOString();
+  var k=cartId+'::'+nombre;
+  var yaAlDia=_CHAT_LEIDO[k]&&new Date(_CHAT_LEIDO[k]).getTime()>=Date.now()-2000;
+  _CHAT_LEIDO[k]=nowIso;
+  if(yaAlDia||!supa)return; // evita upsert repetido en cada poll de 5s si ya estaba al dia
+  try{
+    await supa.from('chat_lecturas').upsert({cartera_id:cartId,cliente_nombre:nombre,usuario:autor,last_read_at:nowIso},{onConflict:'cartera_id,cliente_nombre,usuario'});
+  }catch(e){console.error('chatMarcarLeido:',e);}
 }
 // Mapa de último autor de comentario por cliente (de historial_clientes)
 async function loadAutores(){
@@ -1843,6 +1890,7 @@ function openCartera(id){
   // Limpiar caches de la cartera anterior
   if(CURRENT && CURRENT!==id) limpiarCacheCartera(CURRENT);
   CURRENT=id;CURRENT_TAB=null;
+  loadChatEstado().then(function(){if(CURRENT===id)refreshSoft(id);}); // refresca puntos de no-leido en 2do plano
   document.getElementById('home-zone').style.display='none';
   document.getElementById('proy-zone').style.display='none';
   document.getElementById('dash-zone').style.display='block';
@@ -2327,7 +2375,7 @@ function cliRow(cartId,c,diasLbl){
     +'<div class="cli-detail">Cuota: L '+fmt(c.cuota)+' · Saldo: L '+fmt(c.saldo)+(p&&p.nota?' · '+p.nota:'')+autorLinea(cartId,c.nombre)+'</div>'
     +'<div style="display:flex;gap:10px;margin-top:2px;align-items:center">'+mb+upago+'</div>'
     +'</div>'
-    +'<div class="cli-right">'+pBadge+vBtn+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')">💬</span><span class="add-p" onclick="openAccion('+qc+')">📋</span></div></div>';
+    +'<div class="cli-right">'+pBadge+vBtn+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')">💬'+chatBadge(cartId,c.nombre)+'</span><span class="add-p" onclick="openAccion('+qc+')">📋</span></div></div>';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2478,7 +2526,7 @@ function buildRepTabla(cartId, pendientes, G){
       if(p&&p.estado==='visita'&&p.fecha) fechaVisita='<span class="b bb">🚗 '+p.fecha+'</span>';
       else if(p&&p.estado==='visita_agenda'&&p.fecha) fechaVisita='<span class="b bb">🗓 '+p.fecha+'</span>';
 
-      var promBadgeStr='<span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">+ accion</span>'+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span>';
+      var promBadgeStr='<span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">+ accion</span>'+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,c.nombre)+'</span>';
       if(p&&p.estado==='promesa') promBadgeStr='<span class="b bp" title="'+(p.nota||'')+'">📅 '+(p.fecha||'—')+'</span>';
       else if(p&&p.estado==='pago') promBadgeStr='<span class="b bg">✅ Pago</span>';
       else if(p&&p.estado==='no-contesta') promBadgeStr='<span class="b bx">📵 N/C</span>';
@@ -2509,7 +2557,7 @@ function buildRepTabla(cartId, pendientes, G){
       r+='<td>'+promBadgeStr+'</td>';
       r+='<td>'+fechaVisita+'</td>';
       r+='<td style="font-size:11px;color:var(--text2);max-width:120px;white-space:normal">'+(p&&p.nota?p.nota:'')+autorLinea(cartId,c.nombre)+'</td>';
-      r+='<td style="display:flex;gap:3px"><span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span><span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">📋</span></td>';
+      r+='<td style="display:flex;gap:3px"><span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,c.nombre)+'</span><span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">📋</span></td>';
       r+='</tr>';
     });
     return r;
@@ -3079,7 +3127,7 @@ function buildCierreHoy(cartId,rows){
       +'<td class="mono" style="color:var(--green);font-weight:600">'+(p&&p.monto?'L '+fmt(p.monto):'<span style="color:var(--text3);font-weight:400">—</span>')+'</td>'
       +'<td style="display:flex;gap:3px">'
         +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
-        +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span>'
+        +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,r.nombre)+'</span>'
       +'</td>'
       +'</tr>';
   });
@@ -3128,7 +3176,7 @@ function buildTbl(cartId,rows,cls,note){
       +'<td><span class="b '+(cls||'bx')+'">'+tl+'</span></td>'
       +'<td style="display:flex;gap:3px">'
         +(p?promBadge(p):'<span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">+ accion</span>')
-        +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span>'
+        +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,r.nombre)+'</span>'
         +'<span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">📋</span>'
         +(USER&&USER.rol==='admin'&&p?'<button class="btn btn-red btn-sm" style="font-size:10px;padding:1px 5px" onclick="delPromesa(\''+cartId+'\',\''+esc(r.nombre)+'\')">🗑</button>':'')
       +'</td>'
@@ -3396,7 +3444,7 @@ function buildPromeTab(cartId,cl,modo){
     if(modo==='incumplidas') html+=diasVencida;
     html+='<td>'+scoreHtml+'</td>';
     html+='<td style="max-width:140px;white-space:normal;font-size:11px">'+(p.nota||'—')+autorLinea(cartId,r.nombre)+'</td>';
-    html+='<td style="display:flex;gap:3px;flex-wrap:wrap">'+moverBtn+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span><span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">📋</span>'+dB+'</td>';
+    html+='<td style="display:flex;gap:3px;flex-wrap:wrap">'+moverBtn+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,r.nombre)+'</span><span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+','+r.saldo+')">📋</span>'+dB+'</td>';
     html+='</tr>';
   });
 
@@ -3605,7 +3653,7 @@ async function buildHistorial(cartId,container){
       +(isPasivo?' <span class="b bx" style="font-size:9px">⚫ Pasiva</span>':'')+'</div>'
       +'<div class="cart-meta">Saldo: L '+fmt(c.saldo)+' · Día pago: '+(c.dia_pago||'—')+' · Últ. pago: '+(c.ultimo_pago||'—')+' · '+c.tramo+'</div></div>'
       +'<div style="display:flex;gap:4px;flex-shrink:0">'
-      +(isPasivo?'':('<span class="add-p" onclick="event.stopPropagation();quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span><span class="add-p" onclick="event.stopPropagation();openAccion(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">+ accion</span>'))
+      +(isPasivo?'':('<span class="add-p" onclick="event.stopPropagation();quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,c.nombre)+'</span><span class="add-p" onclick="event.stopPropagation();openAccion(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">+ accion</span>'))
       +'<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Ver →</span></div></div>';
   }
 
@@ -4030,6 +4078,7 @@ async function quickComentarioHist(cartId,nombre,forceScroll){
     });
     el.innerHTML=html;
     if(forceScroll||stick)el.scrollTop=el.scrollHeight;   // scroll al fondo solo si corresponde
+    chatMarcarLeido(cartId,nombre); // abrir/actualizar el hilo marca como leido para este usuario
   }catch(e){el.innerHTML='<div class="empty">Error: '+e.message+'</div>';console.error('quickComentarioHist:',e);}
 }
 function qcomDel(el){
@@ -6046,7 +6095,7 @@ function calDayClick(cartId,day,month,year){
     var moraPend=pagoEsteMes(c.ultimo_pago)&&p&&p.mora_pendiente;
     var estado=pagado?'<span class="b bg">✅ Pago</span>':moraPend?'<span class="b bo">⚠️ Mora</span>':isCur&&day<hD?'<span class="b br">⏰ No pago</span>':'<span class="b bx">🕐 Pendiente</span>';
     var morBtn=pagado&&!moraPend?'<button class="btn btn-amber btn-sm" style="font-size:10px;margin-top:3px" onclick="marcarMora(\''+cartId+'\',\''+esc(c.nombre)+'\')">⚠️ Era cuota anterior</button>':moraPend?'<button class="btn btn-ghost btn-sm" style="font-size:10px;margin-top:3px" onclick="quitarMora(\''+cartId+'\',\''+esc(c.nombre)+'\')">✓ Quitar mora</button>':'';
-    html+='<div class="cli-row"><div><div class="cli-name">'+c.nombre+'</div><div class="cli-detail">Ultimo pago: '+(c.ultimo_pago||'—')+' · Saldo: L '+fmt(c.saldo)+' · Cuota: L '+fmt(c.cuota)+'</div></div><div class="cli-right">'+estado+morBtn+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬</span><span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">📋</span></div></div>';
+    html+='<div class="cli-row"><div><div class="cli-name">'+c.nombre+'</div><div class="cli-detail">Ultimo pago: '+(c.ultimo_pago||'—')+' · Saldo: L '+fmt(c.saldo)+' · Cuota: L '+fmt(c.cuota)+'</div></div><div class="cli-right">'+estado+morBtn+'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(c.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,c.nombre)+'</span><span class="add-p" onclick="openAccion(\''+cartId+'\',\''+esc(c.nombre)+'\','+c.cuota+','+c.saldo+')">📋</span></div></div>';
   });
   html+='</div>';
   document.getElementById('day-detail').innerHTML=html;
