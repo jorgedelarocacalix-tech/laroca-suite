@@ -695,6 +695,9 @@ function loginRRHH(pin){
 var APP_VERSION='20260826-38';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
+var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
+// Codigos RRHH exentos del filtro por sucursal: ven todas las carteras aunque su RRHH diga otra cosa.
+var GERENTE_SUCURSAL_EXENTO={'v_jor':1,'ADMIN':1};
 var supa=null, DB_OK=false, PDFJS_OK=false;
 var PIN_VAL='', CAL_Y=HOY.getFullYear(), CAL_M=HOY.getMonth();
 var MODAL_AC=null, ECG_DATA={}, SHOWN_ALERTS={}, SYNC_T=null, VERCHECK_T=null;
@@ -750,7 +753,7 @@ function usuarioDesdeSuite(){
     var s=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');
     if(!s||!s.codigo)return null;
     if(!s.accesos_apps||s.accesos_apps.cobranza!==true)return null;
-    if(s.nivel_admin||s.codigo==='ADMIN'||RRHH_GERENTES[s.codigo])return {nombre:s.nombre,rol:'gerente',carteras:[],codigo:s.codigo};
+    if(s.nivel_admin||s.codigo==='ADMIN'||RRHH_GERENTES[s.codigo])return {nombre:s.nombre,rol:'gerente',carteras:[],codigo:s.codigo,sucursales:(s.accesos_apps&&s.accesos_apps.sucursales)||null};
     var equipo=RRHH_EQUIPO[s.codigo];
     if(equipo)return {nombre:s.nombre,rol:'cobrador',carteras:RRHH_CARTERAS[equipo],codigo:s.codigo};
     return {__validar:true,s:s};   // codigo no mapeado — validar contra RRHH
@@ -772,7 +775,7 @@ async function ssoDesdeSuite(){
       var d=await r.json();
       if(d&&d.accesos_apps&&d.accesos_apps.cobranza===true){
         if(RRHH_GERENTES[d.codigo]){
-          entrarConUsuario({nombre:d.nombre||s.nombre,rol:'gerente',carteras:[],codigo:d.codigo});
+          entrarConUsuario({nombre:d.nombre||s.nombre,rol:'gerente',carteras:[],codigo:d.codigo,sucursales:(d.accesos_apps&&d.accesos_apps.sucursales)||null});
           return true;
         }
         var eq=RRHH_EQUIPO[d.codigo];
@@ -898,6 +901,9 @@ async function loadData(){
     if(r2.error)throw r2.error;
     PROMESAS={};
     (r2.data||[]).forEach(function(p){PROMESAS[p.cartera_id+'::'+p.cliente_nombre]={estado:p.estado,fecha:p.fecha,monto:p.monto,nota:p.nota,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,ts:p.updated_at};});
+    var r3=await supa.from('carteras_sucursales').select('cartera_id,sucursal');
+    CARTERA_SUCURSAL={};
+    if(!r3.error)(r3.data||[]).forEach(function(cs){CARTERA_SUCURSAL[cs.cartera_id]=cs.sucursal;});
     await loadAutores();
     DB_OK=true;setConn(true,'Conectado');
   }catch(e){DB_OK=false;setConn(false,'Sin conexión');console.error('loadData:',e);}
@@ -1414,7 +1420,7 @@ function getCanonicalId(empresa){
 async function _renderGerentePanel(){
   var panel=document.getElementById('gerente-panel');
   if(!panel)return;
-  var ids=Object.keys(CARTERAS);
+  var ids=getVisibles(); // respeta el filtro por sucursal RRHH para gerentes no exentos
   if(!ids.length){panel.style.display='none';return;}
   panel.style.display='';
   HOY=new Date();HOY.setHours(0,0,0,0);
@@ -1819,7 +1825,12 @@ function renderHome(){
   }).join('');
 }
 function getVisibles(){
-  if(!USER)return [];if(USER.rol==='admin'||USER.rol==='gerente')return Object.keys(CARTERAS);
+  if(!USER)return [];
+  if(USER.rol==='admin')return Object.keys(CARTERAS);
+  if(USER.rol==='gerente'){
+    if(GERENTE_SUCURSAL_EXENTO[USER.codigo]||!USER.sucursales||!USER.sucursales.length)return Object.keys(CARTERAS);
+    return Object.keys(CARTERAS).filter(function(id){return USER.sucursales.indexOf(CARTERA_SUCURSAL[id])!==-1;});
+  }
   return Object.keys(CARTERAS).filter(function(id){
     var emp=((CARTERAS[id]||{}).empresa||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
     var idc=id.toUpperCase().replace(/[^A-Z0-9]/g,'');
@@ -1828,6 +1839,7 @@ function getVisibles(){
 }
 function openCartera(id){
   if(!CARTERAS[id])return;
+  if(getVisibles().indexOf(id)===-1){alert('No tenes acceso a esta cartera.');return;}
   // Limpiar caches de la cartera anterior
   if(CURRENT && CURRENT!==id) limpiarCacheCartera(CURRENT);
   CURRENT=id;CURRENT_TAB=null;
