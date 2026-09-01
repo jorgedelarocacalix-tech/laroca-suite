@@ -672,7 +672,9 @@ var RRHH_GERENTES={
   'u1779318896833':1,   // Ana Castro
   'v_say':1,             // Sayda Hernández
   'v_kar':1,             // Karla
-  'v_gab':1              // Gabriela
+  'v_gab':1,             // Gabriela
+  'v_jor':1              // Jorge (dueño) — su codigo RRHH cae en RRHH_EQUIPO.roca por defecto
+                          // y sin esto la SSO de la Suite lo entraba como 'cobrador', sin panel global
 };
 function loginRRHH(pin){
   return fetch(RRHH_URL+'/rest/v1/rpc/rrhh_login_por_pin',{
@@ -1422,13 +1424,19 @@ async function _renderGerentePanel(){
 
   // Cargar proyecciones de todos los asesores y cierre_proyeccion en paralelo (evita esperas en cadena)
   var cierreMap={};var totCierreGlobal=0;
+  // Cobrado real del mes por tienda = abonos/pagos detectados al comparar saldos entre subidas de PDF
+  // (historial_clientes tipo 'pago'/'abono', escrito por processPDF al restar saldo anterior - saldo nuevo).
+  // No se calcula con "ultimo_pago cae este mes" porque eso no captura abonos parciales.
+  var cobradoRealMes={};
   if(supa){
     var _proyP=_withTimeout(supa.from('proyecciones').select('*'),8000).catch(function(e){console.error('_renderGerentePanel proyecciones:',e);return null;});
     var _cierreP=_withTimeout(supa.from('cierre_proyeccion').select('cartera_id,mes_key,datos').order('mes_key',{ascending:false}),8000).catch(function(e){console.error('_renderGerentePanel cierre:',e);return null;});
-    var _res=await Promise.all([_proyP,_cierreP]);
-    var rp=_res[0],rc=_res[1];
+    var _histP=_withTimeout(supa.from('historial_clientes').select('cartera_id,monto,tipo').gte('fecha_accion',mesActualStr+'-01').lte('fecha_accion',hoyStr).in('tipo',['pago','abono']),8000).catch(function(e){console.error('_renderGerentePanel historial cobrado:',e);return null;});
+    var _res=await Promise.all([_proyP,_cierreP,_histP]);
+    var rp=_res[0],rc=_res[1],rh=_res[2];
     if(rp&&!rp.error){(rp.data||[]).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});_rebuildProyIndex();}
     if(rc&&!rc.error){var _vC={};(rc.data||[]).forEach(function(row){if(_vC[row.cartera_id])return;_vC[row.cartera_id]=true;var s=0;(row.datos||[]).forEach(function(c){if(c.mora!=='INACTIVO')s+=(c.montoAsesor||0);});cierreMap[row.cartera_id]=Math.round(s);});}
+    if(rh&&!rh.error){(rh.data||[]).forEach(function(row){cobradoRealMes[row.cartera_id]=(cobradoRealMes[row.cartera_id]||0)+(row.monto||0);});}
   }
 
   // ── Agregados globales ──
@@ -1459,7 +1467,13 @@ async function _renderGerentePanel(){
     totVencidos+=vencidos;totMora60+=mora60+mora90;totMora120+=mora120+mora150;
     var nMora=mora60+mora90+mora120+mora150;
     var score=activos.length>0?Math.max(0,Math.round(100-(nMora/activos.length*55)-(vencidos/activos.length*35))):100;
-    cartStats.push({id:id,nombre:c.empresa,activos:activos.length,pagaron:pagaron,score:score,mora120:mora120+mora150,vencidos:vencidos,nProm:nProm,cobrado:cobradoCart,sinRecuperar:sinRecuperarCart,proyectado:cobradoCart+sinRecuperarCart});
+    // Proyectado = meta del mes (todas las cuotas de activos, hayan pagado o no).
+    // Cobrado = dinero REAL detectado (abonos/pagos de historial_clientes este mes), no un proxy por cuota —
+    // asi un abono parcial cuenta por lo que realmente entro, no por la cuota completa.
+    var proyectadoCart=cobradoCart+sinRecuperarCart;
+    var cobradoRealCart=cobradoRealMes[id]||0;
+    var sinRecuperarRealCart=Math.max(0,proyectadoCart-cobradoRealCart);
+    cartStats.push({id:id,nombre:c.empresa,activos:activos.length,pagaron:pagaron,score:score,mora120:mora120+mora150,vencidos:vencidos,nProm:nProm,cobrado:cobradoRealCart,sinRecuperar:sinRecuperarRealCart,proyectado:proyectadoCart});
   });
   var metaTotal=metaGlobal+cobradoGlobal;
   var pctMeta=metaTotal>0?Math.round(cobradoGlobal/metaTotal*100):0;
@@ -1494,6 +1508,34 @@ async function _renderGerentePanel(){
     proyGlobal.push({id:id,nombre:c.empresa,totalSis:totalSis,totalGes:totalGes,nEditados:nEditados,nPendientes:nPendientes,cierre:cierre,acordado:totalAcordado});
   });
 
+  // ── Promesas del mes: cumplidas vs incumplidas (el analisis original de "Hoy -> Cierre" del equipo de cobros) ──
+  // Incumplida = cliente con promesa activa que sigue con mora real o sin pagar este mes (no cumplio lo prometido).
+  // Cumplida = promesa que ya resulto en pago/abono detectado este mes al subir un PDF.
+  var promGlobal=[];var totIncumplGlobal=0,totCumplGlobal=0,nIncumplGlobal=0,nCumplGlobal=0;
+  var listaIncumplidas=[];
+  ids.forEach(function(id){
+    var c=CARTERAS[id];if(!c||!c.clientes)return;
+    var incMonto=0,incN=0,cumMonto=0,cumN=0;
+    c.clientes.forEach(function(x){
+      if(x.tramo==='INACTIVO')return;
+      var p=PROMESAS[id+'::'+x.nombre];
+      if(!p||!p.monto)return;
+      var pagoM=p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
+      var pagado=(pagoEsteMes(x.ultimo_pago)||pagoM)&&!p.mora_pendiente;
+      var m=calcMoraCliente(x,id);
+      var tieneMora=m&&m.diferencia>0;
+      if(p.estado==='promesa'&&(tieneMora||!pagado)){
+        incMonto+=p.monto;incN++;
+        listaIncumplidas.push({cartera:id,carteraNombre:c.empresa,nombre:x.nombre,saldo:x.saldo,tramo:x.tramo,fecha:p.fecha||'',monto:p.monto});
+      }else if((p.estado==='pago'||p.estado==='abono')&&p.ts&&p.ts.substring(0,7)===mesActualStr){
+        cumMonto+=p.monto;cumN++;
+      }
+    });
+    totIncumplGlobal+=incMonto;totCumplGlobal+=cumMonto;nIncumplGlobal+=incN;nCumplGlobal+=cumN;
+    promGlobal.push({id:id,nombre:c.empresa,incMonto:incMonto,incN:incN,cumMonto:cumMonto,cumN:cumN});
+  });
+  listaIncumplidas.sort(function(a,b){return b.monto-a.monto;});
+
   // ── Proyección global hasta fin de mes ──
   function semDia(d){return d<=7?1:d<=14?2:d<=21?3:d<=28?4:5;}
   var semanas={};
@@ -1522,6 +1564,72 @@ async function _renderGerentePanel(){
   // ── HTML ──
   var h='';
 
+  // Promesas del mes: cumplidas vs incumplidas — PRIMER BLOQUE (el analisis original de "Hoy -> Cierre")
+  var pctCumplProm=(totIncumplGlobal+totCumplGlobal)>0?Math.round(totCumplGlobal/(totIncumplGlobal+totCumplGlobal)*100):0;
+  h+='<div style="border:2px solid var(--purple);border-radius:8px;padding:12px 14px;margin-bottom:14px;background:var(--purplebg)">';
+  h+='<div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--purple);margin-bottom:10px">📋 PROMESAS DEL MES — CUMPLIDAS vs INCUMPLIDAS</div>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
+  h+='<div style="flex:1;min-width:140px;border-left:3px solid var(--red);background:var(--redbg);border-radius:6px;padding:8px 12px">';
+  h+='<div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase">Incumplidas</div>';
+  h+='<div style="font-family:var(--mono);font-size:20px;font-weight:800;color:var(--red)">L '+fmt(totIncumplGlobal)+'</div>';
+  h+='<div style="font-family:var(--mono);font-size:9px;color:var(--text3)">'+nIncumplGlobal+' clientes prometieron y no han pagado</div>';
+  h+='</div>';
+  h+='<div style="flex:1;min-width:140px;border-left:3px solid var(--green);background:var(--greenbg);border-radius:6px;padding:8px 12px">';
+  h+='<div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase">Cumplidas</div>';
+  h+='<div style="font-family:var(--mono);font-size:20px;font-weight:800;color:var(--green)">L '+fmt(totCumplGlobal)+'</div>';
+  h+='<div style="font-family:var(--mono);font-size:9px;color:var(--text3)">'+nCumplGlobal+' clientes cumplieron lo prometido</div>';
+  h+='</div>';
+  h+='<div style="flex:1;min-width:140px;border-left:3px solid var(--purple);background:var(--surface,#fff);border-radius:6px;padding:8px 12px">';
+  h+='<div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase">% cumplimiento</div>';
+  h+='<div style="font-family:var(--mono);font-size:20px;font-weight:800;color:var(--purple)">'+pctCumplProm+'%</div>';
+  h+='<div style="font-family:var(--mono);font-size:9px;color:var(--text3)">de lo prometido este mes</div>';
+  h+='</div>';
+  h+='</div>';
+  // Mini tabla por tienda
+  h+='<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px">';
+  h+='<thead><tr style="border-bottom:1px solid var(--border)">';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Tienda</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--red);text-align:right;padding:4px 6px;text-transform:uppercase">Incumplidas</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--green);text-align:right;padding:4px 6px;text-transform:uppercase">Cumplidas</th>';
+  h+='</tr></thead><tbody>';
+  promGlobal.slice().sort(function(a,b){return b.incMonto-a.incMonto;}).forEach(function(pr){
+    h+='<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="openCartera(\''+esc(pr.id)+'\')">';
+    h+='<td style="padding:4px 6px;font-weight:600;color:var(--text)">'+esc2(pr.nombre)+'</td>';
+    h+='<td style="padding:4px 6px;text-align:right;font-family:var(--mono);color:var(--red)">'+(pr.incMonto?'L '+fmt(pr.incMonto)+' ('+pr.incN+')':'—')+'</td>';
+    h+='<td style="padding:4px 6px;text-align:right;font-family:var(--mono);color:var(--green)">'+(pr.cumMonto?'L '+fmt(pr.cumMonto)+' ('+pr.cumN+')':'—')+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  // Listado de clientes incumplidos (buscable, con scroll)
+  if(listaIncumplidas.length){
+    h+='<input class="tbl-search" id="promInc-search" onkeyup="flt(\'promInc-tbl\',\'promInc-search\')" placeholder="Buscar cliente..." style="width:100%;margin-bottom:6px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px">';
+    h+='<div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">';
+    h+='<table id="promInc-tbl" style="width:100%;border-collapse:collapse;font-size:11px">';
+    h+='<thead><tr style="border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2)">';
+    h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Cliente</th>';
+    h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Tienda</th>';
+    h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Saldo</th>';
+    h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Tramo</th>';
+    h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Fecha acuerdo</th>';
+    h+='<th style="font-family:var(--mono);font-size:9px;color:var(--red);text-align:right;padding:4px 6px;text-transform:uppercase">Monto prometido</th>';
+    h+='</tr></thead><tbody>';
+    listaIncumplidas.forEach(function(r){
+      var tl=r.tramo==='INACTIVO'?'+180d':r.tramo==='MES'?'Al dia':r.tramo==='VENCIDO'?'Este mes':(r.tramo||'')+'d';
+      h+='<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="openCartera(\''+esc(r.cartera)+'\')">';
+      h+='<td style="padding:4px 6px;font-weight:600;color:var(--text)">'+esc2(r.nombre)+'</td>';
+      h+='<td style="padding:4px 6px;color:var(--text3)">'+esc2(r.carteraNombre)+'</td>';
+      h+='<td style="padding:4px 6px;text-align:right;font-family:var(--mono);color:var(--text3)">L '+fmt(r.saldo)+'</td>';
+      h+='<td style="padding:4px 6px;color:var(--text3)">'+tl+'</td>';
+      h+='<td style="padding:4px 6px;font-family:var(--mono);color:var(--text3)">'+(r.fecha||'—')+'</td>';
+      h+='<td style="padding:4px 6px;text-align:right;font-family:var(--mono);font-weight:700;color:var(--red)">L '+fmt(r.monto)+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }else{
+    h+='<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">🎉 Sin promesas incumplidas este mes.</div>';
+  }
+  h+='</div>';
+
   // KPIs globales
   h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px">'
     +'<div style="background:var(--greenbg);border:1px solid rgba(26,122,60,.2);border-radius:8px;padding:10px 12px;text-align:center"><div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green)">'+totPagaron+'</div><div style="font-size:10px;color:var(--text3)">Pagaron este mes</div></div>'
@@ -1537,9 +1645,9 @@ async function _renderGerentePanel(){
   h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
   h+='<thead><tr style="border-bottom:1px solid var(--border)">';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Tienda</th>';
-  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--blue);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de todos los clientes activos del mes (cobrado + sin recuperar)">Proyectado</th>';
-  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--green);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de clientes que ya pagaron este mes">Cobrado</th>';
-  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--red);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de clientes que aun no han pagado este mes">Sin recuperar</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--blue);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de todos los clientes activos del mes (meta del mes)">Proyectado</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--green);text-align:right;padding:4px 6px;text-transform:uppercase" title="Dinero real detectado (abonos y pagos en historial_clientes este mes), no un estimado por cuota">Cobrado</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--red);text-align:right;padding:4px 6px;text-transform:uppercase" title="Proyectado menos lo realmente cobrado">Sin recuperar</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">% cobrado</th>';
   h+='</tr></thead><tbody>';
   var totProyectadoT=0,totCobradoT=0,totSinRecuperarT=0;
