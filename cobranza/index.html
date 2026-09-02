@@ -670,7 +670,8 @@ var RRHH_EQUIPO={
 // Gerentes de línea de negocio: entran con rol 'gerente' (vista global + subir cartera)
 // en vez del 'cobrador' que les daría RRHH_EQUIPO.
 var RRHH_GERENTES={
-  'u1779318896833':1,   // Ana Castro
+  'v_ana':1,             // Ana Castro — codigo real (antes tenia el codigo viejo u1779318896833, ya no
+                          // coincidia con su RRHH actual y le daba acceso total sin filtrar por sucursal)
   'v_say':1,             // Sayda Hernández
   'v_kar':1,             // Karla
   'v_gab':1,             // Gabriela
@@ -767,7 +768,7 @@ function usuarioDesdeSuite(){
     if(!s.accesos_apps||s.accesos_apps.cobranza!==true)return null;
     if(s.nivel_admin||s.codigo==='ADMIN'||RRHH_GERENTES[s.codigo])return {nombre:s.nombre,rol:'gerente',carteras:[],codigo:s.codigo,sucursales:(s.accesos_apps&&s.accesos_apps.sucursales)||null};
     var equipo=RRHH_EQUIPO[s.codigo];
-    if(equipo)return {nombre:s.nombre,rol:'cobrador',carteras:RRHH_CARTERAS[equipo],codigo:s.codigo};
+    if(equipo)return {nombre:s.nombre,rol:'cobrador',carteras:RRHH_CARTERAS[equipo],codigo:s.codigo,sucursales:(s.accesos_apps&&s.accesos_apps.sucursales)||null};
     return {__validar:true,s:s};   // codigo no mapeado — validar contra RRHH
   }catch(e){return null;}
 }
@@ -793,7 +794,7 @@ async function ssoDesdeSuite(){
         var eq=RRHH_EQUIPO[d.codigo];
         entrarConUsuario({nombre:d.nombre||s.nombre,rol:'cobrador',
           carteras:eq?RRHH_CARTERAS[eq]:[].concat(RRHH_CARTERAS.roca,RRHH_CARTERAS.mueble),
-          codigo:d.codigo});
+          codigo:d.codigo,sucursales:(d.accesos_apps&&d.accesos_apps.sucursales)||null});
         return true;
       }
     }
@@ -1899,6 +1900,11 @@ function getVisibles(){
   if(USER.rol==='admin')return Object.keys(CARTERAS);
   if(USER.rol==='gerente'){
     if(GERENTE_SUCURSAL_EXENTO[USER.codigo]||!USER.sucursales||!USER.sucursales.length)return Object.keys(CARTERAS);
+    return Object.keys(CARTERAS).filter(function(id){return USER.sucursales.indexOf(CARTERA_SUCURSAL[id])!==-1;});
+  }
+  // Cobrador con sucursales de RRHH: filtra por sucursal (mas preciso que el nombre del equipo).
+  // Sin ese dato (PINs compartidos legacy 1111/2222, sin perfil RRHH): cae al matching viejo por nombre.
+  if(USER.sucursales&&USER.sucursales.length){
     return Object.keys(CARTERAS).filter(function(id){return USER.sucursales.indexOf(CARTERA_SUCURSAL[id])!==-1;});
   }
   return Object.keys(CARTERAS).filter(function(id){
