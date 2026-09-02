@@ -699,6 +699,17 @@ var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
 // Codigos RRHH exentos del filtro por sucursal: ven todas las carteras aunque su RRHH diga otra cosa.
 var GERENTE_SUCURSAL_EXENTO={'v_jor':1,'ADMIN':1};
+// Recibos de arqueos del mes (sucursal::nombre_normalizado -> monto), para "rebajar" del Acordado/Incumplidas
+// a un cliente que ya vino a pagar en caja aunque el PDF de cartera todavia no lo refleje.
+var ARQUEO_MES={};
+function normNombreArqueo(s){
+  return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s*\(?\d+\)?\s*$/,'').trim();
+}
+function pagoArqueoMes(cartId,nombre){
+  var suc=CARTERA_SUCURSAL[cartId];
+  if(!suc)return false;
+  return (ARQUEO_MES[suc+'::'+normNombreArqueo(nombre)]||0)>0;
+}
 var supa=null, DB_OK=false, PDFJS_OK=false;
 var PIN_VAL='', CAL_Y=HOY.getFullYear(), CAL_M=HOY.getMonth();
 var MODAL_AC=null, ECG_DATA={}, SHOWN_ALERTS={}, SYNC_T=null, VERCHECK_T=null;
@@ -1481,15 +1492,26 @@ async function _renderGerentePanel(){
   // (historial_clientes tipo 'pago'/'abono', escrito por processPDF al restar saldo anterior - saldo nuevo).
   // No se calcula con "ultimo_pago cae este mes" porque eso no captura abonos parciales.
   var cobradoRealMes={};
+  // Recibos reales de arqueos del mes (mas al dia que el PDF, que solo se sube cada tanto): permite
+  // "rebajar" del Acordado/Incumplidas a un cliente que ya vino a pagar aunque el PDF todavia no lo refleje.
+  ARQUEO_MES={};
   if(supa){
     var _proyP=_withTimeout(supa.from('proyecciones').select('*'),8000).catch(function(e){console.error('_renderGerentePanel proyecciones:',e);return null;});
     var _cierreP=_withTimeout(supa.from('cierre_proyeccion').select('cartera_id,mes_key,datos').order('mes_key',{ascending:false}),8000).catch(function(e){console.error('_renderGerentePanel cierre:',e);return null;});
     var _histP=_withTimeout(supa.from('historial_clientes').select('cartera_id,monto,tipo').gte('fecha_accion',mesActualStr+'-01').lte('fecha_accion',hoyStr).in('tipo',['pago','abono']),8000).catch(function(e){console.error('_renderGerentePanel historial cobrado:',e);return null;});
-    var _res=await Promise.all([_proyP,_cierreP,_histP]);
-    var rp=_res[0],rc=_res[1],rh=_res[2];
+    var _arqP=_withTimeout(supa.from('arqueos').select('sucursal,analisis_json').gte('fecha',mesActualStr+'-01').lte('fecha',hoyStr).eq('estado','OK'),8000).catch(function(e){console.error('_renderGerentePanel arqueos:',e);return null;});
+    var _res=await Promise.all([_proyP,_cierreP,_histP,_arqP]);
+    var rp=_res[0],rc=_res[1],rh=_res[2],ra=_res[3];
     if(rp&&!rp.error){(rp.data||[]).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});_rebuildProyIndex();}
     if(rc&&!rc.error){var _vC={};(rc.data||[]).forEach(function(row){if(_vC[row.cartera_id])return;_vC[row.cartera_id]=true;var s=0;(row.datos||[]).forEach(function(c){if(c.mora!=='INACTIVO')s+=(c.montoAsesor||0);});cierreMap[row.cartera_id]=Math.round(s);});}
     if(rh&&!rh.error){(rh.data||[]).forEach(function(row){cobradoRealMes[row.cartera_id]=(cobradoRealMes[row.cartera_id]||0)+(row.monto||0);});}
+    if(ra&&!ra.error){(ra.data||[]).forEach(function(row){
+      var cobros=(row.analisis_json&&row.analisis_json.cobros)||[];
+      cobros.forEach(function(c){
+        var k=row.sucursal+'::'+normNombreArqueo(c.cliente);
+        ARQUEO_MES[k]=(ARQUEO_MES[k]||0)+(c.monto||0);
+      });
+    });}
   }
 
   // ── Agregados globales ──
@@ -1506,7 +1528,7 @@ async function _renderGerentePanel(){
     activos.forEach(function(x){
       var p=PROMESAS[id+'::'+x.nombre];
       var pagoM=p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
-      var pago=(pagoEsteMes(x.ultimo_pago)||pagoM)&&!(p&&p.mora_pendiente);
+      var pago=(pagoEsteMes(x.ultimo_pago)||pagoM||pagoArqueoMes(id,x.nombre))&&!(p&&p.mora_pendiente);
       if(pago){pagaron++;cobradoGlobal+=(x.cuota||0);cobradoCart+=(x.cuota||0);return;}
       metaGlobal+=(x.cuota||0);sinRecuperarCart+=(x.cuota||0);
       if(x.tramo==='VENCIDO')vencidos++;
@@ -1540,7 +1562,7 @@ async function _renderGerentePanel(){
       if(x.tramo==='INACTIVO')return;
       var p=PROMESAS[id+'::'+x.nombre];
       var pagoM=p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
-      var pagado=(pagoEsteMes(x.ultimo_pago)||pagoM)&&!(p&&p.mora_pendiente);
+      var pagado=(pagoEsteMes(x.ultimo_pago)||pagoM||pagoArqueoMes(id,x.nombre))&&!(p&&p.mora_pendiente);
       // Cliente facturado este mes que ya dio prima/primer pago: no cuenta como pendiente
       // del ciclo. Si no ha pagado nada, sigue pendiente (hay que cobrarle la prima).
       var enGracia=enGraciaSinPrima(x,p);
@@ -1574,13 +1596,14 @@ async function _renderGerentePanel(){
       var p=PROMESAS[id+'::'+x.nombre];
       if(!p||!p.monto)return;
       var pagoM=p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
-      var pagado=(pagoEsteMes(x.ultimo_pago)||pagoM)&&!p.mora_pendiente;
+      var cumplidaPorArqueo=p.estado==='promesa'&&pagoArqueoMes(id,x.nombre);
+      var pagado=(pagoEsteMes(x.ultimo_pago)||pagoM||cumplidaPorArqueo)&&!p.mora_pendiente;
       var m=calcMoraCliente(x,id);
       var tieneMora=m&&m.diferencia>0;
       if(p.estado==='promesa'&&(tieneMora||!pagado)){
         incMonto+=p.monto;incN++;
         listaIncumplidas.push({cartera:id,carteraNombre:c.empresa,nombre:x.nombre,saldo:x.saldo,tramo:x.tramo,fecha:p.fecha||'',monto:p.monto});
-      }else if((p.estado==='pago'||p.estado==='abono')&&p.ts&&p.ts.substring(0,7)===mesActualStr){
+      }else if(((p.estado==='pago'||p.estado==='abono')&&p.ts&&p.ts.substring(0,7)===mesActualStr)||cumplidaPorArqueo){
         cumMonto+=p.monto;cumN++;
       }
     });
@@ -1752,7 +1775,7 @@ async function _renderGerentePanel(){
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Sistema</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--orange);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de montoAsesor del cierre de proyección (Excel)">Proyectado</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Asesores</th>';
-  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--purple);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de montos acordados en la pestaña Hoy → Cierre">Acordado (Hoy→Cierre)</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--purple);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de montos acordados en la pestaña Hoy → Cierre. Ya rebaja a los clientes que pagaron segun el arqueo del mes, aunque el PDF de cartera todavia no lo refleje.">Acordado (Hoy→Cierre)</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Diferencia</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:center;padding:4px 6px;text-transform:uppercase">Editados</th>';
   h+='</tr></thead><tbody>';
