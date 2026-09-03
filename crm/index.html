@@ -2585,15 +2585,20 @@ function delUsersNoGest(){
 
 
 function vMonitor(){
-  return '<div id="mon-wrap"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px;">'+
-    '<div><div style="font-size:19px;font-weight:700;color:var(--t1);">📡 Monitor Diario</div><div style="font-size:11px;color:var(--t2);margin-top:3px;">Actividad del equipo en tiempo real · Honduras UTC-6</div></div>'+
-    '<div style="display:flex;gap:6px;align-items:center;">'+
+  return '<div id="mon-wrap"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">'+
+    '<div><div style="font-size:19px;font-weight:700;color:var(--t1);">📡 Monitor</div><div style="font-size:11px;color:var(--t2);margin-top:3px;">Actividad del equipo · Honduras UTC-6</div></div>'+
+    '<div style="display:flex;gap:6px;">'+
+    '<button onclick="monSetMode(\'dia\')" id="mon-tab-dia" style="background:var(--blue);border:1.5px solid var(--blue);color:#fff;padding:6px 14px;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:700;">📡 Hoy en vivo</button>'+
+    '<button onclick="monSetMode(\'mes\')" id="mon-tab-mes" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2);padding:6px 14px;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;">🗓️ Historial mensual</button>'+
+    '</div></div>'+
+    '<div id="mon-dia-panel">'+
+    '<div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:16px;">'+
     '<button onclick="monNav(-1)" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2);padding:6px 14px;border-radius:var(--r);cursor:pointer;font-size:12px;">‹ Anterior</button>'+
     '<span id="mon-dia-label" style="font-size:12px;color:var(--blue);font-weight:700;min-width:120px;text-align:center;">—</span>'+
     '<button onclick="monNav(1)" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2);padding:6px 14px;border-radius:var(--r);cursor:pointer;font-size:12px;">Siguiente ›</button>'+
     '<button onclick="monHoy()" style="background:var(--blue);border:none;color:#fff;padding:6px 14px;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;">Hoy</button>'+
     '<button onclick="monRefresh()" id="mon-refresh-btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2);padding:6px 12px;border-radius:var(--r);cursor:pointer;font-size:16px;line-height:1;" title="Actualizar datos">↻</button>'+
-    '</div></div>'+
+    '</div>'+
     '<div id="mon-res" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;"></div>'+
     '<div id="mon-sec-a" style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin:14px 0 10px;display:flex;align-items:center;gap:8px;">✅ Trabajaron hoy <span style="flex:1;height:1px;background:var(--border);display:block;"></span></div>'+
     '<div id="mon-grid-a" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;"></div>'+
@@ -2601,13 +2606,135 @@ function vMonitor(){
     '<div id="mon-grid-i" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;"></div>'+
     '<div id="mon-sec-meta" style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin:28px 0 14px;display:flex;align-items:center;gap:8px;">🎯 Metas del mes <span style="flex:1;height:1px;background:var(--border);display:block;"></span></div>'+
     '<div id="mon-grid-meta"></div>'+
+    '</div>'+
+    '<div id="mon-mes-panel" style="display:none;">'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px;">'+
+    '<div><label style="display:block;font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Mes</label><input type="month" id="mon-mes-input" class="finp" style="width:auto;" value="'+monMesSel+'" onchange="monMesChange(this.value)"></div>'+
+    '<div><label style="display:block;font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Equipo</label><select id="mon-equipo-sel" class="fsel" style="width:auto;min-width:210px;" onchange="monEquipoChange(this.value)">'+monEquipoOptions()+'</select></div>'+
+    '</div>'+
+    '<div id="mon-mes-res"></div>'+
+    '</div>'+
     '</div>';
 }
 
 var monOffset=0;
+var monMode='dia';
+var monMesSel=monFechaHN(0).slice(0,7);
+var monEquipoSel='todos';
 function monNav(d){monOffset+=d;loadMonitor();}
 function monHoy(){monOffset=0;loadMonitor();}
 function monRefresh(){var btn=document.getElementById('mon-refresh-btn');if(btn){btn.style.transform='rotate(360deg)';btn.style.transition='transform .5s';setTimeout(function(){btn.style.transform='';btn.style.transition='';},600);}loadFromSB().then(loadMonitor);}
+
+function monAllowedPools(){
+  var MON_TODO=CU.role==='admin'||(CU.role==='subadmin'&&!CU.crmMonitor);
+  var MON_CARTS=(Array.isArray(CU.cartera)?CU.cartera:[CU.cartera||'']).filter(Boolean);
+  if(MON_TODO)return VENDOR_POOLS;
+  return VENDOR_POOLS.filter(function(p){return p.carteras.some(function(c){return MON_CARTS.indexOf(c)>=0;});});
+}
+function monEquipoOptions(){
+  var pools=monAllowedPools();
+  var h='<option value="todos"'+(monEquipoSel==='todos'?' selected':'')+'>Todos los equipos</option>';
+  pools.forEach(function(p){h+='<option value="'+p.id+'"'+(monEquipoSel===p.id?' selected':'')+'>'+p.label+'</option>';});
+  return h;
+}
+function monSetMode(m){
+  monMode=m;
+  var dp=document.getElementById('mon-dia-panel'),mp=document.getElementById('mon-mes-panel');
+  var td=document.getElementById('mon-tab-dia'),tm=document.getElementById('mon-tab-mes');
+  if(dp)dp.style.display=(m==='dia')?'':'none';
+  if(mp)mp.style.display=(m==='mes')?'':'none';
+  var onS='background:var(--blue);border:1.5px solid var(--blue);color:#fff;padding:6px 14px;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:700;';
+  var offS='background:var(--card);border:1.5px solid var(--border);color:var(--t2);padding:6px 14px;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;';
+  if(td)td.style.cssText=(m==='dia')?onS:offS;
+  if(tm)tm.style.cssText=(m==='mes')?onS:offS;
+  if(m==='mes')loadMonitorMes();
+}
+function monMesChange(v){monMesSel=v;loadMonitorMes();}
+function monEquipoChange(v){monEquipoSel=v;loadMonitorMes();}
+
+function loadMonitorMes(){
+  var box=document.getElementById('mon-mes-res');
+  if(!box)return;
+  box.innerHTML='<div style="color:var(--t3);padding:20px;text-align:center;">Cargando...</div>';
+
+  var y=+monMesSel.slice(0,4),m=+monMesSel.slice(5,7);
+  var start=monMesSel+'-01T06:00:00.000Z';
+  var end=new Date(Date.UTC(y,m,1)).toISOString().slice(0,10)+'T05:59:59.999Z';
+  var HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'count=none'};
+
+  fetch(SB_URL+'/rest/v1/gestiones?select=user_name,resultado,created_at&created_at=gte.'+encodeURIComponent(start)+'&created_at=lte.'+encodeURIComponent(end)+'&limit=20000',{headers:HDR})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      var uMap={};
+      (rows||[]).forEach(function(g){
+        if(REALES.indexOf(g.resultado)<0)return;
+        var n=g.user_name==='ANA'?'Ana Castro':g.user_name;
+        if(!uMap[n])uMap[n]={total:0,dias:new Set()};
+        uMap[n].total++;
+        var dHN=new Date(new Date(g.created_at).getTime()-6*3600000).toISOString().slice(0,10);
+        uMap[n].dias.add(dHN);
+      });
+
+      var poolsAllowed=monAllowedPools();
+      if(monEquipoSel!=='todos')poolsAllowed=poolsAllowed.filter(function(p){return p.id===monEquipoSel;});
+
+      function userPool(u){
+        var cs=Array.isArray(u.cartera)?u.cartera:[u.cartera||''];
+        for(var i=0;i<cs.length;i++){var p=getPoolByCartera(cs[i]);if(p)return p;}
+        return null;
+      }
+      var _seen=new Set();
+      var usersAll=DB.users.filter(function(u){
+        if(u.role!=='vendedor'&&u.role!=='subadmin')return false;
+        if(!u.name)return false;
+        var k=u.name.trim().toLowerCase();
+        if(_seen.has(k))return false;_seen.add(k);
+        return true;
+      });
+
+      var totalGeneral=0,vendActivos=0,gruposHtml='';
+      poolsAllowed.forEach(function(pool){
+        var us=usersAll.filter(function(u){var p=userPool(u);return p&&p.id===pool.id;});
+        if(!us.length)return;
+        var filas=us.map(function(u){
+          var st=uMap[u.name.trim()]||{total:0,dias:new Set()};
+          return{name:u.name.trim(),total:st.total,dias:st.dias.size};
+        }).sort(function(a,b){return b.total-a.total;});
+        var maxT=Math.max(1,filas.reduce(function(mx,f){return Math.max(mx,f.total);},0));
+        var poolTotal=filas.reduce(function(s,f){return s+f.total;},0);
+        totalGeneral+=poolTotal;
+        vendActivos+=filas.filter(function(f){return f.total>0;}).length;
+
+        gruposHtml+='<div style="margin-bottom:22px;">';
+        gruposHtml+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+        gruposHtml+='<span style="font-size:11px;font-weight:700;color:var(--t2);padding:5px 12px;background:var(--bluel);border-radius:8px;">'+pool.label+'</span>';
+        gruposHtml+='<span style="font-size:12px;font-weight:800;color:var(--blue);">'+poolTotal+' llamadas</span>';
+        gruposHtml+='</div>';
+        filas.forEach(function(f){
+          var pct=Math.round(f.total/maxT*100);
+          var prom=f.dias>0?(f.total/f.dias).toFixed(1):'0';
+          var col=f.total===0?'#94a3b8':(f.total>=maxT*0.8?'#16a34a':f.total>=maxT*0.4?'#d97706':'#dc2626');
+          gruposHtml+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">';
+          gruposHtml+='<span style="width:130px;font-size:12px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+f.name+'</span>';
+          gruposHtml+='<div style="flex:1;background:var(--border);border-radius:5px;height:8px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:'+col+';border-radius:5px;"></div></div>';
+          gruposHtml+='<span style="width:55px;text-align:right;font-size:13px;font-weight:800;color:'+col+';">'+f.total+'</span>';
+          gruposHtml+='<span style="width:100px;text-align:right;font-size:10px;color:var(--t3);">'+f.dias+' días · '+prom+'/día</span>';
+          gruposHtml+='</div>';
+        });
+        gruposHtml+='</div>';
+      });
+
+      var MESES3=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      var mesLbl=MESES3[m-1]+' '+y;
+      var resumen='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">'+
+        '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 16px;text-align:center;flex:1;min-width:110px;"><div style="font-size:24px;font-weight:800;color:var(--blue);">'+totalGeneral+'</div><div style="font-size:10px;color:var(--t2);margin-top:2px;">Llamadas · '+mesLbl+'</div></div>'+
+        '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 16px;text-align:center;flex:1;min-width:110px;"><div style="font-size:24px;font-weight:800;color:#22c55e;">'+vendActivos+'</div><div style="font-size:10px;color:var(--t2);margin-top:2px;">Vendedores con actividad</div></div>'+
+        '</div>';
+
+      box.innerHTML=resumen+(gruposHtml||'<div style="color:var(--t3);padding:20px;text-align:center;">Sin datos para este mes.</div>');
+    })
+    .catch(function(){box.innerHTML='<div style="color:#ef4444;padding:20px;text-align:center;">Error al cargar el historial.</div>';});
+}
 
 function monFechaHN(offset){
   // Honduras = UTC-6 siempre (no cambia horario)
@@ -2622,6 +2749,7 @@ function monFechaHN(offset){
 
 function initMonitor(){
   monOffset=0;
+  monMode='dia';
   loadMonitor();
   if(window._monTimer)clearInterval(window._monTimer);
   window._monTimer=setInterval(function(){
