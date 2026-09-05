@@ -1870,7 +1870,7 @@ function modalDocumentoMemo(memo, esEmpleado){
     else { state.adminData = null; await loadAdminDashboard(); render(); }
   };
 }
-async function enviarValeArqueos(ad){
+async function enviarValeArqueos(ad, viaBanco){
   try{
     const r = await fetch(ARQUEOS_URL+'/api/integra/vale', {
       method:'POST',
@@ -1878,13 +1878,14 @@ async function enviarValeArqueos(ad){
       body: JSON.stringify({
         codigo: ad.codigo, nombre: ad.empleado, sucursal: ad.sucursal,
         monto: ad.monto, motivo: ad.motivo,
-        autorizado_por: state.session.nombre || 'RRHH', ref: ad.id
+        autorizado_por: state.session.nombre || 'RRHH', ref: ad.id,
+        via_banco: !!viaBanco
       })
     });
     const j = await r.json();
     if(!r.ok || !j.ok){ toast('⚠️ El adelanto quedó aprobado pero no se pudo generar en Arqueos'); return null; }
     const ga = 'GA-'+String(j.correlativo).padStart(6,'0');
-    toast('✅ Vale '+ga+' generado en Arqueos — listo para pagar');
+    toast(viaBanco ? '✅ Vale '+ga+' registrado — pagado por banco, no se descuenta de caja' : '✅ Vale '+ga+' generado en Arqueos — listo para pagar');
     try{
       const c = JSON.parse(localStorage.getItem('rrhh_vales_arq')||'{}');
       c[ad.id] = {correlativo:j.correlativo, url:j.pdf_url, fecha:new Date().toISOString()};
@@ -2039,6 +2040,29 @@ function bindPlanillaAdmin(){
     state.planillasAdmin = null; await loadPlanillasAdmin(); render();
   };
 }
+function modalFormaPagoAdelanto(adRef, id){
+  const monto = Number(adRef.monto||0).toLocaleString('es-HN',{minimumFractionDigits:2});
+  openModal(`
+    <h3>💰 ¿Cómo se pagó este adelanto?</h3>
+    <p class="empty">${adRef.empleado} — L ${monto}${adRef.motivo ? ' — '+adRef.motivo : ''}</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+      <button class="btn" id="fp-caja" style="width:100%;">💵 Efectivo desde caja de la sucursal</button>
+      <button class="btn gold" id="fp-banco" style="width:100%;">🏦 Transferencia bancaria directa</button>
+    </div>
+    <p style="font-size:11px;color:var(--slate);margin-top:12px;">Si se pagó por banco, el gasto queda marcado como no autorizado para descontarse del efectivo de caja — Arqueos lo rechazará si aparece en el arqueo de la sucursal.</p>
+  `);
+  const aprobar = async (viaBanco) => {
+    closeModal();
+    const {error} = await sb.rpc('rrhh_admin_resolver_solicitud', { p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_tabla: 'adelantos', p_id: id, p_estado: 'aprobado' });
+    if(error){ toast('Error: '+error.message); return; }
+    toast('Solicitud aprobada');
+    await loadAdminDashboard(); render();
+    const vale = await enviarValeArqueos(adRef, viaBanco);
+    modalComprobanteAdelanto({...adRef, vale_arq: vale}, false);
+  };
+  document.getElementById('fp-caja').onclick  = () => aprobar(false);
+  document.getElementById('fp-banco').onclick = () => aprobar(true);
+}
 function bindSolicitudesAdmin(){
   bindChatButtons();
   document.querySelectorAll('[data-resolve]').forEach(btn=>{
@@ -2046,13 +2070,16 @@ function bindSolicitudesAdmin(){
       const [tabla, id, estado] = btn.getAttribute('data-resolve').split('|');
       const vacRef = tabla==='vacaciones' ? (state.adminData.vacaciones_pendientes||[]).find(v=>v.id===id) : null;
       const adRef = tabla==='adelantos' ? (state.adminData.adelantos_pendientes||[]).find(a=>a.id===id) : null;
+      if(tabla==='adelantos' && estado==='aprobado' && adRef){
+        modalFormaPagoAdelanto(adRef, id);
+        return;
+      }
       const {error} = await sb.rpc('rrhh_admin_resolver_solicitud', { p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_tabla: tabla, p_id: id, p_estado: estado });
       if(error){ toast('Error: '+error.message); return; }
       toast(estado==='aprobado' ? 'Solicitud aprobada' : 'Solicitud rechazada');
       if(tabla==='vacaciones') state.vacacionesAdmin = null;
       await loadAdminDashboard(); render();
       if(tabla==='vacaciones' && estado==='aprobado' && vacRef) modalHojaVacacion(vacRef);
-      if(tabla==='adelantos' && estado==='aprobado' && adRef){ const vale=await enviarValeArqueos(adRef); modalComprobanteAdelanto({...adRef, vale_arq: vale}, false); }
     };
   });
 }
