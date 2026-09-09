@@ -7372,7 +7372,7 @@ function _renderProySiguiente(cartId,container,mesKey,semKey){
     var diaPlaceholder=c.dia_pago||'--';
     var diaInput=isLocked
       ?'<span style="font-family:var(--mono);font-size:11px;font-weight:700;color:'+(it.diaAsesor?'var(--green)':'var(--text2)')+'">'+( it.diaAsesor||c.dia_pago||'--')+'</span>'
-      :'<input type="number" class="proy-inp" min="1" max="31" style="width:46px;text-align:center;'+(it.diaAsesor?'color:var(--green);font-weight:700':'')+'" value="'+diaVal+'" placeholder="'+diaPlaceholder+'" onchange="onProxMesDiaChange(\''+escCart+'\',\''+cN+'\',\''+semKey+'\',this.value)">';
+      :'<input type="number" class="proy-inp" min="1" max="31" style="width:46px;text-align:center;'+(it.diaAsesor?'color:var(--green);font-weight:700':'')+'" value="'+diaVal+'" placeholder="'+diaPlaceholder+'" onchange="onProxMesDiaChange(\''+escCart+'\',\''+cN+'\',\''+semKey+'\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}">';
     // Monto asesor
     var montoVal=it.montoAsesor?String(it.montoAsesor):'';
     var montoInput=isLocked
@@ -7408,7 +7408,7 @@ function _renderProySiguiente(cartId,container,mesKey,semKey){
     } else {
       // Editable: textarea que guarda en blur
       var taVal=comentCierre||'';
-      comentCell+='<textarea rows="2" style="width:100%;min-width:130px;border:1px solid var(--border2);border-radius:4px;padding:3px 5px;font-size:10px;font-family:var(--sans);resize:vertical;background:var(--bg);color:var(--text);'+(comentCierre?'border-color:var(--green)':'')+'" placeholder="Comentario..." onblur="onProxMesComentarioSave(\''+escCart+'\',\''+cN+'\',\''+semKey+'\',this.value)">'+esc2(taVal)+'</textarea>';
+      comentCell+='<textarea rows="2" style="width:100%;min-width:130px;border:1px solid var(--border2);border-radius:4px;padding:3px 5px;font-size:10px;font-family:var(--sans);resize:vertical;background:var(--bg);color:var(--text);'+(comentCierre?'border-color:var(--green)':'')+'" placeholder="Comentario..." onblur="onProxMesComentarioSave(\''+escCart+'\',\''+cN+'\',\''+semKey+'\',this.value)" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}">'+esc2(taVal)+'</textarea>';
     }
     html+='<td style="min-width:160px;vertical-align:top;padding:6px 8px">'+comentCell+'</td>';
     html+='</tr>';
