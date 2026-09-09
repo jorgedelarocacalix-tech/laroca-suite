@@ -7189,7 +7189,7 @@ async function buildProySiguiente(cartId,container){
   HOY=new Date();HOY.setHours(0,0,0,0);
   if(!PROY_SIG_MES[cartId])PROY_SIG_MES[cartId]=_curMesKey();
   var mesKey=PROY_SIG_MES[cartId];
-  var semKey='NEXT-'+mesKey;
+  var semKey=mesKey+'-01';
   var ck=cartId+'::'+mesKey;
   if(supa){
     var _proyP=_withTimeout(supa.from('proyecciones').select('*').eq('cartera_id',cartId),8000)
@@ -7202,7 +7202,7 @@ async function buildProySiguiente(cartId,container){
     var _res=await Promise.all([_proyP,_cierreP]);
     var pr=_res[0],cr=_res[1];
     if(pr.ok){
-      if(!pr.r.error){(pr.r.data||[]).filter(function(p){return p.semana_inicio&&p.semana_inicio.startsWith('NEXT-');}).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});_rebuildProyIndex();}
+      if(!pr.r.error){(pr.r.data||[]).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});_rebuildProyIndex();}
       else showErr('Error al cargar proyecciones: '+pr.r.error.message);
     }else{
       console.error('buildProySiguiente:',pr.e);
@@ -7229,7 +7229,7 @@ function filtrarProySig(cartId){
 }
 async function selectProyMes(cartId,newMesKey){
   PROY_SIG_MES[cartId]=newMesKey;
-  var semKey='NEXT-'+newMesKey;
+  var semKey=newMesKey+'-01';
   var ck=cartId+'::'+newMesKey;
   if(supa&&CIERRE_MES[ck]===undefined){
     var rc=await supa.from('cierre_proyeccion').select('*').eq('cartera_id',cartId).eq('mes_key',newMesKey);
@@ -7398,7 +7398,7 @@ function _renderProySiguiente(cartId,container,mesKey,semKey){
     html+='<td style="text-align:right">'+montoInput+'</td>';
     var pComent=PROMESAS[cartId+'::'+c.nombre]||null;
     var notaActual=pComent&&pComent.nota?pComent.nota:'';
-    var comentCierre=it.proy&&it.proy.comentario_cierre?it.proy.comentario_cierre:null;
+    var comentCierre=it.proy&&it.proy.comentario?it.proy.comentario:null;
     var comentCell='';
     // Nota actual (gestión) — siempre visible, solo lectura
     if(notaActual)comentCell+='<div style="font-size:10px;color:var(--text2);margin-bottom:4px;padding:2px 4px;background:var(--bg3);border-radius:3px;line-height:1.3">'+esc2(notaActual.substring(0,60))+'</div>';
@@ -7432,7 +7432,7 @@ function _renderProySiguiente(cartId,container,mesKey,semKey){
 
 async function onProxMesComentarioSave(cartId,nombre,semKey,val){
   var texto=val.trim();
-  await saveProyeccion(cartId,nombre,semKey,{comentario_cierre:texto||null});
+  await saveProyeccion(cartId,nombre,semKey,{comentario:texto||null});
 }
 async function onProxMesDiaChange(cartId,nombre,semKey,dia){
   var mesKey=PROY_SIG_MES[cartId]||_curMesKey();
@@ -7573,7 +7573,7 @@ function downloadProySigExcel(cartId){
       var tramoStr=it.mora&&it.mora.tramo&&it.mora.tramo!=='MES'?it.mora.tramo:it.esAdelantado?'ADELANT.':'AL DÍA';
       var pCoExcel=PROMESAS[cartId+'::'+c.nombre]||null;
       var notaExcel=pCoExcel&&pCoExcel.nota?pCoExcel.nota:'';
-      var cierreExcel=it.proy&&it.proy.comentario_cierre?it.proy.comentario_cierre:'';
+      var cierreExcel=it.proy&&it.proy.comentario?it.proy.comentario:'';
       wsData.push([i+1,c.nombre,c.saldo,c.cuota,it.cuotasTrans!=null?it.cuotasTrans:'',it.saldoEsperado,it.moraVal||0,tramoStr,c.ultimo_pago||'',it.diaAsesor||c.dia_pago||'',it.montoAsesor||c.cuota,notaExcel,cierreExcel]);
     });
     wsData.push([]);
