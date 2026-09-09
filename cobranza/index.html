@@ -6925,9 +6925,10 @@ function _buildTodosView(cartId,cl,mesActualStr){
     var it=_PROY_ITEMS[idx];
     var c=it.c,p=it.p,mora=it.mora;
     var cN=esc(c.nombre);
-    var rowBg=it.enMora?'background:var(--redbg)':p&&p.estado==='promesa'?'background:var(--bluebg)':'';
+    var tieneProm=p&&p.estado==='promesa';
+    var rowBg=it.enMora?'background:var(--redbg)':tieneProm?'background:var(--bluebg)':it.tieneEdicion?'background:var(--amberbg)':'';
     var moraCell=it.enMora?'<span style="font-family:var(--mono);font-size:9px;background:var(--redbg);color:var(--red);padding:1px 4px;border-radius:3px">'+(mora.tramo||'')+'</span><span style="font-family:var(--mono);font-size:10px;color:var(--red);margin-left:3px">'+(mora.dias||'')+'d</span>':'<span style="color:var(--text3);font-size:10px">--</span>';
-    var estadoCell=p&&p.estado?promBadge(p):'<span style="color:var(--text3);font-size:10px">Sin gestion</span>';
+    var estadoCell=p&&p.estado?promBadge(p):it.tieneEdicion?'<span style="font-family:var(--mono);font-size:9px;background:var(--amberbg);color:var(--amber);border:1px solid rgba(180,120,0,.25);padding:1px 5px;border-radius:3px">⚠ Sin promesa</span>':'<span style="color:var(--text3);font-size:10px">Sin gestion</span>';
     // Fecha asesor editable (dia del mes)
     var diaGestor=it.fechaGestor?parseInt(it.fechaGestor.split('-')[2]):'';
     var diaLabel=it.fechaGestor?_diaN(_s2d(it.fechaGestor))+' '+diaGestor:'';
@@ -7000,10 +7001,11 @@ function _buildMesView(cartId,cl,mesActualStr){
   items.forEach(function(it){
     var c=it.c,p=it.p;
     var esPromesa=p&&p.estado==='promesa';
-    var estadoBadge=esPromesa?'<span style="font-family:var(--mono);font-size:9px;background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.25);padding:1px 5px;border-radius:3px">📅 Promesa '+p.fecha+'</span>':'<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">Sin acuerdo</span>';
+    var tieneProyAsesor=!!(it.proy&&(it.proy.fecha_proyectada||it.proy.monto_proyectado));
+    var estadoBadge=esPromesa?'<span style="font-family:var(--mono);font-size:9px;background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.25);padding:1px 5px;border-radius:3px">📅 Promesa '+p.fecha+'</span>':tieneProyAsesor?'<span style="font-family:var(--mono);font-size:9px;background:var(--amberbg);color:var(--amber);border:1px solid rgba(180,120,0,.25);padding:1px 5px;border-radius:3px">⚠ Sin promesa</span>':'<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">Sin acuerdo</span>';
     var fechaGestorCell=it.fechaGestor?'<span style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:600">'+it.fechaGestor.substring(8)+' '+_diaN(_s2d(it.fechaGestor))+'</span>':'<span style="color:var(--text3)">--</span>';
     var montoGestorCell=it.montoProy?'<span style="font-family:var(--mono);font-size:12px;color:var(--green);font-weight:700">L '+fmt(it.montoProy)+'</span>':'<span style="color:var(--text3)">--</span>';
-    var rowBg=esPromesa?'background:var(--bluebg)':'';
+    var rowBg=esPromesa?'background:var(--bluebg)':tieneProyAsesor?'background:var(--amberbg)':'';
     h+='<tr style="'+rowBg+'">';
     h+='<td><div style="font-weight:600;font-size:12px">'+esc2(c.nombre)+'</div></td>';
     h+='<td style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--text2)">'+( it.fechaSistema?it.fechaSistema.substring(8)+'&nbsp;'+_diaN(_s2d(it.fechaSistema)):'--')+'</td>';
