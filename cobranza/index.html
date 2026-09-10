@@ -6586,6 +6586,28 @@ async function saveProyeccion(cartId,nombre,semanaStr,changes){
   if(!supa)return;
   var r=await supa.from('proyecciones').upsert(Object.assign({},upd),{onConflict:'cartera_id,cliente_nombre,semana_inicio'});
   if(r.error){console.error('saveProy:',r.error);alert('Error:\n'+r.error.message);}
+  else await _autoPromesaDesdeProyeccion(cartId,nombre,upd);
+}
+// Cuando un asesor deja un "Monto asesor" y el cliente NO tiene ya una promesa activa,
+// se crea automáticamente esa promesa (misma fecha/monto) para que cuente en "Acordado"
+// (Hoy → Cierre) sin que alguien tenga que ir a registrarla dos veces. Si el cliente YA
+// tiene una promesa activa (gestionada a mano por el equipo), esa no se toca ni se pisa.
+async function _autoPromesaDesdeProyeccion(cartId,nombre,proy){
+  if(!proy||!proy.monto_proyectado)return;
+  var pk=cartId+'::'+nombre;
+  var pExist=PROMESAS[pk];
+  if(pExist&&pExist.estado==='promesa')return;
+  var nueva=Object.assign({},pExist,{
+    estado:'promesa',
+    fecha:proy.fecha_proyectada||(pExist&&pExist.fecha)||null,
+    monto:proy.monto_proyectado,
+    nota:(pExist&&pExist.nota)||'Promesa automática desde proyección de asesor',
+    mora_pendiente:(pExist&&pExist.mora_pendiente)||false,
+    adelantado:(pExist&&pExist.adelantado)||false,
+    cero_prima:(pExist&&pExist.cero_prima)||false
+  });
+  PROMESAS[pk]=nueva;
+  await dbSaveProm(cartId,nombre);
 }
 async function buildProyeccion(cartId,container){
   HOY=new Date();HOY.setHours(0,0,0,0);
