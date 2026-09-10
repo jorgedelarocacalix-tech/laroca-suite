@@ -1009,6 +1009,7 @@ async function syncNow(){
   }catch(e){}
   await loadData();if(CURRENT&&CARTERAS[CURRENT])renderDash(CURRENT);else renderHome();
 }
+var _PENDING_SOFT_REFRESH=false; // cambio detectado en la cartera actual, pendiente de aplicar sin molestar al usuario
 function startSync(){
   stopSync();
   SYNC_T=setInterval(async function(){
@@ -1016,13 +1017,24 @@ function startSync(){
     try{
       var r=await supa.from('promesas').select('*');
       if(r.error||!r.data)return;
-      var changed=false;
       r.data.forEach(function(p){
         var key=p.cartera_id+'::'+p.cliente_nombre;
         var old=PROMESAS[key];
-        if((p.updated_at||'')>(old?old.ts||'':'')){{PROMESAS[key]={estado:p.estado,fecha:p.fecha,monto:p.monto,nota:p.nota,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,ts:p.updated_at};changed=true;}}
+        if((p.updated_at||'')>(old?old.ts||'':'')){
+          PROMESAS[key]={estado:p.estado,fecha:p.fecha,monto:p.monto,nota:p.nota,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,ts:p.updated_at};
+          // Solo marcamos refresco pendiente si el cambio es de la cartera que este usuario tiene abierta —
+          // un cambio de otro usuario en OTRA cartera no debe moverle la pantalla a nadie.
+          if(p.cartera_id===CURRENT)_PENDING_SOFT_REFRESH=true;
+        }
       });
-      if(changed&&CURRENT&&CARTERAS[CURRENT])renderDash(CURRENT);
+      if(_PENDING_SOFT_REFRESH&&CURRENT&&CARTERAS[CURRENT]){
+        var activo=document.activeElement;
+        var editando=activo&&(activo.tagName==='INPUT'||activo.tagName==='TEXTAREA');
+        // refreshSoft (no renderDash) — actualiza KPIs y la pestaña activa in-place, sin
+        // reconstruir toda la página ni mover el scroll de otros usuarios al inicio.
+        // Si el usuario está escribiendo en ese momento, esperamos al siguiente tick para no interrumpirlo.
+        if(!editando){refreshSoft(CURRENT);_PENDING_SOFT_REFRESH=false;}
+      }
       checkAlertas();
     }catch(e){}
   },3000);
@@ -6974,7 +6986,12 @@ function _buildMesView(cartId,cl,mesActualStr){
     var bp=_getBestProy(cartId,c.nombre);
     var fechaGestor=bp&&bp.fecha_proyectada?bp.fecha_proyectada:null;
     var fechaPromesa=p&&p.estado==='promesa'&&p.fecha?p.fecha:null;
-    var fechaSistema=c.dia_pago?_diaToFecha(c.dia_pago):null;
+    // Cliente recién comprado (mismo mes de la factura): ya pagó su prima, todavía no le toca
+    // ninguna cuota — no usar el día-de-pago del sistema como si debiera este mes. Si el gestor
+    // o el cliente sí dejaron una fecha explícita (promesa/proyección), esa sí se respeta.
+    var ff=parseHNDate(c.fecha_factura);
+    var sinCicloAun=ff&&((HOY.getFullYear()-ff.getFullYear())*12+(HOY.getMonth()-ff.getMonth()))<=0;
+    var fechaSistema=(c.dia_pago&&!sinCicloAun)?_diaToFecha(c.dia_pago):null;
     var fechaEfectiva=fechaGestor||fechaPromesa||fechaSistema;
     if(!fechaEfectiva||fechaEfectiva<hoyStr||fechaEfectiva>finMesStr)return;
     var montoProy=bp&&bp.monto_proyectado?bp.monto_proyectado:(p&&p.monto?p.monto:null);
@@ -7253,6 +7270,13 @@ function _renderProySiguiente(cartId,container,mesKey,semKey){
   var items=[];
   cl.forEach(function(c){
     if(c.tramo==='INACTIVO')return;
+    // Cliente comprado el mismo mes que se está proyectando: ya pagó su prima, todavía no
+    // acumula ninguna cuota — no debe aparecer proyectado a pagar ese mes.
+    var ffCompra=parseHNDate(c.fecha_factura);
+    if(ffCompra){
+      var mesCompraKey=ffCompra.getFullYear()+'-'+String(ffCompra.getMonth()+1).padStart(2,'0');
+      if(mesCompraKey===mesKey)return;
+    }
     var p=PROMESAS[cartId+'::'+c.nombre];
     var proy=PROYECCIONES[cartId+'::'+c.nombre+'::'+semKey]||null;
     var mora=calcMora(c.ultimo_pago,c.dia_pago,c.sin_ultimo_pago,c.fecha_factura);
