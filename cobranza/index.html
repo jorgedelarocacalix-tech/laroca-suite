@@ -1511,13 +1511,21 @@ async function _renderGerentePanel(){
   if(supa){
     var _proyP=_withTimeout(supa.from('proyecciones').select('*'),8000).catch(function(e){console.error('_renderGerentePanel proyecciones:',e);return null;});
     var _cierreP=_withTimeout(supa.from('cierre_proyeccion').select('cartera_id,mes_key,datos').order('mes_key',{ascending:false}),8000).catch(function(e){console.error('_renderGerentePanel cierre:',e);return null;});
-    var _histP=_withTimeout(supa.from('historial_clientes').select('cartera_id,monto,tipo').gte('fecha_accion',mesActualStr+'-01').lte('fecha_accion',hoyStr).in('tipo',['pago','abono']),8000).catch(function(e){console.error('_renderGerentePanel historial cobrado:',e);return null;});
+    var _histP=_withTimeout(supa.from('historial_clientes').select('cartera_id,cliente_nombre,monto,tipo').gte('fecha_accion',mesActualStr+'-01').lte('fecha_accion',hoyStr).in('tipo',['pago','abono']),8000).catch(function(e){console.error('_renderGerentePanel historial cobrado:',e);return null;});
     var _arqP=_withTimeout(supa.from('arqueos').select('sucursal,analisis_json').gte('fecha',mesActualStr+'-01').lte('fecha',hoyStr).eq('estado','OK'),8000).catch(function(e){console.error('_renderGerentePanel arqueos:',e);return null;});
     var _res=await Promise.all([_proyP,_cierreP,_histP,_arqP]);
     var rp=_res[0],rc=_res[1],rh=_res[2],ra=_res[3];
     if(rp&&!rp.error){(rp.data||[]).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});_rebuildProyIndex();}
     if(rc&&!rc.error){var _vC={};(rc.data||[]).forEach(function(row){if(_vC[row.cartera_id])return;_vC[row.cartera_id]=true;var s=0;(row.datos||[]).forEach(function(c){if(c.mora!=='INACTIVO')s+=(c.montoAsesor||0);});cierreMap[row.cartera_id]=Math.round(s);});}
-    if(rh&&!rh.error){(rh.data||[]).forEach(function(row){cobradoRealMes[row.cartera_id]=(cobradoRealMes[row.cartera_id]||0)+(row.monto||0);});}
+    if(rh&&!rh.error){(rh.data||[]).forEach(function(row){
+      // Excluir "pagos" de clientes que compraron ESTE MISMO MES: ese salto de saldo es su
+      // prima/venta nueva (contado o financiado), no una cuota de cobranza recurrente — si no,
+      // una prima grande infla "Cobrado" como si el equipo de cobranza la hubiera recuperado.
+      var cc=CARTERAS[row.cartera_id];
+      var cli=cc&&cc.clientes&&cc.clientes.find(function(x){return x.nombre===row.cliente_nombre;});
+      if(cli&&compraEsteMes(cli))return;
+      cobradoRealMes[row.cartera_id]=(cobradoRealMes[row.cartera_id]||0)+(row.monto||0);
+    });}
     if(ra&&!ra.error){(ra.data||[]).forEach(function(row){
       var cobros=(row.analisis_json&&row.analisis_json.cobros)||[];
       cobros.forEach(function(c){
@@ -1730,13 +1738,13 @@ async function _renderGerentePanel(){
 
   // Bloque Proyectado / Cobrado / Sin recuperar por tienda
   h+='<div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px;background:var(--bg2)">';
-  h+='<div style="font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">💰 PROYECTADO / COBRADO / SIN RECUPERAR — POR TIENDA (mes actual)</div>';
+  h+='<div style="font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">💰 META DEL MES / COBRADO / SIN RECUPERAR — POR TIENDA (mes actual)</div>';
   h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
   h+='<thead><tr style="border-bottom:1px solid var(--border)">';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Tienda</th>';
-  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--blue);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de todos los clientes activos del mes (meta del mes)">Proyectado</th>';
-  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--green);text-align:right;padding:4px 6px;text-transform:uppercase" title="Dinero real detectado (abonos y pagos en historial_clientes este mes), no un estimado por cuota">Cobrado</th>';
-  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--red);text-align:right;padding:4px 6px;text-transform:uppercase" title="Proyectado menos lo realmente cobrado">Sin recuperar</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--blue);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de todos los clientes activos del mes (meta del mes) — NO es lo mismo que la columna Proyectado de la tabla de abajo">Meta del mes</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--green);text-align:right;padding:4px 6px;text-transform:uppercase" title="Dinero real detectado en historial_clientes este mes (pagos y abonos), excluyendo primas/ventas nuevas del mismo mes — no un estimado por cuota">Cobrado</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--red);text-align:right;padding:4px 6px;text-transform:uppercase" title="Meta del mes menos lo realmente cobrado">Sin recuperar</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">% cobrado</th>';
   h+='</tr></thead><tbody>';
   var totProyectadoT=0,totCobradoT=0,totSinRecuperarT=0;
@@ -1786,7 +1794,7 @@ async function _renderGerentePanel(){
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Cartera</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Pendientes</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Sistema</th>';
-  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--orange);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de montoAsesor del cierre de proyección (Excel)">Proyectado</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--orange);text-align:right;padding:4px 6px;text-transform:uppercase" title="Foto congelada de la última vez que se guardó Proyección → Mes siguiente. No se actualiza después — puede quedar desactualizada si los asesores siguen editando montos.">Cierre guardado</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Asesores</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--purple);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de montos acordados en la pestaña Hoy → Cierre. Ya rebaja a los clientes que pagaron segun el arqueo del mes, aunque el PDF de cartera todavia no lo refleje.">Acordado (Hoy→Cierre)</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">Diferencia</th>';
