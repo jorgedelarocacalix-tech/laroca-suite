@@ -653,16 +653,24 @@ function nombreComentaristaActual(){
   if(NOMBRES_GENERICOS.indexOf(USER.nombre)===-1)return USER.nombre;
   return sessionStorage.getItem('cobranza_autor_nombre')||USER.nombre;
 }
+// Dado un nombre base (de USER, o de resolverPin al confirmar un cambio con PIN), si es un
+// nombre generico de acceso compartido (Administrador, Equipo Roca...) pregunta UNA VEZ por
+// sesion el nombre real de quien lo esta usando, y lo recuerda para el resto de acciones
+// (comentarios, acuerdos, etc.) sin volver a preguntar.
+function _nombreEfectivo(nombreBase){
+  if(!nombreBase)return '—';
+  if(NOMBRES_GENERICOS.indexOf(nombreBase)===-1)return nombreBase;
+  var guardado=sessionStorage.getItem('cobranza_autor_nombre');
+  if(guardado)return guardado;
+  var n=(prompt('Este acceso ('+nombreBase+') lo usan varias personas. Escribe tu nombre para que el equipo sepa quien hizo esto:')||'').trim();
+  if(!n)return nombreBase;
+  sessionStorage.setItem('cobranza_autor_nombre',n);
+  return n;
+}
 // Nombre real del comentarista AL ENVIAR — pregunta una sola vez por sesion si el acceso es compartido.
 function nombreComentarista(){
   if(!USER)return '—';
-  if(NOMBRES_GENERICOS.indexOf(USER.nombre)===-1)return USER.nombre;
-  var guardado=sessionStorage.getItem('cobranza_autor_nombre');
-  if(guardado)return guardado;
-  var n=(prompt('Este acceso ('+USER.nombre+') lo usan varias personas. Escribe tu nombre para que el equipo sepa quien comenta:')||'').trim();
-  if(!n)return USER.nombre;
-  sessionStorage.setItem('cobranza_autor_nombre',n);
-  return n;
+  return _nombreEfectivo(USER.nombre);
 }
 // ══ LOGIN INDIVIDUAL VIA RRHH ══
 // Cada asociado entra con su propio PIN de RRHH; aquí se define qué carteras ve según su equipo.
@@ -3093,7 +3101,7 @@ async function guardarAcuerdoRapido(cartId,nombre){
   var key=cartId+'::'+nombre;
   var ex=PROMESAS[key]||{};
   var esEdicion=ex.estado==='promesa'&&(ex.fecha||ex.monto);
-  var gestorNombre=(USER&&USER.nombre)||'—';
+  var gestorNombre=_nombreEfectivo((USER&&USER.nombre)||'—');
   var notaFinal='📅 Prometió pagar el '+(fecha||'—')+(monto?' por L '+fmt(monto):'');
 
   if(esEdicion){
@@ -3103,7 +3111,7 @@ async function guardarAcuerdoRapido(cartId,nombre){
     if(!pin){ if(errEl)errEl.textContent='Ingresa tu PIN para confirmar'; return; }
     var quien=await resolverPin(pin);
     if(!quien){ if(errEl)errEl.textContent='PIN incorrecto'; return; }
-    gestorNombre=quien.nombre;
+    gestorNombre=_nombreEfectivo(quien.nombre);
     notaFinal='✏️ Acuerdo modificado por '+gestorNombre+': antes L '+fmt(ex.monto||0)+' el '+(ex.fecha||'—')+' → ahora'+(monto?' L '+fmt(monto):'')+' el '+(fecha||'—');
   }
 
@@ -3388,7 +3396,7 @@ async function marcarCeroPrima(cartId,nombre){
     nota:'🆕 Cliente ingresó a 0 Prima',
     monto:null, fecha_accion:HOY.toISOString().split('T')[0],
     fecha_visita:null,
-    gestor:(USER&&USER.nombre)||'—',
+    gestor:_nombreEfectivo((USER&&USER.nombre)||'—'),
     created_at:new Date().toISOString()
   });
   refreshSoft(cartId);
@@ -4030,7 +4038,7 @@ async function buildVisitasCal(cartId,container){
 
 async function marcarVisitaRealizada(cartId,nombre){
   var fecha=HOY.toISOString().split('T')[0];
-  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'visita_realizada',nota:'Visita realizada',fecha_accion:fecha,fecha_visita:fecha,gestor:(USER&&USER.nombre)||'—',created_at:new Date().toISOString()});
+  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'visita_realizada',nota:'Visita realizada',fecha_accion:fecha,fecha_visita:fecha,gestor:_nombreEfectivo((USER&&USER.nombre)||'—'),created_at:new Date().toISOString()});
   setConn(true,'Visita registrada ✓');
   setTimeout(function(){setConn(true,'Conectado');},2000);
   var pane=document.getElementById('tp-VISITAS_CAL');
@@ -5896,7 +5904,7 @@ window._cobroGuardarNota=async function(){
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
   try{
     var hoy=new Date().toISOString().split('T')[0];
-    await dbSaveHist({cartera_id:c.cartera_id,cliente_nombre:c.nombre,tipo:'nota',nota:'[Análisis] '+t.value.trim(),monto:null,fecha_accion:hoy,gestor:(USER&&USER.nombre)||'—',created_at:new Date().toISOString()});
+    await dbSaveHist({cartera_id:c.cartera_id,cliente_nombre:c.nombre,tipo:'nota',nota:'[Análisis] '+t.value.trim(),monto:null,fecha_accion:hoy,gestor:_nombreEfectivo((USER&&USER.nombre)||'—'),created_at:new Date().toISOString()});
     document.getElementById('cobro-nota-ov').remove();
     var toast=document.createElement('div');
     toast.style.cssText='position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:700;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.3)';
@@ -6229,7 +6237,7 @@ async function saveAccion(){
   else if(tipo==='posponer') notaFinal='⏭ Pospuso promesa al '+(fecha||'—')+(nota?' — '+nota:'');
   else if(esVisitaReal)      notaFinal=nota||'Visita realizada sin comentario';
   else                       notaFinal=nota||null;
-  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:tipo,nota:notaFinal,monto:monto||null,fecha_accion:fecha||null,fecha_visita:['visita_agenda','visita_realizada'].includes(tipo)?fecha:null,gestor:(USER&&USER.nombre)||'—',created_at:new Date().toISOString()});
+  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:tipo,nota:notaFinal,monto:monto||null,fecha_accion:fecha||null,fecha_visita:['visita_agenda','visita_realizada'].includes(tipo)?fecha:null,gestor:_nombreEfectivo((USER&&USER.nombre)||'—'),created_at:new Date().toISOString()});
   var ex=PROMESAS[key]||{};
   if(['promesa','posponer'].includes(tipo)){PROMESAS[key]=Object.assign({},ex,{estado:'promesa',fecha:fecha,monto:monto,nota:nota,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);}
   else if(tipo==='pago'){
@@ -6237,7 +6245,7 @@ async function saveAccion(){
     if(ex&&ex.estado==='promesa'){
       await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'promesa_cumplida',monto:monto||null,
         nota:'✅ Promesa CUMPLIDA manualmente — había prometido pagar el '+(ex.fecha||'—')+(monto?' · pagó L '+fmt(monto):'')+(nota?' — '+nota:''),
-        fecha_accion:fecha||hoyStr,gestor:(USER&&USER.nombre)||'—',created_at:new Date().toISOString()});
+        fecha_accion:fecha||hoyStr,gestor:_nombreEfectivo((USER&&USER.nombre)||'—'),created_at:new Date().toISOString()});
     }
     PROMESAS[key]=Object.assign({},ex,{estado:'pago',fecha:fecha,nota:nota,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);
   }
@@ -6357,7 +6365,7 @@ async function histMarcarConfirm(cartId, nombre, tipo){
     nota:notaFinal, monto:montoGuardar,
     fecha_accion:fechaAccion,
     fecha_visita:null,
-    gestor:(USER&&USER.nombre)||'—',
+    gestor:_nombreEfectivo((USER&&USER.nombre)||'—'),
     created_at:new Date().toISOString()
   });
 
@@ -6382,14 +6390,14 @@ async function mgMarcarCumplida(cartId, nombre, cuota, saldo){
     monto:prom.monto||null,
     nota:'✅ Promesa CUMPLIDA (marcada manualmente por cobrador) — prometido el '+(prom.fecha||'—')+(prom.monto?' por L '+fmt(prom.monto):''),
     fecha_accion:hoyStr,
-    gestor:(USER&&USER.nombre)||'—', created_at:new Date().toISOString()
+    gestor:_nombreEfectivo((USER&&USER.nombre)||'—'), created_at:new Date().toISOString()
   });
   // Grabar pago manual en historial
   await dbSaveHist({
     cartera_id:cartId, cliente_nombre:nombre, tipo:'pago',
     monto:saldo||null,
     nota:'💰 Pago registrado manualmente por cobrador',
-    fecha_accion:hoyStr, gestor:(USER&&USER.nombre)||'—', created_at:new Date().toISOString()
+    fecha_accion:hoyStr, gestor:_nombreEfectivo((USER&&USER.nombre)||'—'), created_at:new Date().toISOString()
   });
   // Actualizar estado de promesa a 'pago' (queda fuera de lista de promesas activas)
   PROMESAS[key]=Object.assign({},prom,{estado:'pago',ts:new Date().toISOString()});
@@ -6597,7 +6605,7 @@ function _diaToFecha(dia){
 async function saveProyeccion(cartId,nombre,semanaStr,changes){
   var k=cartId+'::'+nombre+'::'+semanaStr;
   var ex=PROYECCIONES[k]||{};
-  var upd=Object.assign({},ex,changes,{cartera_id:cartId,cliente_nombre:nombre,semana_inicio:semanaStr,gestor:(USER&&USER.nombre)||'--',updated_at:new Date().toISOString()});
+  var upd=Object.assign({},ex,changes,{cartera_id:cartId,cliente_nombre:nombre,semana_inicio:semanaStr,gestor:_nombreEfectivo((USER&&USER.nombre)||'--'),updated_at:new Date().toISOString()});
   delete upd.id;
   PROYECCIONES[k]=upd;
   _rebuildProyIndex();
@@ -7205,7 +7213,7 @@ async function onProyComentarioEnter(cartId,nombre,idx,value,el){
   var it=_PROY_ITEMS[idx];
   var semStr=it?(it.proySemStr||(it.fechaProy?_fechaToSemStr(it.fechaProy):_d2s(_getLunes(0)))):_d2s(_getLunes(0));
   await saveProyeccion(cartId,nombre,semStr,{comentario:value});
-  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:'[Proyeccion] '+value.trim(),fecha_accion:_d2s(HOY),gestor:(USER&&USER.nombre)||'—',created_at:new Date().toISOString()});
+  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:'[Proyeccion] '+value.trim(),fecha_accion:_d2s(HOY),gestor:_nombreEfectivo((USER&&USER.nombre)||'—'),created_at:new Date().toISOString()});
 }
 async function verNotasProy(idx,btn){
   var it=_PROY_ITEMS[idx];if(!it)return;
@@ -8491,7 +8499,7 @@ async function executeChatAction(actionId){
   var monto=action.monto?Number(action.monto):null;
   var montoFmt=monto?(' — L '+monto.toLocaleString('es-HN')):'';
   var hoyStr=HOY.toISOString().split('T')[0];
-  var gestor=(USER&&USER.nombre)||'—';
+  var gestor=_nombreEfectivo((USER&&USER.nombre)||'—');
   if(action.tipo==='promesa'){
     PROMESAS[key]=Object.assign({},PROMESAS[key]||{},{estado:'promesa',fecha:action.fecha||'',monto:monto,ts:new Date().toISOString()});
     await dbSaveProm(CURRENT,cliente.nombre);
