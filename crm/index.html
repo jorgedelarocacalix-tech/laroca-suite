@@ -558,6 +558,24 @@ var VENDOR_POOLS=[
   {id:'pool_roca2',label:'Roca Motors 2',carteras:['roca2motors']},
   {id:'pool_mueble',label:'Su Mueble + Su Moto',carteras:['sumuebledanli','sumotodanli']}
 ];
+// Meta de gestiones/llamadas diarias, configurable por el admin (tabla crm_config, ver cargarMetaLlamadas()).
+var META_LLAMADAS=8;
+function cargarMetaLlamadas(){
+  return sbF('crm_config','GET',null,'?id=eq.meta_llamadas&select=value').then(function(rows){
+    if(rows&&rows.length&&rows[0].value&&typeof rows[0].value.meta==='number')META_LLAMADAS=rows[0].value.meta;
+  }).catch(function(){});
+}
+function cambiarMetaLlamadas(){
+  var v=prompt('Meta de gestiones/llamadas por día (actual: '+META_LLAMADAS+'):',META_LLAMADAS);
+  if(v===null)return;
+  var n=parseInt(v,10);
+  if(!n||n<1){toast('Ingresa un número válido','err');return;}
+  META_LLAMADAS=n;
+  sbUp('crm_config',{id:'meta_llamadas',value:{meta:n}}).then(function(){
+    toast('Meta de llamadas actualizada a '+n,'ok');
+    if(CU&&CU.role==='admin')goTo('equipo');
+  });
+}
 // Metas mensuales por usuario y cartera. unidades=meta de ventas/unidades, monto=meta en L. (opcional)
 var METAS={
   'v_fer':      {'roca1':{unidades:25,monto:375000},'roca1motors':{unidades:3}},
@@ -672,9 +690,14 @@ function shk(){document.querySelectorAll('.pd').forEach(function(d){d.classList.
 function entrarComo(rr){
   var codigo=rr.codigo;
   var local=DB.users.find(function(x){return x.id===codigo||(codigo==='ADMIN'&&x.id==='admin');});
+  // Codigo RRHH actual sin registro local directo: puede ser un registro viejo bajo su codigo
+  // legacy (ver LEGACY_UID, ej. Ana Castro/u1779318896833) — sin esto entraba como 'vendedor'
+  // con cartera vacia y perdia el Monitor de su equipo aunque su registro real ya existiera.
+  if(!local&&typeof LEGACY_UID!=='undefined'&&LEGACY_UID[codigo])local=DB.users.find(function(x){return x.id===LEGACY_UID[codigo];});
   var nu;
-  if(local){if(rr.nombre)local.name=rr.nombre;nu=local;}
-  else{nu={id:codigo,name:rr.nombre,pin:'-',role:(rr.nivel_admin?'admin':'vendedor'),cartera:[]};DB.users.push(nu);saveDB();}
+  if(local){if(rr.nombre)local.name=rr.nombre;local.id=codigo;nu=local;}
+  else{nu={id:codigo,name:rr.nombre,pin:'-',role:(rr.nivel_admin?'admin':'vendedor'),cartera:[]};DB.users.push(nu);}
+  saveDB();
   CU=nu;CU.crmMonitor=!!(rr.accesos_apps&&rr.accesos_apps.crm_monitor===true);pinBuf='';renderPD();document.getElementById('s-login').classList.remove('on');launchApp();
 }
 function doLogin(){
@@ -719,6 +742,7 @@ function launchApp(){
   var dest=CU.role==='admin'||CU.role==='subadmin'?'dashboard':'clientes';
   document.getElementById('pcontent').innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px;"><div style="width:48px;height:48px;border:4px solid #e2e8f0;border-top-color:#5b8dee;border-radius:50%;animation:spin 1s linear infinite;"></div><div style="font-size:15px;color:#718096;font-weight:500;">Cargando datos...</div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
   connectRealtime();
+  cargarMetaLlamadas();
   loadFromSB().then(function(){
     // Para vendedores: asegurar que sus propias gestiones estén en DB.calls
     if(CU.role==='vendedor'){
@@ -1524,7 +1548,7 @@ function metaBorrar(cartId,ts){
 function _buildPoolTxt(pool,hoy,fechaTxt){
   var dias=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   var fd=new Date(hoy+'T12:00:00Z');
-  var META=8;
+  var META=META_LLAMADAS;
   var lines=['📊 ANÁLISIS — '+pool.label,'📅 '+dias[fd.getUTCDay()]+', '+fechaTxt,''];
 
   // Recopilar stats de todos los vendedores del pool (dedup por nombre)
@@ -1863,7 +1887,7 @@ function _buildVendorDayPanel(){
   var pool=null;
   for(var pi=0;pi<VENDOR_POOLS.length;pi++){if(VENDOR_POOLS[pi].carteras.some(function(c){return vCarts.indexOf(c)>=0;})){pool=VENDOR_POOLS[pi];break;}}
   var st=_vendStats(vn,hoy,pool?pool.carteras:null);
-  var META=8;
+  var META=META_LLAMADAS;
   var pct=Math.min(100,Math.round((st.callsHoy/META)*100));
   var barColor=st.callsHoy>=META?'#48bb78':st.callsHoy>=4?'#ed8936':'#fc8181';
   var h='<div style="background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow);">';
@@ -1879,7 +1903,7 @@ function _buildVendorDayPanel(){
   h+='<div style="background:#e2e8f0;border-radius:6px;height:8px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:'+barColor+';border-radius:6px;transition:width .4s;"></div></div>';
   h+='</div>';
   // Análisis inteligente para el vendedor
-  var META=8;
+  var META=META_LLAMADAS;
   if(st.callsHoy===0&&st.dago>=999){
     h+='<div style="font-size:12px;color:#e53e3e;font-weight:700;padding:8px 0;">⛔ Aún no has registrado ninguna gestión en el sistema. Empieza hoy para que el análisis muestre tu trabajo.</div>';
   } else if(st.callsHoy===0){
@@ -2538,6 +2562,7 @@ function vEquipo(){
   var sellers=DB.users.filter(function(u){return u.id!=='admin';});
   var h='<div style="max-width:680px;">'+dupWarn+'<div class="page-hdr"><div><div class="page-ttl">👤 Equipo</div><div style="font-size:13px;color:var(--t2);margin-top:4px;">Gestiona carteras, usuarios y accesos</div></div>';
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn-s" style="font-size:13px;" onclick="addCart()">+ Nueva cartera</button><button class="btn-p" style="font-size:13px;" onclick="openMovUsr()">+ Nuevo usuario</button><button class="btn-danger" style="font-size:13px;" onclick="delUsersNoGest()">🗑 Borrar sin gestiones</button></div></div>';
+  h+='<div class="chart-card"><div class="chart-ttl">🎯 Meta de llamadas diaria</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="font-size:13px;color:var(--t2);">Gestiones/llamadas por día que se usan como meta en Dashboard, Seguimiento y Monitor:</div><div style="font-size:22px;font-weight:800;color:var(--blue);">'+META_LLAMADAS+'</div><button class="btn-s" style="font-size:12px;" onclick="cambiarMetaLlamadas()">✏️ Cambiar</button></div></div>';
   h+='<div class="chart-card"><div class="chart-ttl">🗂️ Carteras activas</div>';
   DB.carteras.forEach(function(c){var cc=(DB.clients[c.id]||[]).length;h+='<div class="cart-item"><div><span style="font-weight:700;font-size:14px;">'+c.name+'</span><span style="font-size:12px;color:var(--t2);margin-left:10px;">'+cc+' clientes cargados · ID: '+c.id+'</span></div><button class="btn-danger" style="font-size:12px;padding:6px 12px;" data-cid="'+c.id+'" data-cname="'+c.name+'" onclick="delCart(this)">🗑 Borrar</button></div>';});
   h+='</div>';
@@ -3030,7 +3055,7 @@ async function loadMonitor(){
 
   function makeMonCard(v,g,activo){
     var gest=g?g.total:0,cli=g?g.cli.size:0;
-    var META_G=8,pctG=Math.min(100,Math.round(gest/META_G*100));
+    var META_G=META_LLAMADAS,pctG=Math.min(100,Math.round(gest/META_G*100));
     // Colores según progreso
     var metaOk=gest>=META_G,metaMed=gest>=4;
     var gestCol=metaOk?'#16a34a':metaMed?'#d97706':'#dc2626';
