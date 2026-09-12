@@ -936,7 +936,7 @@ async function loadData(){
     var r2=await supa.from('promesas').select('*');
     if(r2.error)throw r2.error;
     PROMESAS={};
-    (r2.data||[]).forEach(function(p){PROMESAS[p.cartera_id+'::'+p.cliente_nombre]={estado:p.estado,fecha:p.fecha,monto:p.monto,nota:p.nota,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,mora_anulada:p.mora_anulada||false,mora_solicitud:p.mora_solicitud||null,ts:p.updated_at};});
+    (r2.data||[]).forEach(function(p){PROMESAS[p.cartera_id+'::'+p.cliente_nombre]={estado:p.estado,fecha:p.fecha,monto:p.monto,nota:p.nota,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,mora_anulada:p.mora_anulada||false,mora_valor:(p.mora_valor!=null?p.mora_valor:null),mora_solicitud:p.mora_solicitud||null,ts:p.updated_at};});
     var r3=await supa.from('carteras_sucursales').select('cartera_id,sucursal');
     CARTERA_SUCURSAL={};
     if(!r3.error)(r3.data||[]).forEach(function(cs){CARTERA_SUCURSAL[cs.cartera_id]=cs.sucursal;});
@@ -1044,7 +1044,7 @@ function startSync(){
         var key=p.cartera_id+'::'+p.cliente_nombre;
         var old=PROMESAS[key];
         if((p.updated_at||'')>(old?old.ts||'':'')){
-          PROMESAS[key]={estado:p.estado,fecha:p.fecha,monto:p.monto,nota:p.nota,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,mora_anulada:p.mora_anulada||false,mora_solicitud:p.mora_solicitud||null,ts:p.updated_at};
+          PROMESAS[key]={estado:p.estado,fecha:p.fecha,monto:p.monto,nota:p.nota,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,mora_anulada:p.mora_anulada||false,mora_valor:(p.mora_valor!=null?p.mora_valor:null),mora_solicitud:p.mora_solicitud||null,ts:p.updated_at};
           // Solo marcamos refresco pendiente si el cambio es de la cartera que este usuario tiene abierta —
           // un cambio de otro usuario en OTRA cartera no debe moverle la pantalla a nadie.
           if(p.cartera_id===CURRENT)_PENDING_SOFT_REFRESH=true;
@@ -1079,14 +1079,20 @@ function stopSync(){if(SYNC_T){clearInterval(SYNC_T);SYNC_T=null;}clearInterval(
 // ══════════════════════════════════════════════════════════
 function esAprobadorMora(){return !!(USER&&(USER.codigo==='v_mil'||USER.codigo==='v_jor'||USER.rol==='admin'));}
 async function solicitarCorreccionMora(cartId,nombre){
-  var motivo=(prompt('¿Por qué debería corregirse/anularse la mora de '+nombre+'?\n(Ej: cliente es 0 Prima, ya pagó pero no refleja, etc.)')||'').trim();
+  var c=((CARTERAS[cartId]||{}).clientes||[]).find(function(x){return x.nombre===nombre;});
+  var moraActual=c?(function(){var m=calcMoraCliente(c,cartId);return m&&m.diferencia>0?m.diferencia:0;})():0;
+  var motivo=(prompt('¿Por qué debería corregirse la mora de '+nombre+'?\n(Ej: cliente es 0 Prima, ya pagó pero no refleja, etc.)')||'').trim();
   if(!motivo)return;
+  var valorTxt=prompt('¿Cuál debería ser la mora correcta de este cliente?\n(La mora actual calculada por el sistema es L '+fmt(moraActual)+'. Escribe 0 si no debería tener nada de mora.)','0');
+  if(valorTxt===null)return;
+  var valorProp=parseFloat(valorTxt);
+  if(isNaN(valorProp)||valorProp<0){alert('Ingresa un valor numérico válido (0 o mayor).');return;}
   var key=cartId+'::'+nombre;
   var quien=_nombreEfectivo((USER&&USER.nombre)||'—');
   var ex=PROMESAS[key]||{};
-  PROMESAS[key]=Object.assign({},ex,{mora_solicitud:{pendiente:true,motivo:motivo,solicitado_por:quien,solicitado_at:new Date().toISOString()}});
+  PROMESAS[key]=Object.assign({},ex,{mora_solicitud:{pendiente:true,motivo:motivo,valor_propuesto:valorProp,mora_al_pedir:moraActual,solicitado_por:quien,solicitado_at:new Date().toISOString()}});
   await dbSaveProm(cartId,nombre);
-  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:'⚠️ Solicitud de corrección de mora: '+motivo,monto:null,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
+  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:'⚠️ Solicitud de corrección de mora: '+motivo+' (actual: L '+fmt(moraActual)+' → propuesta: L '+fmt(valorProp)+')',monto:null,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
   setConn(true,'📨 Solicitud enviada — esperando aprobación de Milagro/Jorge');
   setTimeout(function(){setConn(true,'Conectado');},3000);
   if(CURRENT&&CARTERAS[CURRENT])refreshSoft(CURRENT);
@@ -1098,10 +1104,11 @@ async function resolverCorreccionMora(cartId,nombre,aprobar){
   var quien=_nombreEfectivo((USER&&USER.nombre)||'—');
   PROMESAS[key]=Object.assign({},ex,{
     mora_anulada:aprobar?true:(ex.mora_anulada||false),
+    mora_valor:aprobar?(sol.valor_propuesto!=null?sol.valor_propuesto:0):(ex.mora_valor!=null?ex.mora_valor:null),
     mora_solicitud:Object.assign({},sol,{pendiente:false,resuelto_por:quien,resuelto_at:new Date().toISOString(),aprobada:!!aprobar})
   });
   await dbSaveProm(cartId,nombre);
-  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:(aprobar?'✅ Mora anulada/corregida por ':'❌ Solicitud de mora rechazada por ')+quien+(sol.motivo?' — motivo original: '+sol.motivo:''),monto:null,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
+  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:(aprobar?'✅ Mora corregida a L '+fmt(sol.valor_propuesto||0)+' por ':'❌ Solicitud de mora rechazada por ')+quien+(sol.motivo?' — motivo original: '+sol.motivo:''),monto:null,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
   renderBadgeMoraSolicitudes();
   if(CURRENT===cartId&&CARTERAS[CURRENT])refreshSoft(CURRENT);
 }
@@ -1157,9 +1164,13 @@ function abrirModalSolicitudesMora(){
       +'<div style="font-weight:700;font-size:13px">'+ibEsc(it.nombre)+'</div>'
       +'<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:8px">'+ibEsc(emp)+' · pidió: '+ibEsc(it.sol.solicitado_por||'—')+' · '+(it.sol.solicitado_at?new Date(it.sol.solicitado_at).toLocaleString('es-HN'):'')+'</div>'
       +datosCliente
+      +'<div style="display:flex;gap:8px;margin-bottom:10px">'
+        +'<div style="flex:1;background:var(--redbg);border-radius:6px;padding:8px 10px;text-align:center"><div style="font-size:9px;color:var(--text3);text-transform:uppercase">Mora actual (sistema)</div><div style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--red)">L '+fmt(it.sol.mora_al_pedir!=null?it.sol.mora_al_pedir:it.mora)+'</div></div>'
+        +'<div style="flex:1;background:var(--greenbg);border-radius:6px;padding:8px 10px;text-align:center"><div style="font-size:9px;color:var(--text3);text-transform:uppercase">Propone el cobrador</div><div style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--green)">L '+fmt(it.sol.valor_propuesto||0)+'</div></div>'
+      +'</div>'
       +'<div style="font-size:12.5px;margin-bottom:10px"><span style="color:var(--text3);font-size:10px;text-transform:uppercase">Motivo:</span><br>'+ibEsc(it.sol.motivo||'')+'</div>'
       +'<div style="display:flex;gap:8px">'
-      +'<button class="btn btn-g btn-sm" onclick="resolverCorreccionMora(\''+it.cartId+'\',\''+esc(it.nombre)+'\',true).then(abrirModalSolicitudesMora)">✅ Aprobar — dejar en L0</button>'
+      +'<button class="btn btn-g btn-sm" onclick="resolverCorreccionMora(\''+it.cartId+'\',\''+esc(it.nombre)+'\',true).then(abrirModalSolicitudesMora)">✅ Aprobar — dejar en L '+fmt(it.sol.valor_propuesto||0)+'</button>'
       +'<button class="btn btn-red btn-sm" onclick="resolverCorreccionMora(\''+it.cartId+'\',\''+esc(it.nombre)+'\',false).then(abrirModalSolicitudesMora)">❌ Rechazar</button>'
       +'</div></div>';
   }).join('');
@@ -1182,7 +1193,7 @@ async function dbSaveProm(cartId,nombre){
   if(!supa)return;var key=cartId+'::'+nombre;var p=PROMESAS[key];
   try{
     if(!p){await supa.from('promesas').delete().eq('cartera_id',cartId).eq('cliente_nombre',nombre);return;}
-    await supa.from('promesas').upsert({cartera_id:cartId,cliente_nombre:nombre,estado:p.estado||null,fecha:p.fecha||null,monto:p.monto||null,nota:p.nota||null,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,mora_anulada:p.mora_anulada||false,mora_solicitud:p.mora_solicitud||null,updated_at:new Date().toISOString()},{onConflict:'cartera_id,cliente_nombre'});
+    await supa.from('promesas').upsert({cartera_id:cartId,cliente_nombre:nombre,estado:p.estado||null,fecha:p.fecha||null,monto:p.monto||null,nota:p.nota||null,mora_pendiente:p.mora_pendiente||false,adelantado:p.adelantado||false,cero_prima:p.cero_prima||false,mora_anulada:p.mora_anulada||false,mora_valor:(p.mora_valor!=null?p.mora_valor:null),mora_solicitud:p.mora_solicitud||null,updated_at:new Date().toISOString()},{onConflict:'cartera_id,cliente_nombre'});
   }catch(e){console.error('saveProm:',e);}
 }
 async function dbSaveHist(entry){
@@ -2502,7 +2513,7 @@ function calcMoraCliente(c, cartId){
   var pCeroPrima=PROMESAS[cartId+'::'+c.nombre];
   // Mora anulada/corregida — aprobado por Milagro o Jorge tras una solicitud (ver
   // solicitarCorreccionMora/resolverCorreccionMora): el cliente queda "al dia" a proposito.
-  if(pCeroPrima&&pCeroPrima.mora_anulada)return{esperado:c.saldo,diferencia:0,cuotasTrans:null};
+  if(pCeroPrima&&pCeroPrima.mora_anulada){var mv=pCeroPrima.mora_valor!=null?pCeroPrima.mora_valor:0;return{esperado:c.saldo-mv,diferencia:mv,cuotasTrans:null};}
   var ov=MG_OVERRIDES&&MG_OVERRIDES[cartId+'::'+c.nombre]||{};
   var numCuotas = ov.num_cuotas_real || c.num_cuotas || 0;
   var totalCredito = ov.total_credito_real || ((c.pagado||0)+(c.saldo||0));
@@ -3372,7 +3383,7 @@ function buildCierreHoy(cartId,rows){
     var moraBtn=x.solPend
       ?'<span style="color:var(--purple);font-size:10px;font-weight:600">⏳ pendiente aprobación</span>'
       :(p&&p.mora_anulada
-        ?'<span style="color:var(--green);font-size:10px;font-weight:600">✅ mora anulada</span>'
+        ?'<span style="color:var(--green);font-size:10px;font-weight:600">✅ mora corregida a L '+fmt(p.mora_valor||0)+'</span>'
         :'<span class="add-p" onclick="solicitarCorreccionMora(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--purplebg);color:var(--purple)">⚠️ Corregir mora</span>');
     html+='<tr '+rowAlert+'>'
       +'<td class="mono">'+(i+1)+'</td>'
