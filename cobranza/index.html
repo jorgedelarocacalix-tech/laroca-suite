@@ -3151,21 +3151,43 @@ function exportCierreExcel(){
   }
   if(typeof XLSX==='undefined'){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=_do;document.head.appendChild(s);}else{_do();}
 }
+var _CIERRE_HOY_SORT='mora'; // 'mora' (por defecto) | 'fecha' (fecha de acuerdo más cercana primero)
+function setCierreHoySort(mode){
+  _CIERRE_HOY_SORT=mode;
+  var d=window._cierreHoyData;
+  var pane=document.getElementById('tp-CIERRE_HOY');
+  if(d&&pane)pane.innerHTML=buildCierreHoy(d.cartId,d.rows);
+}
 function buildCierreHoy(cartId,rows){
+  window._cierreHoyData={cartId:cartId,rows:rows};
   if(!rows.length)return '<div class="cierre-hoy-big empty">🎉 Todos al día — nadie con mora ni pagos pendientes este mes.</div>';
-  var withMora=rows.map(function(r){var m=calcMoraCliente(r,cartId);return {r:r,mora:m&&m.diferencia>0?m.diferencia:0};});
-  withMora.sort(function(a,b){return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);});
+  var withMora=rows.map(function(r){var m=calcMoraCliente(r,cartId);var p=PROMESAS[cartId+'::'+r.nombre];return {r:r,mora:m&&m.diferencia>0?m.diferencia:0,fecha:p&&p.fecha?p.fecha:null};});
+  if(_CIERRE_HOY_SORT==='fecha'){
+    withMora.sort(function(a,b){
+      if(a.fecha&&b.fecha)return a.fecha.localeCompare(b.fecha);
+      if(a.fecha&&!b.fecha)return -1;
+      if(!a.fecha&&b.fecha)return 1;
+      return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);
+    });
+  } else {
+    withMora.sort(function(a,b){return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);});
+  }
   var totalCuota=rows.reduce(function(s,r){return s+(r.cuota||0);},0);
   var totalMora=withMora.reduce(function(s,x){return s+x.mora;},0);
   var totalAcordado=rows.reduce(function(s,r){var p=PROMESAS[cartId+'::'+r.nombre];return s+(p&&p.monto?p.monto:0);},0);
   window._cierreExcelData={cartId:cartId,rows:withMora.map(function(x){return x.r;})};
   var uid='CH'+Math.random().toString(36).slice(2,6);
+  var sortBtn=function(mode,lbl){var act=_CIERRE_HOY_SORT===mode;return '<button onclick="setCierreHoySort(\''+mode+'\')" style="padding:5px 14px;border-radius:20px;border:1px solid '+(act?'var(--blue)':'var(--border2)')+';background:'+(act?'var(--blue)':'transparent')+';color:'+(act?'#fff':'var(--text2)')+';font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">'+lbl+'</button>';};
   var html='<div class="cierre-hoy-big"><div class="tbl-note">Clientes con mora real (aunque hayan pagado su cuota de este mes) o que aún no han pagado nada este mes. Usalo para llamar a los equipos y confirmar con cuánto se espera cerrar el mes.</div>'
     +'<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Clientes</div><div class="kpi-v">'+rows.length+'</div></div>'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total acordado</div><div class="kpi-v" style="color:var(--purple)">L '+fmt(totalAcordado)+'</div></div>'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total cuota</div><div class="kpi-v" style="color:var(--blue)">L '+fmt(totalCuota)+'</div></div>'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total mora</div><div class="kpi-v" style="color:var(--red)">L '+fmt(totalMora)+'</div></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'
+      +'<span style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-right:2px">ORDENAR:</span>'
+      +sortBtn('mora','🔴 Mayor mora')+sortBtn('fecha','📅 Fecha más cercana')
     +'</div>'
     +'<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="exportCierreExcel()" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid rgba(26,122,60,.4);background:var(--greenbg);color:var(--green);cursor:pointer;font-family:var(--mono);font-weight:600">📗 Excel</button></div>'
     +'<input class="tbl-search" id="S'+uid+'" onkeyup="flt(\''+uid+'\',\'S'+uid+'\')" placeholder="Buscar...">'
