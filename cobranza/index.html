@@ -722,7 +722,7 @@ var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
 // Codigos RRHH exentos del filtro por sucursal: ven todas las carteras aunque su RRHH diga otra cosa.
-var GERENTE_SUCURSAL_EXENTO={'v_jor':1,'ADMIN':1};
+var GERENTE_SUCURSAL_EXENTO={'v_jor':1,'ADMIN':1,'v_mil':1}; // v_mil: Milagro — acceso a todas las sucursales
 // Recibos de arqueos del mes (sucursal::nombre_normalizado -> monto), para "rebajar" del Acordado/Incumplidas
 // a un cliente que ya vino a pagar en caja aunque el PDF de cartera todavia no lo refleje.
 var ARQUEO_MES={};
@@ -1954,8 +1954,9 @@ function renderHome(){
 function getVisibles(){
   if(!USER)return [];
   if(USER.rol==='admin')return Object.keys(CARTERAS);
+  if(GERENTE_SUCURSAL_EXENTO[USER.codigo])return Object.keys(CARTERAS); // exento total, sin importar el rol
   if(USER.rol==='gerente'){
-    if(GERENTE_SUCURSAL_EXENTO[USER.codigo]||!USER.sucursales||!USER.sucursales.length)return Object.keys(CARTERAS);
+    if(!USER.sucursales||!USER.sucursales.length)return Object.keys(CARTERAS);
     return Object.keys(CARTERAS).filter(function(id){return USER.sucursales.indexOf(CARTERA_SUCURSAL[id])!==-1;});
   }
   // Cobrador con sucursales de RRHH: filtra por sucursal (mas preciso que el nombre del equipo).
