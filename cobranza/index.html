@@ -722,7 +722,7 @@ var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
 // Codigos RRHH exentos del filtro por sucursal: ven todas las carteras aunque su RRHH diga otra cosa.
-var GERENTE_SUCURSAL_EXENTO={'v_jor':1,'ADMIN':1,'v_mil':1}; // v_mil: Milagro — acceso a todas las sucursales
+var GERENTE_SUCURSAL_EXENTO={'v_jor':1,'ADMIN':1,'v_mil':1,'v_eri':1}; // v_mil: Milagro, v_eri: Erick — acceso a todas las sucursales
 // Recibos de arqueos del mes (sucursal::nombre_normalizado -> monto), para "rebajar" del Acordado/Incumplidas
 // a un cliente que ya vino a pagar en caja aunque el PDF de cartera todavia no lo refleje.
 var ARQUEO_MES={};
