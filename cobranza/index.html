@@ -1159,7 +1159,20 @@ function parseCartera(lines){
   for(var li=0;li<Math.min(10,lines.length);li++){var l=lines[li];if(l.length>4&&!l.match(/^(fecha|proyecci|facturas|---)/i)){empresa=l.trim();break;}}
   for(var li2=0;li2<Math.min(15,lines.length);li2++){var m=lines[li2].match(/(\d{2}\/\d{2}\/\d{4})/);if(m){fechaEm=m[1];break;}}
   // nameSim: acepta typos (≤2 chars distintos misma longitud) y truncaciones (uno es prefijo del otro)
-  var nameSim=function(a,b){if(a===b)return true;var lo=a.length>=b.length?a:b,sh=a.length<b.length?a:b;if(sh.length<4)return false;if(lo.startsWith(sh))return true;if(a.length===b.length){var d=0;for(var k=0;k<a.length;k++)if(a[k]!==b[k])d++;return d<=2;}return false;};
+  var nameSim=function(a,b){
+    if(a===b)return true;
+    var lo=a.length>=b.length?a:b,sh=a.length<b.length?a:b;
+    if(sh.length<4)return false;
+    if(lo.startsWith(sh))return true;
+    if(a.length===b.length){var d=0;for(var k=0;k<a.length;k++)if(a[k]!==b[k])d++;return d<=2;}
+    // Espacios inconsistentes entre las dos copias del nombre (ej. "ANGIE PAMELA HERNANDEZ
+    // RODRIGUEZ" vs "ANGIEPAMELA HERNANDEZ ROFRIGUEZ" — visto real en La Roca Comercial #1,
+    // hacía que el cliente completo se descartara del PDF): comparar tambien sin espacios,
+    // que puede revelar que solo difieren por 1-2 caracteres (typos) una vez alineadas.
+    var aNS=a.replace(/\s+/g,''),bNS=b.replace(/\s+/g,'');
+    if(aNS.length===bNS.length&&aNS.length>=4){var d2=0;for(var k2=0;k2<aNS.length;k2++)if(aNS[k2]!==bNS[k2])d2++;return d2<=2;}
+    return false;
+  };
   var pushCliente=function(nombre,allD,allN){
     if(allD.length<1||allN.length<1||nombre.length<3)return;
     var fFact=allD[0],uPago=allD[1]||null;var sinP=!uPago;
