@@ -1111,7 +1111,10 @@ function _listaSolicitudesMoraPendientes(){
     var p=PROMESAS[k];
     if(p&&p.mora_solicitud&&p.mora_solicitud.pendiente){
       var idx=k.indexOf('::');
-      out.push({cartId:k.substring(0,idx),nombre:k.substring(idx+2),sol:p.mora_solicitud});
+      var cartId=k.substring(0,idx),nombre=k.substring(idx+2);
+      var c=((CARTERAS[cartId]||{}).clientes||[]).find(function(x){return x.nombre===nombre;});
+      var m=c?calcMoraCliente(c,cartId):null;
+      out.push({cartId:cartId,nombre:nombre,sol:p.mora_solicitud,c:c,mora:m&&m.diferencia>0?m.diferencia:0});
     }
   });
   out.sort(function(a,b){return (a.sol.solicitado_at||'').localeCompare(b.sol.solicitado_at||'');});
@@ -1139,12 +1142,24 @@ function abrirModalSolicitudesMora(){
   div.className='overlay show';
   var rows=lista.map(function(it){
     var emp=(CARTERAS[it.cartId]||{}).empresa||it.cartId;
+    var c=it.c;
+    var datosCliente=c
+      ?'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px">'
+        +'<div style="background:var(--redbg);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:var(--text3);text-transform:uppercase">Mora actual</div><div style="font-family:var(--mono);font-size:14px;font-weight:800;color:var(--red)">L '+fmt(it.mora)+'</div></div>'
+        +'<div style="background:var(--bg3);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:var(--text3);text-transform:uppercase">Saldo</div><div style="font-family:var(--mono);font-size:13px;font-weight:700">L '+fmt(c.saldo||0)+'</div></div>'
+        +'<div style="background:var(--bg3);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:var(--text3);text-transform:uppercase">Cuota</div><div style="font-family:var(--mono);font-size:13px;font-weight:700">L '+fmt(c.cuota||0)+'</div></div>'
+        +'<div style="background:var(--bg3);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:var(--text3);text-transform:uppercase">Día pago</div><div style="font-family:var(--mono);font-size:13px;font-weight:700">'+(c.dia_pago||'—')+'</div></div>'
+        +'<div style="background:var(--bg3);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:var(--text3);text-transform:uppercase">F. factura</div><div style="font-family:var(--mono);font-size:11px;font-weight:700">'+(c.fecha_factura||'—')+'</div></div>'
+        +'<div style="background:var(--bg3);border-radius:6px;padding:6px 8px"><div style="font-size:9px;color:var(--text3);text-transform:uppercase">Últ. pago</div><div style="font-family:var(--mono);font-size:11px;font-weight:700">'+(c.ultimo_pago||'—')+'</div></div>'
+        +'</div>'
+      :'<div style="font-size:11px;color:var(--text3);margin-bottom:10px">⚠️ Cliente ya no está en la cartera actual.</div>';
     return '<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--bg2)">'
       +'<div style="font-weight:700;font-size:13px">'+ibEsc(it.nombre)+'</div>'
-      +'<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px">'+ibEsc(emp)+' · pidió: '+ibEsc(it.sol.solicitado_por||'—')+' · '+(it.sol.solicitado_at?new Date(it.sol.solicitado_at).toLocaleString('es-HN'):'')+'</div>'
-      +'<div style="font-size:12.5px;margin-bottom:10px">'+ibEsc(it.sol.motivo||'')+'</div>'
+      +'<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:8px">'+ibEsc(emp)+' · pidió: '+ibEsc(it.sol.solicitado_por||'—')+' · '+(it.sol.solicitado_at?new Date(it.sol.solicitado_at).toLocaleString('es-HN'):'')+'</div>'
+      +datosCliente
+      +'<div style="font-size:12.5px;margin-bottom:10px"><span style="color:var(--text3);font-size:10px;text-transform:uppercase">Motivo:</span><br>'+ibEsc(it.sol.motivo||'')+'</div>'
       +'<div style="display:flex;gap:8px">'
-      +'<button class="btn btn-g btn-sm" onclick="resolverCorreccionMora(\''+it.cartId+'\',\''+esc(it.nombre)+'\',true).then(abrirModalSolicitudesMora)">✅ Aprobar</button>'
+      +'<button class="btn btn-g btn-sm" onclick="resolverCorreccionMora(\''+it.cartId+'\',\''+esc(it.nombre)+'\',true).then(abrirModalSolicitudesMora)">✅ Aprobar — dejar en L0</button>'
       +'<button class="btn btn-red btn-sm" onclick="resolverCorreccionMora(\''+it.cartId+'\',\''+esc(it.nombre)+'\',false).then(abrirModalSolicitudesMora)">❌ Rechazar</button>'
       +'</div></div>';
   }).join('');
