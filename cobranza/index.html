@@ -1077,7 +1077,16 @@ function stopSync(){if(SYNC_T){clearInterval(SYNC_T);SYNC_T=null;}clearInterval(
 // pueden aprobarla, y ven un aviso en vivo en su pantalla mientras esté
 // pendiente — no requiere que el cobrador tenga ningún código.
 // ══════════════════════════════════════════════════════════
-function esAprobadorMora(){return !!(USER&&(USER.codigo==='v_mil'||USER.codigo==='v_jor'||USER.rol==='admin'));}
+function esAprobadorMora(){
+  if(!USER)return false;
+  if(USER.rol==='admin')return true;
+  // v_mil/v_jor: codigo real de RRHH. '7777': PIN estatico de acceso directo de Jorge
+  // (USUARIOS['7777']), que no pasa por RRHH y por eso no trae ese codigo.
+  if(USER.codigo==='v_mil'||USER.codigo==='v_jor'||USER.codigo==='7777')return true;
+  // Respaldo por nombre, por si entra por otra via que no deje ninguno de los codigos de arriba.
+  var n=(USER.nombre||'').toLowerCase();
+  return n.indexOf('jorge')===0||n.indexOf('milagro')===0;
+}
 async function solicitarCorreccionMora(cartId,nombre){
   var c=((CARTERAS[cartId]||{}).clientes||[]).find(function(x){return x.nombre===nombre;});
   var moraActual=c?(function(){var m=calcMoraCliente(c,cartId);return m&&m.diferencia>0?m.diferencia:0;})():0;
