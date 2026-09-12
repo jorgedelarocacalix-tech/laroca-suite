@@ -3202,6 +3202,7 @@ async function resolverPin(pin){
 function abrirAcuerdoRapido(cartId,nombre,montoDefault){
   var ex=PROMESAS[cartId+'::'+nombre]||{};
   var esEdicion=ex.estado==='promesa'&&(ex.fecha||ex.monto);
+  var tipoIni=['buscando','visitando'].includes(ex.estado)?ex.estado:'promesa';
   var old=document.getElementById('acuerdo-rapido-overlay');if(old)old.remove();
   var div=document.createElement('div');
   div.id='acuerdo-rapido-overlay';
@@ -3211,28 +3212,58 @@ function abrirAcuerdoRapido(cartId,nombre,montoDefault){
     +'<button class="modal-x" onclick="document.getElementById(\'acuerdo-rapido-overlay\').remove()">×</button>'
     +'<div style="font-size:16px;font-weight:700;margin-bottom:4px">📅 '+(esEdicion?'Editar acuerdo de pago':'Acuerdo de pago')+'</div>'
     +'<div class="cart-meta" style="margin-bottom:16px">'+ibEsc(nombre)+'</div>'
-    +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Fecha comprometida</label>'
-    +'<input type="date" class="form-inp" id="ar-fecha" value="'+(ex.fecha||HOY.toISOString().split('T')[0])+'" style="width:100%;margin-bottom:14px;box-sizing:border-box">'
-    +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Monto (L)</label>'
-    +'<input type="number" class="form-inp" id="ar-monto" value="'+(ex.monto||montoDefault||0)+'" style="width:100%;margin-bottom:'+(esEdicion?'14px':'20px')+';box-sizing:border-box">'
+    +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Tipo</label>'
+    +'<select class="form-inp" id="ar-tipo" onchange="_toggleArFields()" style="width:100%;margin-bottom:14px;box-sizing:border-box">'
+      +'<option value="promesa"'+(tipoIni==='promesa'?' selected':'')+'>📅 Promesa de pago</option>'
+      +'<option value="buscando"'+(tipoIni==='buscando'?' selected':'')+'>🔍 Cliente en búsqueda</option>'
+      +'<option value="visitando"'+(tipoIni==='visitando'?' selected':'')+'>🚗 Visitando cliente</option>'
+    +'</select>'
+    +'<div id="ar-row-fecha">'
+      +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px" id="ar-fecha-lbl">Fecha comprometida</label>'
+      +'<input type="date" class="form-inp" id="ar-fecha" value="'+(ex.fecha||HOY.toISOString().split('T')[0])+'" style="width:100%;margin-bottom:14px;box-sizing:border-box">'
+    +'</div>'
+    +'<div id="ar-row-monto">'
+      +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Monto (L)</label>'
+      +'<input type="number" class="form-inp" id="ar-monto" value="'+(ex.monto||montoDefault||0)+'" style="width:100%;margin-bottom:14px;box-sizing:border-box">'
+    +'</div>'
+    +'<div id="ar-row-nota" style="display:none">'
+      +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Nota (opcional)</label>'
+      +'<input type="text" class="form-inp" id="ar-nota" placeholder="Ej: se fue a buscar a la casa, no la encontraron..." style="width:100%;margin-bottom:'+(esEdicion?'14px':'20px')+';box-sizing:border-box">'
+    +'</div>'
     +(esEdicion
       ? '<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Ya existe un acuerdo — ingresa tu PIN para confirmar el cambio</label>'
         +'<input type="password" inputmode="numeric" class="form-inp" id="ar-pin" placeholder="PIN" style="width:100%;margin-bottom:6px;box-sizing:border-box">'
         +'<div id="ar-pin-err" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>'
       : '')
-    +'<button class="btn btn-g" style="width:100%" onclick="guardarAcuerdoRapido(\''+cartId+'\',\''+esc(nombre)+'\')">'+(esEdicion?'Confirmar cambio':'Guardar acuerdo')+'</button>'
+    +'<button class="btn btn-g" style="width:100%" onclick="guardarAcuerdoRapido(\''+cartId+'\',\''+esc(nombre)+'\')">'+(esEdicion?'Confirmar cambio':'Guardar')+'</button>'
     +'</div>';
   document.body.appendChild(div);
+  _toggleArFields();
   setTimeout(function(){var f=document.getElementById(esEdicion?'ar-pin':'ar-monto');if(f)f.focus();},60);
 }
+function _toggleArFields(){
+  var tipo=(document.getElementById('ar-tipo')||{}).value||'promesa';
+  var esProm=tipo==='promesa';
+  var rf=document.getElementById('ar-row-fecha'),rm=document.getElementById('ar-row-monto'),rn=document.getElementById('ar-row-nota'),lbl=document.getElementById('ar-fecha-lbl');
+  if(rf)rf.style.display=esProm?'':'none';
+  if(rm)rm.style.display=esProm?'':'none';
+  if(rn)rn.style.display=esProm?'none':'';
+  if(lbl)lbl.textContent='Fecha comprometida';
+}
 async function guardarAcuerdoRapido(cartId,nombre){
+  var tipo=(document.getElementById('ar-tipo')||{}).value||'promesa';
   var fecha=(document.getElementById('ar-fecha')||{}).value||'';
   var monto=parseFloat((document.getElementById('ar-monto')||{}).value)||0;
+  var nota=((document.getElementById('ar-nota')||{}).value||'').trim();
   var key=cartId+'::'+nombre;
   var ex=PROMESAS[key]||{};
   var esEdicion=ex.estado==='promesa'&&(ex.fecha||ex.monto);
   var gestorNombre=_nombreEfectivo((USER&&USER.nombre)||'—');
-  var notaFinal='📅 Prometió pagar el '+(fecha||'—')+(monto?' por L '+fmt(monto):'');
+  var hoyStr=HOY.toISOString().split('T')[0];
+  var etiquetas={buscando:'🔍 Cliente en búsqueda',visitando:'🚗 Visitando cliente'};
+  var notaFinal=tipo==='promesa'
+    ?'📅 Prometió pagar el '+(fecha||'—')+(monto?' por L '+fmt(monto):'')
+    :etiquetas[tipo]+(nota?' — '+nota:'');
 
   if(esEdicion){
     var pinEl=document.getElementById('ar-pin');
@@ -3242,11 +3273,13 @@ async function guardarAcuerdoRapido(cartId,nombre){
     var quien=await resolverPin(pin);
     if(!quien){ if(errEl)errEl.textContent='PIN incorrecto'; return; }
     gestorNombre=_nombreEfectivo(quien.nombre);
-    notaFinal='✏️ Acuerdo modificado por '+gestorNombre+': antes L '+fmt(ex.monto||0)+' el '+(ex.fecha||'—')+' → ahora'+(monto?' L '+fmt(monto):'')+' el '+(fecha||'—');
+    if(tipo==='promesa')notaFinal='✏️ Acuerdo modificado por '+gestorNombre+': antes L '+fmt(ex.monto||0)+' el '+(ex.fecha||'—')+' → ahora'+(monto?' L '+fmt(monto):'')+' el '+(fecha||'—');
   }
 
-  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'promesa',nota:notaFinal,monto:monto||null,fecha_accion:fecha||null,gestor:gestorNombre,created_at:new Date().toISOString()});
-  PROMESAS[key]=Object.assign({},ex,{estado:'promesa',fecha:fecha,monto:monto,nota:ex.nota||'',ts:new Date().toISOString()});
+  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:tipo==='promesa'?'promesa':'nota',nota:notaFinal,monto:tipo==='promesa'?(monto||null):null,fecha_accion:tipo==='promesa'?(fecha||null):hoyStr,gestor:gestorNombre,created_at:new Date().toISOString()});
+  PROMESAS[key]=tipo==='promesa'
+    ?Object.assign({},ex,{estado:'promesa',fecha:fecha,monto:monto,nota:ex.nota||'',ts:new Date().toISOString()})
+    :Object.assign({},ex,{estado:tipo,fecha:fecha||null,monto:null,nota:nota,ts:new Date().toISOString()});
   await dbSaveProm(cartId,nombre);
   var ov=document.getElementById('acuerdo-rapido-overlay');if(ov)ov.remove();
   if(CURRENT)refreshSoft(CURRENT);
@@ -6714,7 +6747,7 @@ function _withTimeout(promise,ms){
 }
 function setProg(pct,lbl){document.getElementById('prog-wrap').style.display='block';document.getElementById('prog-fill').style.width=pct+'%';document.getElementById('prog-lbl').textContent=lbl;}
 function copyMsg(id,btn){navigator.clipboard.writeText(document.getElementById(id).textContent).then(function(){btn.textContent='✓ copiado';setTimeout(function(){btn.textContent='⧉ copiar';},2000);});}
-function promBadge(p){var m={promesa:'<span class="b bp">📅 '+(p.fecha||'—')+'</span>',pago:'<span class="b bg">✅ Pago</span>','no-contesta':'<span class="b bx">📵 No contesta</span>','no_contesta':'<span class="b bx">📵 No contesta</span>','numero-mal':'<span class="b bx">❌ Num. mal</span>',negociacion:'<span class="b ba">🤝 Negocia</span>',visita:'<span class="b bb">🚗 Visita</span>'};return m[p.estado]||'';}
+function promBadge(p){var m={promesa:'<span class="b bp">📅 '+(p.fecha||'—')+'</span>',pago:'<span class="b bg">✅ Pago</span>','no-contesta':'<span class="b bx">📵 No contesta</span>','no_contesta':'<span class="b bx">📵 No contesta</span>','numero-mal':'<span class="b bx">❌ Num. mal</span>',negociacion:'<span class="b ba">🤝 Negocia</span>',visita:'<span class="b bb">🚗 Visita</span>',buscando:'<span class="b bx">🔍 En búsqueda</span>',visitando:'<span class="b bb">🚗 Visitando</span>'};return m[p.estado]||'';}
 function flt(tid,sid){var q=document.getElementById(sid).value.toLowerCase();document.querySelectorAll('#'+tid+' tbody tr:not(.total-row)').forEach(function(r){r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});}
 document.getElementById('modal-accion').addEventListener('click',function(e){if(e.target===this)closeModal('modal-accion');});
 document.getElementById('modal-alerta').addEventListener('click',function(e){if(e.target===this)closeModal('modal-alerta');});
