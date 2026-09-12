@@ -681,7 +681,8 @@ var RRHH_CARTERAS={
   mueble:['MUEBLE','MOTO','DANLI']
 };
 var RRHH_EQUIPO={
-  'u1784044319284':'roca',   // Erick
+  'u1784044319284':'roca',   // Erick — codigo viejo, ya no coincide con su RRHH actual
+  'v_eri':'roca',            // Erick — codigo real actual
   'v_ale':'roca',            // Alejandra
   'v_jor':'roca'             // Jorge
 };
@@ -706,8 +707,12 @@ function loginRRHH(pin){
     if(!rrhh.accesos_apps||!rrhh.accesos_apps.cobranza) return null;
     if(RRHH_GERENTES[rrhh.codigo]) return {nombre:rrhh.nombre,rol:'gerente',carteras:[]};
     var equipo=RRHH_EQUIPO[rrhh.codigo];
-    if(!equipo) return null;
-    return {nombre:rrhh.nombre,rol:'cobrador',carteras:RRHH_CARTERAS[equipo]};
+    // Codigo con acceso a cobranza pero todavia sin equipo asignado en el mapa fijo (pasa cada
+    // vez que a alguien le cambia el codigo de RRHH, como con Ana o Erick): en vez de rechazarlo
+    // con "PIN incorrecto", dar acceso a todas las carteras — igual que ya hacia ssoDesdeSuite()
+    // para el mismo caso. Antes esto dejaba a gente entrar a la app via SSO pero sin poder
+    // confirmar cambios con su propio PIN (resolverPin -> loginRRHH -> null).
+    return {nombre:rrhh.nombre,rol:'cobrador',carteras:equipo?RRHH_CARTERAS[equipo]:[].concat(RRHH_CARTERAS.roca,RRHH_CARTERAS.mueble)};
   }).catch(function(){return null;});
 }
 
