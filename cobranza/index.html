@@ -1087,21 +1087,47 @@ function esAprobadorMora(){
   var n=(USER.nombre||'').toLowerCase();
   return n.indexOf('jorge')===0||n.indexOf('milagro')===0;
 }
-async function solicitarCorreccionMora(cartId,nombre){
+function solicitarCorreccionMora(cartId,nombre){
   var c=((CARTERAS[cartId]||{}).clientes||[]).find(function(x){return x.nombre===nombre;});
   var moraActual=c?(function(){var m=calcMoraCliente(c,cartId);return m&&m.diferencia>0?m.diferencia:0;})():0;
-  var motivo=(prompt('¿Por qué debería corregirse la mora de '+nombre+'?\n(Ej: cliente es 0 Prima, ya pagó pero no refleja, etc.)')||'').trim();
-  if(!motivo)return;
-  var valorTxt=prompt('¿Cuál debería ser la mora correcta de este cliente?\n(La mora actual calculada por el sistema es L '+fmt(moraActual)+'. Escribe 0 si no debería tener nada de mora.)','0');
-  if(valorTxt===null)return;
+  var old=document.getElementById('sol-mora-overlay');if(old)old.remove();
+  var div=document.createElement('div');
+  div.id='sol-mora-overlay';
+  div.className='overlay show';
+  div.innerHTML=''
+    +'<div class="modal-card" style="max-width:340px;width:100%;padding:24px">'
+    +'<button class="modal-x" onclick="document.getElementById(\'sol-mora-overlay\').remove()">×</button>'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:4px">⚠️ Solicitar corrección de mora</div>'
+    +'<div class="cart-meta" style="margin-bottom:14px">'+ibEsc(nombre)+'</div>'
+    +'<div style="background:var(--redbg);border-radius:6px;padding:8px 10px;margin-bottom:14px;text-align:center">'
+      +'<div style="font-size:9px;color:var(--text3);text-transform:uppercase">Mora actual (sistema)</div>'
+      +'<div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--red)">L '+fmt(moraActual)+'</div>'
+    +'</div>'
+    +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">¿Por qué debería corregirse? *</label>'
+    +'<textarea class="form-inp" id="sm-motivo" rows="2" placeholder="Ej: cliente es 0 Prima, ya pagó pero no refleja..." style="width:100%;margin-bottom:14px;box-sizing:border-box;resize:vertical"></textarea>'
+    +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">¿Cuál debería ser la mora correcta? (L) *</label>'
+    +'<input type="number" class="form-inp" id="sm-valor" value="0" min="0" style="width:100%;margin-bottom:6px;box-sizing:border-box">'
+    +'<div style="font-size:10.5px;color:var(--text3);margin-bottom:16px">Escribe 0 si no debería tener nada de mora.</div>'
+    +'<div id="sm-err" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:6px"></div>'
+    +'<button class="btn btn-g" style="width:100%" onclick="_enviarSolicitudMora(\''+cartId+'\',\''+esc(nombre)+'\','+moraActual+')">📨 Enviar solicitud</button>'
+    +'</div>';
+  document.body.appendChild(div);
+  setTimeout(function(){var f=document.getElementById('sm-motivo');if(f)f.focus();},60);
+}
+async function _enviarSolicitudMora(cartId,nombre,moraActual){
+  var motivo=((document.getElementById('sm-motivo')||{}).value||'').trim();
+  var valorTxt=(document.getElementById('sm-valor')||{}).value;
+  var errEl=document.getElementById('sm-err');
+  if(!motivo){ if(errEl)errEl.textContent='Escribe un motivo.'; return; }
   var valorProp=parseFloat(valorTxt);
-  if(isNaN(valorProp)||valorProp<0){alert('Ingresa un valor numérico válido (0 o mayor).');return;}
+  if(valorTxt===''||isNaN(valorProp)||valorProp<0){ if(errEl)errEl.textContent='Ingresa un valor numérico válido (0 o mayor).'; return; }
   var key=cartId+'::'+nombre;
   var quien=_nombreEfectivo((USER&&USER.nombre)||'—');
   var ex=PROMESAS[key]||{};
   PROMESAS[key]=Object.assign({},ex,{mora_solicitud:{pendiente:true,motivo:motivo,valor_propuesto:valorProp,mora_al_pedir:moraActual,solicitado_por:quien,solicitado_at:new Date().toISOString()}});
   await dbSaveProm(cartId,nombre);
   await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'solicitud_mora',nota:'Solicitud de corrección de mora: '+motivo+' (actual: L '+fmt(moraActual)+' → propuesta: L '+fmt(valorProp)+')',monto:valorProp,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
+  var ov=document.getElementById('sol-mora-overlay');if(ov)ov.remove();
   setConn(true,'📨 Solicitud enviada — esperando aprobación de Milagro/Jorge');
   setTimeout(function(){setConn(true,'Conectado');},3000);
   if(CURRENT&&CARTERAS[CURRENT])refreshSoft(CURRENT);
