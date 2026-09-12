@@ -1092,7 +1092,7 @@ async function solicitarCorreccionMora(cartId,nombre){
   var ex=PROMESAS[key]||{};
   PROMESAS[key]=Object.assign({},ex,{mora_solicitud:{pendiente:true,motivo:motivo,valor_propuesto:valorProp,mora_al_pedir:moraActual,solicitado_por:quien,solicitado_at:new Date().toISOString()}});
   await dbSaveProm(cartId,nombre);
-  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:'⚠️ Solicitud de corrección de mora: '+motivo+' (actual: L '+fmt(moraActual)+' → propuesta: L '+fmt(valorProp)+')',monto:null,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
+  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'solicitud_mora',nota:'Solicitud de corrección de mora: '+motivo+' (actual: L '+fmt(moraActual)+' → propuesta: L '+fmt(valorProp)+')',monto:valorProp,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
   setConn(true,'📨 Solicitud enviada — esperando aprobación de Milagro/Jorge');
   setTimeout(function(){setConn(true,'Conectado');},3000);
   if(CURRENT&&CARTERAS[CURRENT])refreshSoft(CURRENT);
@@ -4303,8 +4303,8 @@ function qcomCerrar(){
   if(wasCart&&_IB.cart===wasCart){var f=document.getElementById('ib-feed');if(f&&f.parentElement)buildInbox(wasCart,f.parentElement);}
 }
 
-var _QC_ICON={promesa:'📅',posponer:'⏭',pago:'✅',abono:'💰',visita_agenda:'🗓',visita_realizada:'🚗',no_contesta:'📵',no_contesta_old:'📵',nota:'',promesa_cumplida:'🤝',promesa_incumplida:'🚨',arreglo_pago:'🤝',cero_prima:'🆕',extension_plazo:'📅'};
-var _QC_COL={promesa:'var(--purple)',posponer:'var(--purple)',pago:'var(--green)',abono:'var(--orange)',visita_agenda:'var(--amber)',visita_realizada:'var(--green)',no_contesta:'var(--red)',no_contesta_old:'var(--red)',nota:'var(--blue)',promesa_cumplida:'var(--green)',promesa_incumplida:'var(--red)',arreglo_pago:'var(--green)',cero_prima:'var(--purple)',extension_plazo:'var(--blue)'};
+var _QC_ICON={promesa:'📅',posponer:'⏭',pago:'✅',abono:'💰',visita_agenda:'🗓',visita_realizada:'🚗',no_contesta:'📵',no_contesta_old:'📵',nota:'',promesa_cumplida:'🤝',promesa_incumplida:'🚨',arreglo_pago:'🤝',cero_prima:'🆕',extension_plazo:'📅',solicitud_mora:'⚠️'};
+var _QC_COL={promesa:'var(--purple)',posponer:'var(--purple)',pago:'var(--green)',abono:'var(--orange)',visita_agenda:'var(--amber)',visita_realizada:'var(--green)',no_contesta:'var(--red)',no_contesta_old:'var(--red)',nota:'var(--blue)',promesa_cumplida:'var(--green)',promesa_incumplida:'var(--red)',arreglo_pago:'var(--green)',cero_prima:'var(--purple)',extension_plazo:'var(--blue)',solicitud_mora:'var(--purple)'};
 
 async function quickComentarioHist(cartId,nombre,forceScroll){
   var el=document.getElementById('qcom-hist');if(!el)return;
@@ -4334,6 +4334,25 @@ async function quickComentarioHist(cartId,nombre,forceScroll){
       if(sistema){
         // Eventos automáticos: línea centrada discreta
         html+='<div style="align-self:center;max-width:85%;text-align:center;font-family:var(--mono);font-size:9.5px;color:var(--text3);padding:2px 10px;line-height:1.4">'+ibEsc(txt)+' · '+ibEsc(dia)+(hora?' '+hora:'')+'</div>';
+        return;
+      }
+      // Solicitud de corrección de mora: tarjeta destacada, visible para todos, pero los
+      // botones de Aprobar/Rechazar solo se muestran a quien puede resolverla (Milagro/Jorge/admin)
+      // y solo mientras siga pendiente (evita botones "fantasma" en solicitudes ya resueltas).
+      if(h.tipo==='solicitud_mora'){
+        var pSol=PROMESAS[cartId+'::'+nombre];
+        var siguePendiente=!!(pSol&&pSol.mora_solicitud&&pSol.mora_solicitud.pendiente);
+        html+='<div style="align-self:center;max-width:92%;width:100%;background:var(--purplebg);border:1px solid rgba(96,48,176,.3);border-radius:10px;padding:9px 12px;margin:4px 0">'
+          +'<div style="font-size:9.5px;font-weight:700;color:var(--purple);margin-bottom:3px">⚠️ SOLICITUD DE MORA · '+ibEsc(h.gestor)+'</div>'
+          +'<div style="font-size:12px;line-height:1.35">'+ibEsc(txt.replace(/^⚠️\s*/,''))+'</div>'
+          +'<div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px">'+hora+'</div>'
+          +(siguePendiente&&esAprobadorMora()
+            ?'<div style="display:flex;gap:6px;margin-top:8px">'
+              +'<button class="btn btn-g btn-sm" onclick="resolverCorreccionMora(\''+cartId+'\',\''+esc(nombre)+'\',true).then(function(){quickComentarioHist(\''+cartId+'\',\''+esc(nombre)+'\',true);})">✅ Aprobar — L '+fmt(pSol.mora_solicitud.valor_propuesto||0)+'</button>'
+              +'<button class="btn btn-red btn-sm" onclick="resolverCorreccionMora(\''+cartId+'\',\''+esc(nombre)+'\',false).then(function(){quickComentarioHist(\''+cartId+'\',\''+esc(nombre)+'\',true);})">❌ Rechazar</button>'
+              +'</div>'
+            :siguePendiente?'<div style="font-size:10px;color:var(--purple);margin-top:6px">⏳ Esperando aprobación de Milagro o Jorge</div>':'')
+          +'</div>';
         return;
       }
       var mine=!!USER&&h.gestor===nombreComentaristaActual();
