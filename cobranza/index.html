@@ -2384,13 +2384,19 @@ function calcMoraCliente(c, cartId){
   if(!totalCredito||!c.cuota||c.cuota<=0||c.cuota>totalCredito) return null;
   var fFact=parseHNDate(c.fecha_factura);
   var cuotasTrans=0;
+  var pCeroPrima=PROMESAS[cartId+'::'+c.nombre];
+  var esCeroPrima=!!(pCeroPrima&&pCeroPrima.cero_prima);
   // La cuota pagada el dia de la factura cuenta como "cuota 1 de N" (prepagada al comprar),
   // asi que desde fecha_factura ya hay 1 cuota vencida; +1 ciclo de dia_pago por cada mes que pasa despues.
+  // EXCEPCION: clientes marcados "0 Prima" no dieron nada al comprar — su cuota 1 vence en el
+  // primer ciclo normal como cualquier cuota, no de inmediato — no se suma ese +1 (ver caso
+  // Maria Suyapa Jimenez Aguilar: la formula normal le marcaba L4,823 de mora que en realidad
+  // era la prima que nunca debio, con 0 Prima le da L0 exacto, cuadrando con lo que ya pago).
   if(fFact&&hoy>=fFact){
     var meses=(hoy.getFullYear()-fFact.getFullYear())*12+(hoy.getMonth()-fFact.getMonth());
     if(c.dia_pago>0&&hoy.getDate()<c.dia_pago) meses-=1;
     meses=Math.max(0,meses);
-    cuotasTrans=Math.max(1,Math.min(meses+1,numCuotas||999));
+    cuotasTrans=esCeroPrima?Math.max(0,Math.min(meses,numCuotas||999)):Math.max(1,Math.min(meses+1,numCuotas||999));
   }
   var esperado=Math.max(0,Math.round(totalCredito-cuotasTrans*c.cuota));
   var diferencia=c.saldo-esperado; // positivo=mora, negativo=adelantado
