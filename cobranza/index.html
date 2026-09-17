@@ -1641,7 +1641,9 @@ async function processPDF(file){
             histPromises.push(dbSaveHist({cartera_id:id,cliente_nombre:c.nombre,tipo:'promesa_cumplida',monto:abonado,nota:notaHist,fecha_accion:HOY.toISOString().split('T')[0],gestor:'Sistema',created_at:new Date().toISOString()}));
           }
           histPromises.push(dbSaveHist({cartera_id:id,cliente_nombre:c.nombre,tipo:tipo,monto:abonado,nota:notaHist,fecha_accion:HOY.toISOString().split('T')[0],gestor:'Sistema',created_at:new Date().toISOString()}));
-          if(prom){PROMESAS[key]=Object.assign({},prom,{estado:tipo,ts:new Date().toISOString()});dbSaveProm(id,c.nombre);}
+          // Limpiar el monto acordado viejo: si el cliente abonó/pagó, ese monto ya no refleja lo pendiente real
+          // (antes se conservaba y "Acordado (Hoy→Cierre)" seguía sumando lo ya pagado más lo pendiente).
+          if(prom){PROMESAS[key]=Object.assign({},prom,{estado:tipo,monto:null,ts:new Date().toISOString()});dbSaveProm(id,c.nombre);}
         } else if(ps!==undefined && c.saldo>=ps.saldo){
           var key2=id+'::'+c.nombre;var prom2=PROMESAS[key2];
           var hoyStr=HOY.toISOString().split('T')[0];
@@ -3431,7 +3433,7 @@ function buildCierreHoy(cartId,rows){
       +'<td class="mono">'+(p&&['buscando','visitando'].includes(p.estado)?'<span style="color:var(--text3);font-weight:400">—</span>':(p&&p.fecha?p.fecha:'<span style="color:var(--text3)">—</span>'))+'</td>'
       +'<td class="mono" style="color:var(--green);font-weight:600">'+(p&&p.estado==='buscando'?'<span style="color:var(--text3);font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</span>':p&&p.estado==='visitando'?'<span style="color:var(--blue);font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</span>':(p&&p.monto?'L '+fmt(p.monto):'<span style="color:var(--text3);font-weight:400">—</span>'))+'</td>'
       +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
-        +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+r.cuota+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
+        +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+x.mora+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
         +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,r.nombre)+'</span>'
         +moraBtn
       +'</td>'
