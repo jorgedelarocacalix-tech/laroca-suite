@@ -1146,6 +1146,9 @@ async function resolverCorreccionMora(cartId,nombre,aprobar){
   await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:(aprobar?'✅ Mora corregida a L '+fmt(sol.valor_propuesto||0)+' por ':'❌ Solicitud de mora rechazada por ')+quien+(sol.motivo?' — motivo original: '+sol.motivo:''),monto:null,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
   renderBadgeMoraSolicitudes();
   if(CURRENT===cartId&&CARTERAS[CURRENT])refreshSoft(CURRENT);
+  // El panel de Inicio del Gerente (totales "Acordado" por cartera) es una foto que no se
+  // recalcula sola — refrescarla aqui para que la aprobacion/rechazo se refleje sin recargar.
+  if(USER&&(USER.rol==='gerente'||USER.rol==='admin'))_renderGerentePanel();
 }
 function _listaSolicitudesMoraPendientes(){
   var out=[];
@@ -6507,12 +6510,13 @@ async function saveAccion(){
         nota:'✅ Promesa CUMPLIDA manualmente — había prometido pagar el '+(ex.fecha||'—')+(monto?' · pagó L '+fmt(monto):'')+(nota?' — '+nota:''),
         fecha_accion:fecha||hoyStr,gestor:_nombreEfectivo((USER&&USER.nombre)||'—'),created_at:new Date().toISOString()});
     }
-    PROMESAS[key]=Object.assign({},ex,{estado:'pago',fecha:fecha,nota:nota,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);
+    // monto:null — ya se pagó, el monto acordado pendiente ya no aplica (queda en historial_clientes)
+    PROMESAS[key]=Object.assign({},ex,{estado:'pago',fecha:fecha,monto:null,nota:nota,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);
   }
   else if(tipo==='no_contesta'){PROMESAS[key]=Object.assign({},ex,{estado:'no-contesta',nota:nota,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);}
   else if(tipo==='visita'||tipo==='visita_agenda'){PROMESAS[key]=Object.assign({},ex,{estado:'visita_agenda',fecha:fecha,nota:nota,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);}
   else if(tipo==='visita_realizada'){PROMESAS[key]=Object.assign({},ex,{estado:'visita_realizada',fecha:fecha,nota:nota,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);}
-  else if(tipo==='abono'){PROMESAS[key]=Object.assign({},ex,{estado:'abono',fecha:fecha,monto:monto,nota:nota,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);}
+  else if(tipo==='abono'){PROMESAS[key]=Object.assign({},ex,{estado:'abono',fecha:fecha,monto:null,nota:nota,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);}
   closeModal('modal-accion');
   if(CURRENT) refreshSoft(CURRENT);
   setConn(true,'Guardado ✓');setTimeout(function(){setConn(true,'Conectado');},2000);
@@ -6660,7 +6664,7 @@ async function mgMarcarCumplida(cartId, nombre, cuota, saldo){
     fecha_accion:hoyStr, gestor:_nombreEfectivo((USER&&USER.nombre)||'—'), created_at:new Date().toISOString()
   });
   // Actualizar estado de promesa a 'pago' (queda fuera de lista de promesas activas)
-  PROMESAS[key]=Object.assign({},prom,{estado:'pago',ts:new Date().toISOString()});
+  PROMESAS[key]=Object.assign({},prom,{estado:'pago',monto:null,ts:new Date().toISOString()});
   await dbSaveProm(cartId,nombre);
   // Limpiar caché de scores para refrescar
   delete window['hist_score_'+key];
@@ -8766,7 +8770,7 @@ async function executeChatAction(actionId){
     await dbSaveHist({cartera_id:CURRENT,cliente_nombre:cliente.nombre,tipo:'promesa',monto:monto,nota:'Promesa registrada vía chat IA — pagará el '+(action.fecha||'—'),fecha_accion:hoyStr,gestor:gestor,created_at:new Date().toISOString()});
     _appendChatMsg('bot','✅ Promesa registrada: '+cliente.nombre+' pagará el '+(action.fecha||'—')+montoFmt+'.');
   }else if(action.tipo==='pago'){
-    PROMESAS[key]=Object.assign({},PROMESAS[key]||{},{estado:'pago',fecha:hoyStr,ts:new Date().toISOString()});
+    PROMESAS[key]=Object.assign({},PROMESAS[key]||{},{estado:'pago',fecha:hoyStr,monto:null,ts:new Date().toISOString()});
     await dbSaveProm(CURRENT,cliente.nombre);
     await dbSaveHist({cartera_id:CURRENT,cliente_nombre:cliente.nombre,tipo:'pago',monto:monto||null,nota:'Pago registrado vía chat IA',fecha_accion:hoyStr,gestor:gestor,created_at:new Date().toISOString()});
     _appendChatMsg('bot','✅ '+cliente.nombre+' marcado como pagado.');
