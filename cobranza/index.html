@@ -737,8 +737,9 @@ function pagoArqueoMes(cartId,nombre){
 var supa=null, DB_OK=false, PDFJS_OK=false;
 var PIN_VAL='', CAL_Y=HOY.getFullYear(), CAL_M=HOY.getMonth();
 var MODAL_AC=null, ECG_DATA={}, SHOWN_ALERTS={}, SYNC_T=null, VERCHECK_T=null;
-var EQUIPO_NOMBRES=[];   // roster para "etiquetar a alguien" — nombres vistos en el chat (loadAutores)
+var EQUIPO_POR_CARTERA={}; // cartId -> [nombres] vistos comentando esa cartera (loadAutores) — para el picker de "etiquetar"
 var MENC_SEL=[];         // nombres etiquetados en el comentario que se está redactando ahora mismo
+var MENC_PICKER_CART=null; // cartId de la cartera abierta cuando se usa el picker de etiquetar
 var LAST_ALERT_CHECK=new Date(Date.now()-24*60*60*1000).toISOString();
 var REP_SORT={col:'dia_pago',dir:1};
 var _AUTOR={};   // 'cartId::cliente' -> gestor del último comentario humano
@@ -1000,16 +1001,22 @@ async function loadAutores(){
       .neq('gestor','Sistema').order('created_at',{ascending:false}).limit(800);
     if(r.error)throw r.error;
     _AUTOR={};
-    var nombresSet={};
+    var nombresPorCartera={};
     (r.data||[]).forEach(function(h){
       if(!h.gestor)return;
       var k=h.cartera_id+'::'+h.cliente_nombre;
       if(!_AUTOR[k])_AUTOR[k]=h.gestor;
-      nombresSet[h.gestor]=1;
+      if(!nombresPorCartera[h.cartera_id])nombresPorCartera[h.cartera_id]={};
+      nombresPorCartera[h.cartera_id][h.gestor]=1;
     });
     // Roster para el picker de "etiquetar a alguien" — nombres reales vistos comentando
-    // en el chat (no hay un roster fijo de "todo el equipo" en esta app, ver login RRHH).
-    EQUIPO_NOMBRES=Object.keys(nombresSet).sort(function(a,b){return a.localeCompare(b,'es');});
+    // en ESA cartera especifica (no hay un roster fijo de "todo el equipo" ni de accesos
+    // por cartera en esta app, ver login RRHH). Solo se ofrece etiquetar a quien ya
+    // trabajó esa cartera, para no mostrar gente de otras sucursales sin acceso.
+    EQUIPO_POR_CARTERA={};
+    Object.keys(nombresPorCartera).forEach(function(cartId){
+      EQUIPO_POR_CARTERA[cartId]=Object.keys(nombresPorCartera[cartId]).sort(function(a,b){return a.localeCompare(b,'es');});
+    });
   }catch(e){console.error('loadAutores:',e);}
 }
 async function syncNow(){
@@ -4378,7 +4385,7 @@ function quickComentario(cartId,nombre){
     +'<div id="qcom-hist" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:5px"><div class="cart-meta" style="text-align:center">Cargando historial...</div></div>'
     +'<div id="qcom-menc-row" style="padding:0 12px;display:flex;flex-wrap:wrap;gap:5px;flex-shrink:0"></div>'
     +'<div style="border-top:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;align-items:flex-end;flex-shrink:0">'
-    +'<button type="button" title="Etiquetar a alguien del equipo" style="width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:15px;flex-shrink:0;cursor:pointer" onclick="abrirPickerMenciones()">🏷️</button>'
+    +'<button type="button" title="Etiquetar a alguien del equipo" style="width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:15px;flex-shrink:0;cursor:pointer" onclick="abrirPickerMenciones(\''+cartId+'\')">🏷️</button>'
     +'<textarea class="form-inp" id="qcom-texto" rows="1" placeholder="Escribe un comentario para el equipo..." style="flex:1;resize:none;font-size:12.5px;line-height:1.3;padding:9px 13px;border-radius:18px"></textarea>'
     +'<button class="btn btn-g" title="Enviar" style="width:38px;height:38px;padding:0;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px" onclick="quickComentarioGuardar(\''+cartId+'\',\''+esc(nombre)+'\')">➤</button>'
     +'</div>'
@@ -4421,7 +4428,7 @@ function mencToggle(n){
 function mencFiltrar(){
   var q=((document.getElementById('menc-buscar')||{}).value||'').trim().toLowerCase();
   var yo=nombreComentaristaActual();
-  var opciones=EQUIPO_NOMBRES.filter(function(n){return n!==yo;});
+  var opciones=(EQUIPO_POR_CARTERA[MENC_PICKER_CART]||[]).filter(function(n){return n!==yo;});
   var lista=document.getElementById('menc-lista');if(!lista)return;
   var filtradas=q?opciones.filter(function(n){return n.toLowerCase().indexOf(q)>-1;}):opciones;
   var html=filtradas.map(function(n){return mencOpcionHtml(n);}).join('');
@@ -4437,16 +4444,18 @@ function mencAgregarLibre(){
   if(f)f.value='';
   mencFiltrar();
 }
-function abrirPickerMenciones(){
+function abrirPickerMenciones(cartId){
   var old=document.getElementById('menc-picker-overlay');if(old){old.remove();mencRenderChips();return;}
+  MENC_PICKER_CART=cartId;
   var yo=nombreComentaristaActual();
-  var opciones=EQUIPO_NOMBRES.filter(function(n){return n!==yo;});
+  var opciones=(EQUIPO_POR_CARTERA[cartId]||[]).filter(function(n){return n!==yo;});
   var div=document.createElement('div');
   div.id='menc-picker-overlay';
   div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000;display:flex;align-items:flex-end;justify-content:center';
   div.onclick=function(e){if(e.target===div){div.remove();mencRenderChips();}};
   div.innerHTML='<div style="background:var(--bg);width:100%;max-width:420px;max-height:70vh;border-radius:16px 16px 0 0;padding:16px;display:flex;flex-direction:column;overflow:hidden">'
     +'<div style="font-size:14px;font-weight:700;margin-bottom:10px">🏷️ Etiquetar a alguien del equipo</div>'
+    +'<div class="cart-meta" style="margin-bottom:10px">Solo gente que ya trabajó esta cartera. Si no aparece, escribe su nombre abajo.</div>'
     +'<input class="form-inp" id="menc-buscar" placeholder="Buscar o escribir un nombre nuevo..." style="margin-bottom:10px;box-sizing:border-box" oninput="mencFiltrar()">'
     +'<div id="menc-lista" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:2px">'
       +(opciones.length?opciones.map(function(n){return mencOpcionHtml(n);}).join(''):'<div class="cart-meta" style="text-align:center;padding:10px">Nadie más ha comentado aún — escribe un nombre arriba.</div>')
