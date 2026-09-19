@@ -440,13 +440,18 @@ async function cargarTodo(){
 
 // ── Fetch arqueos — solo Junio 2026, última versión por día ──
 async function fetchArqueos(){
-  const { data, error } = await sb
+  let q = sb
     .from('arqueos')
     .select('id,sucursal,fecha,cobrado,gastos,depositado,diferencia,estado,analisis_json,alertas,version')
     .gte('fecha','2026-06-01')
     .lte('fecha','2026-06-30')
     .order('fecha',{ascending:false})
     .order('version',{ascending:false});
+  // Cajeras/gerentes de sucursal solo ven sus sucursales asignadas — el auditor
+  // (SESION.sucursales = SUCS_TODAS) ve todas. Sin este filtro, los gastos y el
+  // analisis_json de cualquier sucursal viajaban al navegador de todo usuario.
+  if(SESION && Array.isArray(SESION.sucursales) && !SESION.auditor) q = q.in('sucursal', SESION.sucursales);
+  const { data, error } = await q;
   if(error) throw error;
 
   // Dedup: quedarse solo con la versión más reciente por sucursal+fecha
@@ -461,13 +466,15 @@ async function fetchArqueos(){
 // ── Fetch arqueos Julio 2026 — seguimiento diario ────────────
 async function fetchArqueosJulio(){
   const hoy = new Date().toISOString().slice(0,10);
-  const { data, error } = await sb
+  let q = sb
     .from('arqueos')
     .select('id,sucursal,fecha,cobrado,gastos,depositado,analisis_json,version')
     .gte('fecha','2026-07-01')
     .lte('fecha', hoy)
     .order('fecha',{ascending:false})
     .order('version',{ascending:false});
+  if(SESION && Array.isArray(SESION.sucursales) && !SESION.auditor) q = q.in('sucursal', SESION.sucursales);
+  const { data, error } = await q;
   if(error) throw error;
   const seen = new Map();
   for(const a of (data||[])){
