@@ -2625,6 +2625,16 @@ function limpiarCacheCartera(cartId){
   });
 }
 
+// Prima deducida: si el crédito total supera cuota x N cuotas, la diferencia es un pago inicial (prima) aparte
+// de la cuota (ej: 62,049 - 2,378x24 = 4,977 -> prima 5,000). Si total = cuota x N, el pago del dia de la
+// factura era la cuota 1 (sin prima aparte). Redondeada a 100 porque la cuota del ERP viene redondeada.
+function primaDeducida(total,numCuotas,cuota){
+  if(!total||!numCuotas||!cuota)return 0;
+  var x=total-numCuotas*cuota;
+  if(x<Math.max(300,cuota*0.5))return 0;
+  return Math.round(x/100)*100;
+}
+
 // ── Cálculo inline de mora esperada (misma fórmula que Mora Global) ──
 function calcMoraCliente(c, cartId){
   var hoy=HOY;
@@ -2635,7 +2645,8 @@ function calcMoraCliente(c, cartId){
   var ov=MG_OVERRIDES&&MG_OVERRIDES[cartId+'::'+c.nombre]||{};
   var numCuotas = ov.num_cuotas_real || c.num_cuotas || 0;
   var totalCredito = ov.total_credito_real || ((c.pagado||0)+(c.saldo||0));
-  var primaReal = ov.prima_real||0; // primer pago = prima aparte (no cuota 1): se descuenta del crédito
+  // primer pago = prima aparte (no cuota 1): se descuenta del crédito. Manual (override) o deducida; '0 Prima' la anula.
+  var primaReal = ov.prima_real||((pCeroPrima&&pCeroPrima.cero_prima)?0:primaDeducida(totalCredito,numCuotas,c.cuota));
   totalCredito -= primaReal;
   if(!totalCredito||!c.cuota||c.cuota<=0||c.cuota>totalCredito) return null;
   var fFact=parseHNDate(c.fecha_factura);
@@ -5789,7 +5800,8 @@ function buildMoraGlobal(cartId, cl){
     var ov  = MG_OVERRIDES[key] || {};
     var numCuotasUsar   = ov.num_cuotas_real  || c.num_cuotas || 0;
     var totalCreditoUsar = ov.total_credito_real || ((c.pagado||0) + (c.saldo||0));
-    var primaRealMG = ov.prima_real || 0;
+    var _pcp = PROMESAS[cartId+'::'+c.nombre];
+    var primaRealMG = ov.prima_real || ((_pcp&&_pcp.cero_prima)?0:primaDeducida(totalCreditoUsar,numCuotasUsar,c.cuota));
     totalCreditoUsar -= primaRealMG;
     var esOverride = !!ov.num_cuotas_real;
 
