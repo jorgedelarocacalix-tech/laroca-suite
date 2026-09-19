@@ -349,6 +349,14 @@ button{cursor:pointer}
     <div class="mfoot"><button class="btn-s" onclick="closeMov('mov-usr')">Cancelar</button><button class="btn-p" onclick="saveUsr()">Crear</button></div>
   </div>
 </div>
+<!-- MODAL METAS MENSUALES -->
+<div class="mov" id="mov-metas">
+  <div class="modal">
+    <div class="mh"><span class="mh-name">&#127919; Metas mensuales</span><div class="mclose" onclick="closeMov('mov-metas')">&#x2715;</div></div>
+    <div class="mbody" id="mov-metas-body"></div>
+    <div class="mfoot"><button class="btn-s" onclick="closeMov('mov-metas')">Cancelar</button><button class="btn-p" onclick="guardarMetasMensuales()">Guardar</button></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -590,6 +598,53 @@ var METAS={
   'v_bra':      {'sumuebledanli':{unidades:10,monto:150000},'sumotodanli':{unidades:2}},
   'v_all':      {'sumuebledanli':{unidades:15,monto:250000},'sumotodanli':{unidades:3}}
 };
+// Metas mensuales editables por el admin: se guardan en crm_config (id 'metas_mensuales') y reemplazan los valores por defecto de METAS.
+function cargarMetasMensuales(){
+  return sbF('crm_config','GET',null,'?id=eq.metas_mensuales&select=value').then(function(rows){
+    if(rows&&rows.length&&rows[0].value&&typeof rows[0].value==='object'&&Object.keys(rows[0].value).length)METAS=rows[0].value;
+  }).catch(function(){});
+}
+function abrirMetasMensuales(){
+  var sellers=DB.users.filter(function(u){return u.role==='vendedor'||METAS[u.id];});
+  var seen={};sellers=sellers.filter(function(u){if(seen[u.id])return false;seen[u.id]=1;return true;});
+  var h='<div style="font-size:12px;color:var(--t2);margin-bottom:10px;">Meta mensual por asociado y cartera. Unidades = ventas; Monto (L) es opcional. Deja unidades vacío para quitar la meta.</div>';
+  sellers.forEach(function(u){
+    var uc=Array.isArray(u.cartera)?u.cartera:(u.cartera?[u.cartera]:[]);
+    var cids=Object.keys(METAS[u.id]||{});
+    uc.forEach(function(c){if(cids.indexOf(c)<0)cids.push(c);});
+    if(!cids.length)return;
+    h+='<div style="border:1px solid var(--bdr);border-radius:10px;padding:10px;margin-bottom:8px;"><div style="font-weight:700;font-size:13px;margin-bottom:6px;">'+u.name+'</div>';
+    cids.forEach(function(cid){
+      var ct=DB.carteras.find(function(x){return x.id===cid;});
+      var m=(METAS[u.id]||{})[cid]||{};
+      h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;"><span style="flex:1 1 120px;font-size:12px;color:var(--t2);">'+(ct?ct.name:cid)+'</span>'+
+        '<input class="finp meta-inp" data-u="'+u.id+'" data-c="'+cid+'" data-k="unidades" type="number" min="0" placeholder="Unid." value="'+(m.unidades||'')+'" style="width:80px;">'+
+        '<input class="finp meta-inp" data-u="'+u.id+'" data-c="'+cid+'" data-k="monto" type="number" min="0" placeholder="Monto L" value="'+(m.monto||'')+'" style="width:110px;"></div>';
+    });
+    h+='</div>';
+  });
+  document.getElementById('mov-metas-body').innerHTML=h;
+  openMov('mov-metas');
+}
+function guardarMetasMensuales(){
+  var nm={};
+  document.querySelectorAll('#mov-metas-body .meta-inp').forEach(function(i){
+    var v=parseFloat(i.value);if(!v||v<0)return;
+    var u=i.dataset.u,c=i.dataset.c,k=i.dataset.k;
+    if(k==='monto'&&!(nm[u]&&nm[u][c]))return;
+    (nm[u]=nm[u]||{})[c]=nm[u][c]||{};
+    nm[u][c][k]=v;
+  });
+  // Segunda pasada: monto sólo cuenta si hay unidades en esa cartera
+  document.querySelectorAll('#mov-metas-body .meta-inp[data-k="monto"]').forEach(function(i){
+    var v=parseFloat(i.value),u=i.dataset.u,c=i.dataset.c;
+    if(v>0&&nm[u]&&nm[u][c])nm[u][c].monto=v;
+  });
+  sbUp('crm_config',{id:'metas_mensuales',value:nm}).then(function(ok){
+    if(!ok){toast('No se pudo guardar las metas','err');return;}
+    METAS=nm;closeMov('mov-metas');toast('Metas mensuales actualizadas','ok');goTo('equipo');
+  });
+}
 function getPoolByCartera(cartId){for(var i=0;i<VENDOR_POOLS.length;i++){if(VENDOR_POOLS[i].carteras.indexOf(cartId)>=0)return VENDOR_POOLS[i];}return null;}
 function getPoolById(pid){return VENDOR_POOLS.find(function(p){return p.id===pid;})||null;}
 function getRRState(){try{return JSON.parse(localStorage.getItem('rr_st')||'{}');}catch(e){return{};}}
@@ -743,6 +798,7 @@ function launchApp(){
   document.getElementById('pcontent').innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px;"><div style="width:48px;height:48px;border:4px solid #e2e8f0;border-top-color:#5b8dee;border-radius:50%;animation:spin 1s linear infinite;"></div><div style="font-size:15px;color:#718096;font-weight:500;">Cargando datos...</div></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
   connectRealtime();
   cargarMetaLlamadas();
+  cargarMetasMensuales();
   loadFromSB().then(function(){
     // Para vendedores: asegurar que sus propias gestiones estén en DB.calls
     if(CU.role==='vendedor'){
@@ -2563,6 +2619,7 @@ function vEquipo(){
   var h='<div style="max-width:680px;">'+dupWarn+'<div class="page-hdr"><div><div class="page-ttl">👤 Equipo</div><div style="font-size:13px;color:var(--t2);margin-top:4px;">Gestiona carteras, usuarios y accesos</div></div>';
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn-s" style="font-size:13px;" onclick="addCart()">+ Nueva cartera</button><button class="btn-p" style="font-size:13px;" onclick="openMovUsr()">+ Nuevo usuario</button><button class="btn-danger" style="font-size:13px;" onclick="delUsersNoGest()">🗑 Borrar sin gestiones</button></div></div>';
   h+='<div class="chart-card"><div class="chart-ttl">🎯 Meta de llamadas diaria</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="font-size:13px;color:var(--t2);">Gestiones/llamadas por día que se usan como meta en Dashboard, Seguimiento y Monitor:</div><div style="font-size:22px;font-weight:800;color:var(--blue);">'+META_LLAMADAS+'</div><button class="btn-s" style="font-size:12px;" onclick="cambiarMetaLlamadas()">✏️ Cambiar</button></div></div>';
+  h+='<div class="chart-card"><div class="chart-ttl">🎯 Metas mensuales por asociado</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="font-size:13px;color:var(--t2);flex:1 1 200px;">Unidades y monto de venta mensual de cada vendedor por cartera (lo que ven en "Mi Meta").</div><button class="btn-s" style="font-size:12px;" onclick="abrirMetasMensuales()">✏️ Editar metas</button></div></div>';
   h+='<div class="chart-card"><div class="chart-ttl">🗂️ Carteras activas</div>';
   DB.carteras.forEach(function(c){var cc=(DB.clients[c.id]||[]).length;h+='<div class="cart-item"><div><span style="font-weight:700;font-size:14px;">'+c.name+'</span><span style="font-size:12px;color:var(--t2);margin-left:10px;">'+cc+' clientes cargados · ID: '+c.id+'</span></div><button class="btn-danger" style="font-size:12px;padding:6px 12px;" data-cid="'+c.id+'" data-cname="'+c.name+'" onclick="delCart(this)">🗑 Borrar</button></div>';});
   h+='</div>';
