@@ -2635,10 +2635,12 @@ function calcMoraCliente(c, cartId){
   var ov=MG_OVERRIDES&&MG_OVERRIDES[cartId+'::'+c.nombre]||{};
   var numCuotas = ov.num_cuotas_real || c.num_cuotas || 0;
   var totalCredito = ov.total_credito_real || ((c.pagado||0)+(c.saldo||0));
+  var primaReal = ov.prima_real||0; // primer pago = prima aparte (no cuota 1): se descuenta del crédito
+  totalCredito -= primaReal;
   if(!totalCredito||!c.cuota||c.cuota<=0||c.cuota>totalCredito) return null;
   var fFact=parseHNDate(c.fecha_factura);
   var cuotasTrans=0;
-  var esCeroPrima=!!(pCeroPrima&&pCeroPrima.cero_prima);
+  var esCeroPrima=!!(pCeroPrima&&pCeroPrima.cero_prima)||primaReal>0;
   // La cuota pagada el dia de la factura cuenta como "cuota 1 de N" (prepagada al comprar),
   // asi que desde fecha_factura ya hay 1 cuota vencida; +1 ciclo de dia_pago por cada mes que pasa despues.
   // EXCEPCION: clientes marcados "0 Prima" no dieron nada al comprar — su cuota 1 vence en el
@@ -5630,22 +5632,24 @@ async function mgLoadOverrides(cartId){
       MG_OVERRIDES[cartId+'::'+o.cliente_nombre] = {
         num_cuotas_real: o.num_cuotas_real,
         total_credito_real: o.total_credito_real,
+        prima_real: o.prima_real || 0,
         nota: o.nota || ''
       };
     });
   }catch(e){ console.warn('mgLoadOverrides:', e.message); }
 }
 
-async function mgSaveOverride(cartId, nombre, numCuotasReal, totalCreditoReal, nota){
+async function mgSaveOverride(cartId, nombre, numCuotasReal, totalCreditoReal, nota, primaReal){
   if(!supa){ alert('Sin conexión a base de datos'); return; }
   var key = cartId+'::'+nombre;
-  MG_OVERRIDES[key] = { num_cuotas_real: numCuotasReal, total_credito_real: totalCreditoReal, nota: nota };
+  MG_OVERRIDES[key] = { num_cuotas_real: numCuotasReal, total_credito_real: totalCreditoReal, prima_real: primaReal||0, nota: nota };
   try{
     await supa.from('mora_overrides').upsert({
       cartera_id: cartId,
       cliente_nombre: nombre,
       num_cuotas_real: numCuotasReal,
       total_credito_real: totalCreditoReal,
+      prima_real: primaReal||0,
       nota: nota,
       updated_at: new Date().toISOString()
     },{ onConflict: 'cartera_id,cliente_nombre' });
@@ -5705,11 +5709,16 @@ function mgOpenEditModal(cartId, nombre, cuotaPDF, totalPDF, numCuotasPDF){
         '<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:3px">Del PDF: ' + numCuotasPDF + ' cuotas · Cuota mensual: L ' + fmt(cuotaPDF) + '</div>' +
       '</div>' +
       '<div class="form-row">' +
+        '<label class="form-lbl">Prima real pagada al comprar (L)</label>' +
+        '<input type="number" class="form-inp" id="mg-inp-prima" value="' + (ov.prima_real||'') + '" placeholder="Ej: 5000 (vacío = sin prima aparte)" min="0">' +
+        '<div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:3px">Si el primer pago fue una prima distinta a la cuota, ponla aquí: no cuenta como cuota 1 y se descuenta del crédito.</div>' +
+      '</div>' +
+      '<div class="form-row">' +
         '<label class="form-lbl">Nota (opcional)</label>' +
         '<input type="text" class="form-inp" id="mg-inp-nota" value="' + curNota + '" placeholder="Ej: Refinanciamiento motors enero 2026">' +
       '</div>' +
       '<div class="form-actions">' +
-        (ov.num_cuotas_real ? '<button class="btn btn-red btn-sm" onclick="mgDeleteOverride(\''+cartId+'\',\''+esc(nombre)+'\');document.getElementById(\'mg-edit-overlay\').remove()">🗑 Quitar corrección</button>' : '') +
+        ((ov.num_cuotas_real||ov.prima_real) ? '<button class="btn btn-red btn-sm" onclick="mgDeleteOverride(\''+cartId+'\',\''+esc(nombre)+'\');document.getElementById(\'mg-edit-overlay\').remove()">🗑 Quitar corrección</button>' : '') +
         '<button class="btn btn-ghost" onclick="document.getElementById(\'mg-edit-overlay\').remove()">Cancelar</button>' +
         '<button class="btn btn-g" onclick="mgConfirmEdit(\''+cartId+'\',\''+esc(nombre)+'\')">💾 Guardar</button>' +
       '</div>' +
@@ -5721,9 +5730,10 @@ function mgConfirmEdit(cartId, nombre){
   var total  = parseFloat(document.getElementById('mg-inp-total').value) || 0;
   var cuotas = parseInt(document.getElementById('mg-inp-cuotas').value) || 0;
   var nota   = document.getElementById('mg-inp-nota').value || '';
+  var prima  = parseFloat(document.getElementById('mg-inp-prima').value) || 0;
   if(total <= 0 || cuotas <= 0){ alert('Ingresa valores válidos'); return; }
   document.getElementById('mg-edit-overlay').remove();
-  mgSaveOverride(cartId, nombre, cuotas, total, nota);
+  mgSaveOverride(cartId, nombre, cuotas, total, nota, prima);
 }
 
 // ── buildMoraGlobal principal ──
@@ -5779,6 +5789,8 @@ function buildMoraGlobal(cartId, cl){
     var ov  = MG_OVERRIDES[key] || {};
     var numCuotasUsar   = ov.num_cuotas_real  || c.num_cuotas || 0;
     var totalCreditoUsar = ov.total_credito_real || ((c.pagado||0) + (c.saldo||0));
+    var primaRealMG = ov.prima_real || 0;
+    totalCreditoUsar -= primaRealMG;
     var esOverride = !!ov.num_cuotas_real;
 
     if(totalCreditoUsar <= 0 || !c.cuota || c.cuota <= 0) return;
@@ -5788,6 +5800,7 @@ function buildMoraGlobal(cartId, cl){
     if(fFact && hoy > fFact){
       var meses = (hoy.getFullYear() - fFact.getFullYear()) * 12 + (hoy.getMonth() - fFact.getMonth());
       if(c.dia_pago > 0 && hoy.getDate() >= c.dia_pago) meses += 1;
+      if(primaRealMG>0) meses -= 1; // la prima no es cuota 1: la primera cuota vence el ciclo siguiente
       cuotasTranscurridas = Math.max(0, Math.min(meses, numCuotasUsar));
     }
 
