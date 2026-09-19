@@ -2668,6 +2668,9 @@ function calcMoraCliente(c, cartId){
     cuotasTrans=esCeroPrima?Math.max(0,Math.min(meses,numCuotas||999)):Math.max(1,Math.min(meses+1,numCuotas||999));
   }
   var esperado=Math.max(0,Math.round(totalCredito-cuotasTrans*c.cuota));
+  // Prima deducida automaticamente: las cuotas que le faltan son un numero cerrado (N - vencidas) x cuota,
+  // sin redondeos de prima. Lo que sobre del saldo son cuotas atrasadas (o cargos/intereses).
+  if(primaReal>0&&!ov.prima_real&&!ov.total_credito_real)esperado=Math.max(0,Math.round((numCuotas-cuotasTrans)*c.cuota));
   var diferencia=c.saldo-esperado; // positivo=mora, negativo=adelantado
   return {esperado:esperado, diferencia:diferencia, cuotasTrans:cuotasTrans};
 }
@@ -5821,6 +5824,7 @@ function buildMoraGlobal(cartId, cl){
 
     // ── SALDO ESPERADO ──
     var saldoEsperado = Math.round(totalCreditoUsar - cuotasTranscurridas * c.cuota);
+    if(primaRealMG>0&&!ov.prima_real&&!ov.total_credito_real)saldoEsperado = Math.round((numCuotasUsar - cuotasTranscurridas) * c.cuota); // prima deducida: cuotas restantes cerradas
     saldoEsperado = Math.max(0, saldoEsperado);
 
     var saldoActual  = c.saldo || 0;
