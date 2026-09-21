@@ -4609,7 +4609,9 @@ async function quickComentarioGuardar(cartId,nombre){
   if(t){t.value='';t.focus();}
   // Actualizar estado en PROMESAS para que aparezca en el dashboard
   var key=cartId+'::'+nombre;
-  PROMESAS[key]=Object.assign({},PROMESAS[key]||{},{estado:'nota',nota:texto.trim(),ts:new Date().toISOString()});
+  // Un comentario no debe sacar al cliente de "en búsqueda"/"visitando": conserva ese estado (y su nota).
+  var _exC=PROMESAS[key]||{};
+  PROMESAS[key]=Object.assign({},_exC,['buscando','visitando'].includes(_exC.estado)?{ts:new Date().toISOString()}:{estado:'nota',nota:texto.trim(),ts:new Date().toISOString()});
   _AUTOR[key]=autor;
   await dbSaveProm(cartId,nombre);
   setConn(true,'💬 Comentario guardado ✓');
@@ -8967,7 +8969,8 @@ async function executeChatAction(actionId){
     var vFmt=vPartes2.length===3?vPartes2[2]+'/'+vPartes2[1]+'/'+vPartes2[0]:(action.fecha||'—');
     _appendChatMsg('bot','✅ Visita agendada para '+cliente.nombre+' el '+vFmt+'.');
   }else if(action.tipo==='nota'){
-    PROMESAS[key]=Object.assign({},PROMESAS[key]||{},{estado:'nota',nota:action.nota||'',ts:new Date().toISOString()});
+    var _exN=PROMESAS[key]||{};
+    PROMESAS[key]=Object.assign({},_exN,['buscando','visitando'].includes(_exN.estado)?{ts:new Date().toISOString()}:{estado:'nota',nota:action.nota||'',ts:new Date().toISOString()});
     await dbSaveProm(CURRENT,cliente.nombre);
     await dbSaveHist({cartera_id:CURRENT,cliente_nombre:cliente.nombre,tipo:'nota',nota:action.nota||'',fecha_accion:hoyStr,gestor:gestor,created_at:new Date().toISOString()});
     _appendChatMsg('bot','✅ Nota guardada para '+cliente.nombre+'.');
