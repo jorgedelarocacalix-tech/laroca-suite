@@ -2319,9 +2319,11 @@ function renderDash(id){
     // Si no ha pagado nada, sigue en Hoy -> Cierre (hay que cobrarle la prima).
     if(enGraciaSinPrima(c,p))return false;
     var pagoManualEsteMes=p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
-    var pagado=(pagoEsteMes(c.ultimo_pago)||pagoManualEsteMes)&&!(p&&p.mora_pendiente);
     var m=calcMoraCliente(c,id);
     var tieneMora=m&&m.diferencia>0;
+    // "mora pendiente" marcada a mano solo vale si el cálculo aún ve mora; si el cliente ya está al día, se ignora la marca vieja
+    var moraPendVigente=!!(p&&p.mora_pendiente)&&(!m||m.diferencia>0);
+    var pagado=(pagoEsteMes(c.ultimo_pago)||pagoManualEsteMes)&&!moraPendVigente;
     return tieneMora||!pagado;
   });
 
@@ -4581,6 +4583,12 @@ function qcomDel(el){
   });
 }
 
+// ¿El comentario dice que el cliente prometió pagar? Conservador: ignora negaciones ("no prometió", "sin promesa").
+function comentarioDicePromesa(t){
+  t=(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(/\b(no|nunca|sin|ni)\s+(\w+\s+){0,2}(promet|prometio|promesa|se compromet|va a pagar|pagara|quedo en pagar)/.test(t))return false;
+  return /(prometio|promete|prometieron|se compromet|quedo en pagar|quedaron en pagar|va a pagar|pagara el|pagara hoy|pagara manana|dice que paga|dijo que paga|acordo pagar|acuerdo de pago)/.test(t);
+}
 async function quickComentarioGuardar(cartId,nombre){
   var texto=(document.getElementById('qcom-texto')||{}).value||'';
   if(!texto.trim())return;
@@ -4618,6 +4626,11 @@ async function quickComentarioGuardar(cartId,nombre){
   setTimeout(function(){setConn(true,'Conectado');},2500);
   quickComentarioHist(cartId,nombre,true);
   if(CURRENT&&CARTERAS[CURRENT])refreshSoft(CURRENT);
+  // Si el comentario dice que prometió pagar y aún no hay promesa registrada, abrir el acuerdo rápido (fecha + monto)
+  if(comentarioDicePromesa(texto)&&(PROMESAS[key]||{}).estado!=='promesa'){
+    var _cl=((CARTERAS[cartId]||{}).clientes||[]).find(function(x){return x.nombre===nombre;});
+    setTimeout(function(){abrirAcuerdoRapido(cartId,nombre,_cl?_cl.cuota:0);},400);
+  }
 }
 
 // ══ ECG ══
