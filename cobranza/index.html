@@ -1031,7 +1031,41 @@ async function loadData(){
     await loadAutores();
     await loadChatEstado();
     DB_OK=true;setConn(true,'Conectado');
+    sincronizarVentasContado(); // no bloquea: corre en segundo plano
   }catch(e){DB_OK=false;setConn(false,'Sin conexión');console.error('loadData:',e);}
+}
+// ── Ventas de contado → CRM ──
+// Facturado y pagado el mismo dia (clasificacion 'CONTADO REAL' en Arqueos): nunca entra a una cartera
+// de cobranza (no queda deuda), asi que pushCancelado() nunca lo detecta. Se sincroniza aparte, leyendo
+// directo el array 'ventas' de los arqueos de los ultimos dias, cada vez que alguien abre Cobranza.
+async function sincronizarVentasContado(){
+  try{
+    if(!supa)return;
+    var desde=new Date(HOY);desde.setDate(desde.getDate()-5);
+    var r=await supa.from('arqueos').select('sucursal,fecha,analisis_json')
+      .gte('fecha',desde.toISOString().split('T')[0]).lte('fecha',HOY.toISOString().split('T')[0]);
+    if(r.error||!r.data)return;
+    var vistos={};
+    for(var i=0;i<r.data.length;i++){
+      var row=r.data[i],aj=row.analisis_json;if(!aj)continue;
+      var suc=CANCEL_CART_MAP&&Object.keys(CANCEL_CART_MAP).find(function(k){return CANCEL_SUC_MAP[k]===row.sucursal;});
+      var crmCart=suc?CANCEL_CART_MAP[suc]:null;if(!crmCart)continue;
+      var ventas=aj.ventas||[];
+      for(var j=0;j<ventas.length;j++){
+        var v=ventas[j];
+        if(v.clasificacion!=='CONTADO REAL'||!v.cliente||!(v.pago_dia>0))continue;
+        var key=crmCart+'::'+v.cliente;if(vistos[key])continue;vistos[key]=1;
+        var tel=await buscarTelefonoCRM(v.cliente);
+        await rrF('crm_cancelados','POST',{
+          id:key,cartera_id:crmCart,nombre:v.cliente,telefono:tel,
+          saldo_anterior:v.pago_dia,fecha_cancelacion:row.fecha,origen:'venta_contado',
+          motivo_deteccion:'contado_real_arqueo',cartera_origen_cobranza:suc,
+          articulo:v.articulo||null,factura:v.factura||null,arqueo_fecha:row.fecha,arqueo_monto:v.pago_dia,
+          updated_at:new Date().toISOString()
+        });
+      }
+    }
+  }catch(e){console.error('sincronizarVentasContado:',e);}
 }
 // ── Punto de no-leído en el icono 💬: último comentario por cliente vs. última vez que ESTE usuario lo abrió ──
 var _CHAT_ULTIMO={}; // cartId::nombre -> {gestor, ts}

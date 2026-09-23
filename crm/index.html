@@ -1064,11 +1064,16 @@ function abrirCanceladoModal(id,origenFiltro){
   var c=CANCELADOS.find(function(x){return x.id===id;});if(!c)return;
   _cancModalOrigen=origenFiltro;
   var cart=DB.carteras.find(function(x){return x.id===c.cartera_id;});
-  var motivoLbl=c.motivo_deteccion==='saldo_en_cero'?'Saldo llegó a L0':'Ya no aparece en la cartera';
+  var esContadoM=c.origen==='venta_contado';
+  var motivoLbl=esContadoM?'Compra de contado (Arqueos)':c.motivo_deteccion==='saldo_en_cero'?'Saldo llegó a L0':'Ya no aparece en la cartera';
   var h='<div style="font-size:19px;font-weight:800;color:var(--t1);margin-bottom:4px;">'+c.nombre+'</div>';
   h+='<div style="font-size:13px;color:var(--t2);margin-bottom:14px;">'+(cart?cart.name:c.cartera_id)+' · '+motivoLbl+' · '+(c.fecha_cancelacion||'')+'</div>';
-  h+='<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--t2);">Saldo con el que se fue: <strong style="color:var(--t1);">L '+Math.round(c.saldo_anterior||0).toLocaleString('es-HN')+'</strong>'+(c.fecha_inicio_credito?'<br>Cliente desde (primer registro): <strong style="color:var(--t1);">'+c.fecha_inicio_credito+'</strong>':'')+'</div>';
-  if(c.arqueo_monto){
+  if(esContadoM){
+    h+='<div style="background:#e6fffa;border:1px solid #81e6d9;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#2c7a7b;">🛍️ <strong>'+(c.articulo||'Compra de contado')+'</strong><br>Monto: L '+Math.round(c.saldo_anterior||0).toLocaleString('es-HN')+(c.factura?' · Factura '+c.factura:'')+'</div>';
+  } else {
+    h+='<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--t2);">Saldo con el que se fue: <strong style="color:var(--t1);">L '+Math.round(c.saldo_anterior||0).toLocaleString('es-HN')+'</strong>'+(c.fecha_inicio_credito?'<br>Cliente desde (primer registro): <strong style="color:var(--t1);">'+c.fecha_inicio_credito+'</strong>':'')+'</div>';
+  }
+  if(!esContadoM&&c.arqueo_monto){
     h+='<div style="background:#f0fff4;border:1px solid #9ae6b4;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#276749;">✅ <strong>Abono encontrado en Arqueos:</strong> L '+Math.round(c.arqueo_monto).toLocaleString('es-HN')+' el '+(c.arqueo_fecha||'—')+(c.arqueo_recibo?' · recibo '+c.arqueo_recibo:'')+'</div>';
   } else if(c.origen==='posible_retiro_producto'){
     h+='<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#c53030;">❌ No se encontró ningún abono en Arqueos que cuadre con este saldo, en los ±15 días alrededor de la cancelación.</div>';
@@ -1186,11 +1191,12 @@ function renderCardsCancelados(grid,origenFiltro){
   lst.forEach(function(c){
     var cart=DB.carteras.find(function(x){return x.id===c.cartera_id;});
     var tel=c.telefono?'<a href="tel:'+c.telefono+'" onclick="event.stopPropagation()" style="color:#276749;font-size:11px;font-weight:600;">📞 '+c.telefono+'</a>':'<span style="font-size:11px;color:var(--t3);">Sin teléfono</span>';
-    var motivoLbl=c.motivo_deteccion==='saldo_en_cero'?'Saldo llegó a L0':'Ya no aparece en la cartera';
+    var motivoLbl=c.motivo_deteccion==='contado_real_arqueo'?'Compra de contado (Arqueos)':c.motivo_deteccion==='saldo_en_cero'?'Saldo llegó a L0':'Ya no aparece en la cartera';
     h+='<div class="ccard" onclick="abrirCanceladoModal(\''+c.id.replace(/'/g,"\\'")+'\',\''+origenFiltro+'\')" style="cursor:pointer;">';
     h+='<div class="ccard-top" style="background:'+colorAcc+';"></div>';
-    h+='<div class="cc-head"><div class="cc-av" style="background:'+colorBg+';color:'+colorTxt+';">'+c.nombre[0]+'</div><div class="cc-info"><div class="cc-name" style="white-space:normal;overflow:visible;line-height:1.25;">'+c.nombre+'</div><div class="cc-sub">'+tel+(cart?' · <span style="font-size:10px;color:var(--t3);">'+cart.name+'</span>':'')+'</div></div><span class="cat-badge" style="background:'+colorBg+';color:'+colorTxt+';white-space:nowrap;">'+(esRetiro?(c.revisado?'✔️ Revisado':'⚠️ Sin confirmar'):esContado?'💵 '+(c.num_cuotas||1)+' pago(s)':'🏁 Pago confirmado')+'</span></div>';
-    h+='<div style="padding:0 14px 12px;font-size:12px;color:var(--t2);">'+motivoLbl+' · '+(c.fecha_cancelacion||'')+(c.saldo_anterior?' · Saldo anterior L '+Math.round(c.saldo_anterior).toLocaleString('es-HN'):'')+'</div>';
+    h+='<div class="cc-head"><div class="cc-av" style="background:'+colorBg+';color:'+colorTxt+';">'+c.nombre[0]+'</div><div class="cc-info"><div class="cc-name" style="white-space:normal;overflow:visible;line-height:1.25;">'+c.nombre+'</div><div class="cc-sub">'+tel+(cart?' · <span style="font-size:10px;color:var(--t3);">'+cart.name+'</span>':'')+'</div></div><span class="cat-badge" style="background:'+colorBg+';color:'+colorTxt+';white-space:nowrap;">'+(esRetiro?(c.revisado?'✔️ Revisado':'⚠️ Sin confirmar'):esContado?'💵 Contado':'🏁 Pago confirmado')+'</span></div>';
+    if(esContado&&c.articulo)h+='<div style="padding:0 14px 4px;font-size:12px;font-weight:600;color:var(--t1);">🛍️ '+c.articulo+'</div>';
+    h+='<div style="padding:0 14px 12px;font-size:12px;color:var(--t2);">'+motivoLbl+' · '+(c.fecha_cancelacion||'')+(c.saldo_anterior?' · Monto L '+Math.round(c.saldo_anterior).toLocaleString('es-HN'):'')+'</div>';
     if(esRetiro)h+='<div style="padding:0 14px 12px;font-size:11px;color:#c53030;">No se encontró un abono en Arqueos que cuadre — toca la tarjeta para confirmar o descartar.</div>';
     if(c.enviado_kanban)h+='<div style="padding:0 14px 12px;font-size:11px;color:#276749;">✔️ Ya enviado a Kanban</div>';
     h+='</div>';
