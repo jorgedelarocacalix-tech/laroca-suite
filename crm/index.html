@@ -357,6 +357,14 @@ button{cursor:pointer}
     <div class="mfoot"><button class="btn-s" onclick="closeMov('mov-metas')">Cancelar</button><button class="btn-p" onclick="guardarMetasMensuales()">Guardar</button></div>
   </div>
 </div>
+<!-- MODAL DETALLE CLIENTE CANCELADO -->
+<div class="mov" id="mov-canc">
+  <div class="modal">
+    <div class="mh"><span class="mh-name">&#127937; Cliente cancelado</span><div class="mclose" onclick="closeMov('mov-canc')">&#x2715;</div></div>
+    <div class="mbody" id="mov-canc-body"></div>
+    <div class="mfoot" id="mov-canc-foot"></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1003,6 +1011,75 @@ function vClientes(){
 // Clientes que cancelaron en Cobranza (ya no aparecen en el PDF, o su saldo llego a 0) —
 // alimentado por pushCancelado() en Cobranza, tabla crm_cancelados. No son parte del pool normal
 // (no llevan gestiones/kanban), es solo un aviso para que ventas los contacte si conviene recompra.
+// Actualiza una fila de crm_cancelados en Supabase y en memoria (CANCELADOS), mandando el objeto
+// completo (no un parche) para no depender de como Postgrest resuelva un upsert parcial.
+function actualizarCancelado(id,patch){
+  var row=CANCELADOS.find(function(c){return c.id===id;});
+  if(!row)return Promise.resolve(false);
+  var merged=Object.assign({},row,patch,{updated_at:new Date().toISOString()});
+  return sbUp('crm_cancelados',merged).then(function(ok){
+    if(!ok){toast('No se pudo guardar','err');return false;}
+    Object.assign(row,merged);
+    return true;
+  });
+}
+function guardarTelCancelado(id){
+  var v=(document.getElementById('canc-tel-inp')||{}).value||'';
+  actualizarCancelado(id,{telefono:v.trim()||null}).then(function(ok){
+    if(ok){toast('Teléfono guardado','ok');abrirCanceladoModal(id,_cancModalOrigen);renderCards();}
+  });
+}
+function confirmarRetiroProducto(id){
+  actualizarCancelado(id,{revisado:true,revisado_por:CU.name,revisado_at:new Date().toISOString()}).then(function(ok){
+    if(ok){toast('Marcado como retiro de producto confirmado','ok');closeMov('mov-canc');renderCards();}
+  });
+}
+function noFueRetiroProducto(id){
+  actualizarCancelado(id,{origen:'pago_confirmado',revisado:true,revisado_por:CU.name,revisado_at:new Date().toISOString()}).then(function(ok){
+    if(ok){toast('Movido a Cancelados recientes (sí pagó)','ok');closeMov('mov-canc');renderCards();}
+  });
+}
+function enviarCanceladoAKanban(id){
+  var c=CANCELADOS.find(function(x){return x.id===id;});if(!c)return;
+  if(!DB.newLeads)DB.newLeads=[];
+  var cart=DB.carteras.find(function(x){return x.id===c.cartera_id;});
+  var origenTxt=c.origen==='venta_contado'?'venta de contado':'pago confirmado';
+  var newLead={id:'lead_'+Date.now(),nombre:c.nombre,telefono:c.telefono||'',fechaContacto:new Date().toLocaleDateString('es-HN'),fuente:'Recompra',producto:'Canceló crédito ('+origenTxt+') en '+(cart?cart.name:c.cartera_id),leadCol:'nl',kbComments:[],createdBy:CU.name,createdAt:new Date().toLocaleDateString('es-HN'),assignedTo:CU.name,leadCartera:c.cartera_id};
+  DB.newLeads.push(newLead);saveDB();saveLeadToSB(newLead);
+  if(typeof regActividad==='function')regActividad('lead-nuevo',c.nombre,'leads','Recompra (cancelado)');
+  actualizarCancelado(id,{enviado_kanban:true}).then(function(){
+    toast(c.nombre+' agregado a Kanban → Clientes Nuevos','ok');
+    closeMov('mov-canc');activeBoard='nuevos';goTo('kanban');
+  });
+}
+var _cancModalOrigen=null;
+function abrirCanceladoModal(id,origenFiltro){
+  var c=CANCELADOS.find(function(x){return x.id===id;});if(!c)return;
+  _cancModalOrigen=origenFiltro;
+  var cart=DB.carteras.find(function(x){return x.id===c.cartera_id;});
+  var motivoLbl=c.motivo_deteccion==='saldo_en_cero'?'Saldo llegó a L0':'Ya no aparece en la cartera';
+  var h='<div style="font-size:19px;font-weight:800;color:var(--t1);margin-bottom:4px;">'+c.nombre+'</div>';
+  h+='<div style="font-size:13px;color:var(--t2);margin-bottom:14px;">'+(cart?cart.name:c.cartera_id)+' · '+motivoLbl+' · '+(c.fecha_cancelacion||'')+'</div>';
+  h+='<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--t2);">Saldo con el que se fue: <strong style="color:var(--t1);">L '+Math.round(c.saldo_anterior||0).toLocaleString('es-HN')+'</strong></div>';
+  h+='<label class="fl" style="display:block;font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:5px;">📞 Teléfono</label>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:14px;"><input class="finp" id="canc-tel-inp" value="'+(c.telefono||'')+'" placeholder="Agregar teléfono..." style="flex:1;">';
+  h+='<button class="btn-s" onclick="guardarTelCancelado(\''+id.replace(/'/g,"\\'")+'\')">💾</button></div>';
+  if(c.telefono)h+='<a href="tel:'+c.telefono+'" style="display:block;text-align:center;padding:12px;background:var(--bluel);color:var(--blue);border-radius:10px;font-weight:700;font-size:14px;margin-bottom:12px;text-decoration:none;">📲 Llamar a '+c.nombre.split(' ')[0]+'</a>';
+  if(c.origen==='posible_retiro_producto'){
+    h+='<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#c53030;">No se encontró en Arqueos un abono que cuadre con este saldo. Confirma con cobranza/sucursal si de verdad se le retiró el producto antes de ofrecerle algo nuevo.</div>';
+    if(c.revisado)h+='<div style="font-size:12px;color:var(--t2);margin-bottom:10px;">✔️ Revisado por '+(c.revisado_por||'—')+'</div>';
+  }
+  document.getElementById('mov-canc-body').innerHTML=h;
+  var mf=document.getElementById('mov-canc-foot');mf.innerHTML='';
+  var closeBtn=document.createElement('button');closeBtn.className='btn-s';closeBtn.textContent='Cerrar';closeBtn.onclick=function(){closeMov('mov-canc');};mf.appendChild(closeBtn);
+  if(c.origen==='posible_retiro_producto'){
+    var b1=document.createElement('button');b1.className='btn-s';b1.style.cssText='background:#fff5f5;color:#c53030;border-color:#fed7d7;';b1.textContent='📦 Confirmar retiro';b1.onclick=function(){confirmarRetiroProducto(id);};mf.appendChild(b1);
+    var b2=document.createElement('button');b2.className='btn-p';b2.textContent='✅ No, sí pagó';b2.onclick=function(){noFueRetiroProducto(id);};mf.appendChild(b2);
+  } else {
+    var b3=document.createElement('button');b3.className='btn-p';b3.textContent=c.enviado_kanban?'📇 Enviar de nuevo a Kanban':'📇 Enviar a Kanban (Recompra)';b3.onclick=function(){enviarCanceladoAKanban(id);};mf.appendChild(b3);
+  }
+  openMov('mov-canc');
+}
 function renderCardsCancelados(grid,origenFiltro){
   var visibles=getCarterasVend();
   var q=document.getElementById('srch')?document.getElementById('srch').value.toLowerCase():'';
@@ -1024,13 +1101,15 @@ function renderCardsCancelados(grid,origenFiltro){
     var cart=DB.carteras.find(function(x){return x.id===c.cartera_id;});
     var tel=c.telefono?'<a href="tel:'+c.telefono+'" onclick="event.stopPropagation()" style="color:#276749;font-size:11px;font-weight:600;">📞 '+c.telefono+'</a>':'<span style="font-size:11px;color:var(--t3);">Sin teléfono</span>';
     var motivoLbl=c.motivo_deteccion==='saldo_en_cero'?'Saldo llegó a L0':'Ya no aparece en la cartera';
-    h+='<div class="ccard">';
+    h+='<div class="ccard" onclick="abrirCanceladoModal(\''+c.id.replace(/'/g,"\\'")+'\',\''+origenFiltro+'\')" style="cursor:pointer;">';
     h+='<div class="ccard-top" style="background:'+colorAcc+';"></div>';
-    h+='<div class="cc-head"><div class="cc-av" style="background:'+colorBg+';color:'+colorTxt+';">'+c.nombre[0]+'</div><div class="cc-info"><div class="cc-name">'+c.nombre+'</div><div class="cc-sub">'+tel+(cart?' · <span style="font-size:10px;color:var(--t3);">'+cart.name+'</span>':'')+'</div></div><span class="cat-badge" style="background:'+colorBg+';color:'+colorTxt+';">'+(esRetiro?'⚠️ Sin pago confirmado':esContado?'💵 '+(c.num_cuotas||1)+' pago(s)':'🏁 Pago confirmado')+'</span></div>';
+    h+='<div class="cc-head"><div class="cc-av" style="background:'+colorBg+';color:'+colorTxt+';">'+c.nombre[0]+'</div><div class="cc-info"><div class="cc-name" style="white-space:normal;overflow:visible;line-height:1.25;">'+c.nombre+'</div><div class="cc-sub">'+tel+(cart?' · <span style="font-size:10px;color:var(--t3);">'+cart.name+'</span>':'')+'</div></div><span class="cat-badge" style="background:'+colorBg+';color:'+colorTxt+';white-space:nowrap;">'+(esRetiro?(c.revisado?'✔️ Revisado':'⚠️ Sin confirmar'):esContado?'💵 '+(c.num_cuotas||1)+' pago(s)':'🏁 Pago confirmado')+'</span></div>';
     h+='<div style="padding:0 14px 12px;font-size:12px;color:var(--t2);">'+motivoLbl+' · '+(c.fecha_cancelacion||'')+(c.saldo_anterior?' · Saldo anterior L '+Math.round(c.saldo_anterior).toLocaleString('es-HN'):'')+'</div>';
-    if(esRetiro)h+='<div style="padding:0 14px 12px;font-size:11px;color:#c53030;">No se encontró un abono en Arqueos que cuadre con este saldo — verificar si se le retiró el producto antes de ofrecer recompra.</div>';
+    if(esRetiro)h+='<div style="padding:0 14px 12px;font-size:11px;color:#c53030;">No se encontró un abono en Arqueos que cuadre — toca la tarjeta para confirmar o descartar.</div>';
+    if(c.enviado_kanban)h+='<div style="padding:0 14px 12px;font-size:11px;color:#276749;">✔️ Ya enviado a Kanban</div>';
     h+='</div>';
   });
+  grid.querySelectorAll('.ccard').forEach(function(){}); // noop, keeps structure obvious
   grid.innerHTML=h;
   document.getElementById('pagination')&&(document.getElementById('pagination').innerHTML='');
 }
