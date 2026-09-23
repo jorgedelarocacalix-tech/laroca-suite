@@ -819,6 +819,7 @@ function launchApp(){
   cargarMetaLlamadas();
   cargarMetasMensuales();
   cargarCancelados();
+  cargarRevisionesVentas().then(function(p){if(p&&p.length)setTimeout(function(){toast('🧾 '+p.length+' revisión'+(p.length>1?'es':'')+' de ventas pendiente'+(p.length>1?'s':'')+' — ve a Equipo','ok');},2500);});
   loadFromSB().then(function(){
     // Para vendedores: asegurar que sus propias gestiones estén en DB.calls
     if(CU.role==='vendedor'){
@@ -1691,8 +1692,103 @@ function _cargarFacturasArqueo(sucursales){
   return Promise.all([
     fetch(COBRANZA_URL+'/rest/v1/arqueo_facturas?select=*&fecha=gte.'+desde+'&sucursal=in.('+sucursales.join(',')+')&order=fecha.desc',{headers:h}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
     // Ventas ya reclamadas, frescas del servidor (otro asesor pudo registrar una hace un momento)
-    sbF('gestiones','GET',null,'?estado=eq.venta&select=id,num2,user_name,producto')
-  ]).then(function(res){return{facturas:res[0],reclamadas:res[1]||[]};});
+    sbF('gestiones','GET',null,'?estado=eq.venta&select=id,num2,user_id,user_name,producto,cartera_id,notas'),
+    sbF('crm_revision_ventas','GET',null,'?solicitado_por_id=eq.'+encodeURIComponent(CU.id)+'&select=factura,estado,nota_resolucion,resuelto_por&order=created_at.desc')
+  ]).then(function(res){return{facturas:res[0],reclamadas:res[1]||[],misRevisiones:res[2]||[]};});
+}
+
+// ══ Revisión de ventas: si la factura ya la reclamó otro asesor por error, el que realmente vendió
+// pide revisión; el admin decide en Equipo → "🧾 Revisiones de ventas" (tabla crm_revision_ventas).
+// Solo el admin resuelve (Sayda es subadmin pero también vende: no resuelve sus propios casos).
+function _htmlReclamada(r,mia,rev,i){
+  var h='<div style="font-size:11px;font-weight:600;margin-top:4px;color:'+(mia?'#276749':'#c53030')+';">'+(mia?'✓ Ya la registraste tú':'Ya registrada por '+escH(r.user_name||'otro asesor'))+'</div>';
+  if(mia)return h;
+  if(rev&&rev.estado==='pendiente')return h+'<div style="font-size:11px;color:#744210;margin-top:3px;">⏳ Pediste revisión — pendiente del administrador</div>';
+  if(rev&&rev.estado==='rechazada')h+='<div style="font-size:11px;color:#c53030;margin-top:3px;">✕ Revisión rechazada'+(rev.nota_resolucion?': '+escH(rev.nota_resolucion):'')+'</div>';
+  return h+'<button class="vta-rev-btn" data-i="'+i+'" style="margin-top:6px;padding:6px 12px;background:#fffaf0;border:1.5px solid #f6ad55;color:#9c4221;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">🔎 Solicitar revisión — la venta fue mía</button>';
+}
+function solicitarRevisionVenta(f,r,despues){
+  var ex=document.getElementById('rev-modal');if(ex)ex.remove();
+  var d=document.createElement('div');d.id='rev-modal';
+  d.style.cssText='position:fixed;inset:0;background:rgba(30,40,60,.55);z-index:3100;display:flex;align-items:center;justify-content:center;padding:16px;';
+  d.innerHTML='<div style="background:var(--card);border-radius:18px;width:100%;max-width:380px;padding:18px 20px;box-shadow:var(--shadow2);">'+
+    '<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:4px;">🔎 Solicitar revisión</div>'+
+    '<div style="font-size:12px;color:var(--t2);margin-bottom:12px;">'+escH(f.cliente)+' · Fact. …'+escH((f.factura||'').slice(-6))+' · L '+Math.round(f.total||0).toLocaleString('es-HN')+'<br>Registrada por <strong>'+escH(r.user_name||'')+'</strong>. El administrador revisará y, si fue tuya, pasará a tu meta.</div>'+
+    '<label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px;">¿Por qué la venta fue tuya?</label>'+
+    '<textarea id="rev-motivo" placeholder="Ej: Yo atendí al cliente, lo llamé el lunes y vino a comprar el jueves..." style="width:100%;min-height:80px;padding:10px 12px;border:2px solid var(--border);border-radius:10px;font-size:13px;font-family:inherit;box-sizing:border-box;margin-bottom:12px;"></textarea>'+
+    '<button id="rev-ok" style="width:100%;padding:13px;background:linear-gradient(135deg,#ed8936,#c05621);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;">Enviar solicitud</button>'+
+    '<button id="rev-no" style="width:100%;padding:10px;background:#f7f9fc;color:var(--t2);border:1.5px solid var(--border);border-radius:10px;font-size:13px;cursor:pointer;">Cancelar</button></div>';
+  document.body.appendChild(d);
+  document.getElementById('rev-no').onclick=function(){d.remove();};
+  document.getElementById('rev-ok').onclick=function(){
+    var motivo=(document.getElementById('rev-motivo').value||'').trim();
+    if(motivo.length<5){toast('Explica brevemente por qué la venta fue tuya','err');return;}
+    var nt=_jsonNotas(r);
+    var row={id:'rev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),gestion_id:r.id,factura:f.factura,cliente:f.cliente,monto:Number(f.total)||0,cartera_id:r.cartera_id||null,
+      reclamado_por_id:r.user_id||null,reclamado_por:r.user_name||null,solicitado_por_id:CU.id,solicitado_por:CU.name,motivo:motivo,estado:'pendiente'};
+    this.disabled=true;
+    sbF('crm_revision_ventas','POST',[row]).then(function(ok){
+      if(!ok){toast('No se envió: ya tienes una revisión pendiente de esta factura o no hay conexión','err');document.getElementById('rev-ok').disabled=false;return;}
+      d.remove();toast('Solicitud enviada al administrador','ok');if(despues)despues();
+    });
+  };
+  setTimeout(function(){var t=document.getElementById('rev-motivo');if(t)t.focus();},80);
+}
+// Lado del admin
+var REV_PENDIENTES=[];
+function cargarRevisionesVentas(){
+  if(!CU||CU.role!=='admin')return Promise.resolve([]);
+  return sbF('crm_revision_ventas','GET',null,'?estado=eq.pendiente&select=*&order=created_at.asc').then(function(rows){
+    REV_PENDIENTES=rows||[];
+    var b=document.getElementById('rev-count');if(b)b.textContent=REV_PENDIENTES.length;
+    return REV_PENDIENTES;
+  });
+}
+function abrirRevisionesVentas(){
+  cargarRevisionesVentas().then(function(rows){
+    var ex=document.getElementById('revadm-modal');if(ex)ex.remove();
+    var d=document.createElement('div');d.id='revadm-modal';
+    d.style.cssText='position:fixed;inset:0;background:rgba(30,40,60,.5);z-index:2500;display:flex;align-items:center;justify-content:center;padding:16px;';
+    var items=rows.length?rows.map(function(r){
+      return '<div style="border:1.5px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;"><strong style="font-size:13px;">'+escH(r.cliente||'')+'</strong><span style="font-size:12px;font-weight:700;">L '+Math.round(r.monto||0).toLocaleString('es-HN')+'</span></div>'+
+        '<div style="font-size:11px;color:var(--t2);margin-top:2px;">Fact. '+escH(r.factura)+' · '+new Date(r.created_at).toLocaleDateString('es-HN')+'</div>'+
+        '<div style="font-size:12px;margin-top:8px;">Registrada por <strong>'+escH(r.reclamado_por||'?')+'</strong> — la pide <strong style="color:#c05621;">'+escH(r.solicitado_por||'?')+'</strong></div>'+
+        '<div style="font-size:12px;color:var(--t2);background:#f7f9fc;border-radius:8px;padding:8px 10px;margin-top:6px;">💬 '+escH(r.motivo||'')+'</div>'+
+        '<input id="revnota-'+r.id+'" placeholder="Nota (opcional)" style="width:100%;margin-top:8px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;box-sizing:border-box;">'+
+        '<div style="display:flex;gap:8px;margin-top:8px;">'+
+          '<button onclick="resolverRevisionVenta(\''+r.id+'\',true)" style="flex:1;padding:9px;background:#f0fff4;border:1.5px solid #68d391;color:#276749;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✓ Pasar venta a '+escH((r.solicitado_por||'').split(' ')[0])+'</button>'+
+          '<button onclick="resolverRevisionVenta(\''+r.id+'\',false)" style="flex:1;padding:9px;background:#fff5f5;border:1.5px solid #fc8181;color:#c53030;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✕ Se queda con '+escH((r.reclamado_por||'').split(' ')[0])+'</button>'+
+        '</div></div>';
+    }).join(''):'<div style="font-size:13px;color:var(--t3);text-align:center;padding:20px;">No hay revisiones pendientes.</div>';
+    d.innerHTML='<div style="background:var(--card);border-radius:18px;width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;">'+
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;"><div style="font-size:15px;font-weight:700;">🧾 Revisiones de ventas</div><button onclick="document.getElementById(\'revadm-modal\').remove()" style="width:30px;height:30px;border-radius:8px;border:1.5px solid var(--border);background:#f7f9fc;cursor:pointer;">✕</button></div>'+
+      '<div style="padding:14px 20px;overflow-y:auto;">'+items+'</div></div>';
+    document.body.appendChild(d);
+  });
+}
+function resolverRevisionVenta(id,aprobar){
+  var r=REV_PENDIENTES.find(function(x){return x.id===id;});if(!r)return;
+  var nota=((document.getElementById('revnota-'+id)||{}).value||'').trim();
+  var ahora=new Date().toISOString();
+  var paso=Promise.resolve(true);
+  if(aprobar){
+    // la venta (fila de gestiones) pasa al asesor que la pidió
+    paso=sbF('gestiones','PATCH',{user_id:r.solicitado_por_id,user_name:r.solicitado_por},'?id=eq.'+encodeURIComponent(r.gestion_id)).then(function(ok){
+      if(ok){var g=DB.calls.find(function(x){return x.id===r.gestion_id;});if(g){g.userId=r.solicitado_por_id;g.userName=r.solicitado_por;saveDB();}}
+      return ok;
+    });
+  }
+  paso.then(function(ok){
+    if(!ok){toast('No se pudo reasignar la venta','err');return;}
+    return sbF('crm_revision_ventas','PATCH',{estado:aprobar?'aprobada':'rechazada',resuelto_por:CU.name,resuelto_at:ahora,nota_resolucion:nota||null},'?id=eq.'+encodeURIComponent(id)).then(function(){
+      // si se aprobó, las demás solicitudes pendientes de esa misma factura quedan rechazadas
+      if(aprobar)return sbF('crm_revision_ventas','PATCH',{estado:'rechazada',resuelto_por:CU.name,resuelto_at:ahora,nota_resolucion:'La venta se asignó a '+r.solicitado_por},'?factura=eq.'+encodeURIComponent(r.factura)+'&estado=eq.pendiente');
+    }).then(function(){
+      toast(aprobar?'Venta pasada a '+r.solicitado_por:'Se queda con '+(r.reclamado_por||''),'ok');
+      abrirRevisionesVentas();
+    });
+  });
 }
 
 // Modal "🧾 ¿Cuál venta fue?" — se abre desde ➕ Agregar en Mi Meta (el Kanban ya NO registra ventas).
@@ -1732,11 +1828,13 @@ function registrarVentaModal(c,cid,alMover){
   document.body.appendChild(d);
   var okBtn=document.getElementById('vta-ok');
   function setOk(txt,on){okBtn.textContent=txt;okBtn.disabled=!on;okBtn.style.opacity=on?'1':'.5';}
-  function reclamadaPor(fact){
+  function reclamada(fact){
     if(!datos)return null;
-    var r=datos.reclamadas.find(function(x){return _mismaFactura(x.num2,fact);});
-    return r?(r.user_name||'otro asesor'):null;
+    return datos.reclamadas.find(function(x){return _mismaFactura(x.num2,fact);})||null;
   }
+  function reclamadaPor(fact){var r=reclamada(fact);return r?(r.user_name||'otro asesor'):null;}
+  function esMia(r){return r&&(r.user_id===CU.id||(LEGACY_UID[CU.id]&&r.user_id===LEGACY_UID[CU.id]));}
+  function miRevision(fact){return datos?datos.misRevisiones.find(function(x){return _mismaFactura(x.factura,fact);}):null;}
   function pintar(){
     var lista=document.getElementById('vta-lista');if(!lista)return;
     if(!datos||!datos.facturas){lista.innerHTML='<div style="font-size:12px;color:#c53030;text-align:center;padding:14px;">No se pudieron cargar las facturas de Arqueos. Revisa tu conexión o usa "No aparece".</div>';return;}
@@ -1754,17 +1852,20 @@ function registrarVentaModal(c,cid,alMover){
       var esSel=sel&&sel.factura===f.factura;
       var esCli=nomC&&_normNombre(f.cliente)===nomC;
       var clasCol=/CONTADO/.test(f.clasificacion||'')?'#2f855a':/PRIMA/.test(f.clasificacion||'')?'#2b6cb0':'#744210';
-      return '<div data-i="'+i+'" class="vta-item" style="padding:9px 11px;border-radius:10px;border:2px solid '+(esSel?'#48bb78':esCli?'#90cdf4':'var(--border)')+';background:'+(por?'#f7f7f7':esSel?'#f0fff4':'#fff')+';cursor:'+(por?'not-allowed':'pointer')+';opacity:'+(por?'.55':'1')+';">'+
+      return '<div data-i="'+i+'" class="vta-item" style="padding:9px 11px;border-radius:10px;border:2px solid '+(esSel?'#48bb78':esCli?'#90cdf4':'var(--border)')+';background:'+(por?'#f7f7f7':esSel?'#f0fff4':'#fff')+';cursor:'+(por?'default':'pointer')+';">'+
         '<div style="display:flex;justify-content:space-between;gap:8px;"><span style="font-size:13px;font-weight:700;color:var(--t1);">'+escH(f.cliente)+'</span><span style="font-size:12px;font-weight:700;color:var(--t1);white-space:nowrap;">L '+Math.round(f.total||0).toLocaleString('es-HN')+'</span></div>'+
         '<div style="font-size:11px;color:var(--t2);margin-top:2px;">'+(f.fecha||'').split('-').reverse().join('/')+' · '+SUCURSAL_NOMBRE[f.sucursal]+' · Fact. …'+escH((f.factura||'').slice(-6))+' · <span style="color:'+clasCol+';font-weight:600;">'+escH(f.clasificacion||'')+'</span></div>'+
         (f.articulo&&f.articulo!=='ILEGIBLE'?'<div style="font-size:11px;color:var(--t3);margin-top:2px;">'+escH(f.articulo)+'</div>':'')+
-        (por?'<div style="font-size:11px;color:#c53030;font-weight:600;margin-top:3px;">Ya registrada por '+escH(por)+'</div>':'')+
+        (por?_htmlReclamada(reclamada(f.factura),esMia(reclamada(f.factura)),miRevision(f.factura),i):'')+
       '</div>';
     }).join('');
+    lista.querySelectorAll('.vta-rev-btn').forEach(function(b){
+      b.onclick=function(ev){ev.stopPropagation();var f=fs[+b.dataset.i];solicitarRevisionVenta(f,reclamada(f.factura),function(){_cargarFacturasArqueo(_sucursalesDeUsuario(cid)).then(function(r){datos=r;pintar();});});};
+    });
     lista.querySelectorAll('.vta-item').forEach(function(el){
       el.onclick=function(){
         var f=fs[+el.dataset.i];
-        if(reclamadaPor(f.factura)){toast('Esa factura ya la registró '+reclamadaPor(f.factura),'err');return;}
+        if(reclamadaPor(f.factura))return; // gris: solo se puede pedir revision con su boton
         sel=f;pintar();setOk('Registrar venta · '+f.cliente.split(' ')[0]+' · L '+Math.round(f.total||0).toLocaleString('es-HN'),true);
       };
     });
@@ -3047,6 +3148,7 @@ function vEquipo(){
   var h='<div style="max-width:680px;">'+dupWarn+'<div class="page-hdr"><div><div class="page-ttl">👤 Equipo</div><div style="font-size:13px;color:var(--t2);margin-top:4px;">Gestiona carteras, usuarios y accesos</div></div>';
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn-s" style="font-size:13px;" onclick="addCart()">+ Nueva cartera</button><button class="btn-p" style="font-size:13px;" onclick="openMovUsr()">+ Nuevo usuario</button><button class="btn-danger" style="font-size:13px;" onclick="delUsersNoGest()">🗑 Borrar sin gestiones</button></div></div>';
   h+='<div class="chart-card"><div class="chart-ttl">🎯 Meta de llamadas diaria</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="font-size:13px;color:var(--t2);">Gestiones/llamadas por día que se usan como meta en Dashboard, Seguimiento y Monitor:</div><div style="font-size:22px;font-weight:800;color:var(--blue);">'+META_LLAMADAS+'</div><button class="btn-s" style="font-size:12px;" onclick="cambiarMetaLlamadas()">✏️ Cambiar</button></div></div>';
+  h+='<div class="chart-card"><div class="chart-ttl">🧾 Revisiones de ventas</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="font-size:13px;color:var(--t2);flex:1 1 200px;">Asesores que piden una factura que registró otro asesor. Pendientes: <strong id="rev-count">'+REV_PENDIENTES.length+'</strong></div><button class="btn-s" style="font-size:12px;" onclick="abrirRevisionesVentas()">Revisar</button></div></div>';
   h+='<div class="chart-card"><div class="chart-ttl">🎯 Metas mensuales por asociado</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div style="font-size:13px;color:var(--t2);flex:1 1 200px;">Unidades y monto de venta mensual de cada vendedor por cartera (lo que ven en "Mi Meta").</div><button class="btn-s" style="font-size:12px;" onclick="abrirMetasMensuales()">✏️ Editar metas</button></div></div>';
   h+='<div class="chart-card"><div class="chart-ttl">🗂️ Carteras activas</div>';
   DB.carteras.forEach(function(c){var cc=(DB.clients[c.id]||[]).length;h+='<div class="cart-item"><div><span style="font-weight:700;font-size:14px;">'+c.name+'</span><span style="font-size:12px;color:var(--t2);margin-left:10px;">'+cc+' clientes cargados · ID: '+c.id+'</span></div><button class="btn-danger" style="font-size:12px;padding:6px 12px;" data-cid="'+c.id+'" data-cname="'+c.name+'" onclick="delCart(this)">🗑 Borrar</button></div>';});
