@@ -1648,63 +1648,182 @@ function _ventasFactura(userId,userName,carteraId,mes){
     return c.estado==='venta'&&c.carteraId===carteraId&&(c.dateISO||'').startsWith(mes)&&_esDeUsuario(c,userId,userName);
   }).map(function(g){var d=_jsonNotas(g);return{id:g.id,nombre:g.producto||'',factura:g.num2||'',monto:d.monto||0,unidades:d.unidades||1,clientId:d.clientId||null,dateISO:g.dateISO};});
 }
-// Todas las ventas registradas de un cliente (cualquier asesor, cualquier mes)
-function _ventasCliente(clientId,cid){
-  return DB.calls.filter(function(c){return c.estado==='venta'&&c.carteraId===cid&&_jsonNotas(c).clientId===clientId;})
+// Todas las ventas registradas de un cliente del Kanban (cualquier asesor, cartera o mes)
+function _ventasCliente(clientId){
+  return DB.calls.filter(function(c){return c.estado==='venta'&&_jsonNotas(c).clientId===clientId;})
     .map(function(g){var d=_jsonNotas(g);return{id:g.id,factura:g.num2||'',monto:d.monto||0,dateISO:g.dateISO,userName:g.userName};})
     .sort(function(a,b){return(a.dateISO||'')<(b.dateISO||'')?-1:1;});
 }
-function _normFactura(s){return(s||'').toString().replace(/[^0-9a-z]/gi,'').replace(/^0+/,'').toLowerCase();}
+// Solo digitos sin ceros al inicio: '000-001-01-00122368' y '122368' se reconocen como la misma factura
+function _normFactura(s){return(s||'').toString().replace(/\D/g,'').replace(/^0+/,'');}
+function _mismaFactura(a,b){
+  var x=_normFactura(a),y=_normFactura(b);
+  if(!x||!y)return false;
+  if(x===y)return true;
+  var corta=x.length<y.length?x:y,larga=x.length<y.length?y:x;
+  return corta.length>=5&&larga.slice(-corta.length)===corta;
+}
+function _normNombre(s){return(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();}
 
-// Modal "🧾 Registrar venta": se abre solo al pasar un cliente a "Vendido" (Recompra) y desde su tarjeta.
+// ══ Facturas de Arqueos (proyecto Cobranza, vista arqueo_facturas) ══
+// Para registrar una venta el asesor ELIGE la factura del arqueo en vez de escribirla: así la misma
+// factura no la pueden reclamar dos asesores (además hay indice unico gestiones_venta_factura_unica).
+var CART_SUCURSAL={roca1:'R1',roca1motors:'R2',roca2motors:'R3',sumuebledanli:'R4',sumotodanli:'R5'};
+var SUCURSAL_CART={R1:'roca1',R2:'roca1motors',R3:'roca2motors',R4:'sumuebledanli',R5:'sumotodanli'};
+var SUCURSAL_NOMBRE={R1:'La Roca Comercial',R2:'Roca Motors 1',R3:'Roca Motors 2',R4:'Su Mueble',R5:'Su Moto'};
+function _sucursalesDeUsuario(extraCid){
+  var cids=Object.keys(METAS[CU.id]||{});
+  var u=(DB.users||[]).find(function(x){return x.id===CU.id;});
+  if(u&&u.cartera)cids=cids.concat(Array.isArray(u.cartera)?u.cartera:[u.cartera]);
+  if(extraCid)cids.push(extraCid);
+  // Su Mueble y Su Moto trabajan como un solo equipo (pool_mueble): si tiene una, ve las dos
+  if(cids.indexOf('sumuebledanli')>-1||cids.indexOf('sumotodanli')>-1)cids=cids.concat(['sumuebledanli','sumotodanli']);
+  var out=[];cids.forEach(function(c){var s=CART_SUCURSAL[c];if(s&&out.indexOf(s)<0)out.push(s);});
+  if(!out.length||CU.role==='admin')out=['R1','R2','R3','R4','R5'];
+  return out;
+}
+function _cargarFacturasArqueo(sucursales){
+  var desde=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
+  var h={apikey:COBRANZA_KEY,Authorization:'Bearer '+COBRANZA_KEY};
+  return Promise.all([
+    fetch(COBRANZA_URL+'/rest/v1/arqueo_facturas?select=*&fecha=gte.'+desde+'&sucursal=in.('+sucursales.join(',')+')&order=fecha.desc',{headers:h}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
+    // Ventas ya reclamadas, frescas del servidor (otro asesor pudo registrar una hace un momento)
+    sbF('gestiones','GET',null,'?estado=eq.venta&select=id,num2,user_name,producto')
+  ]).then(function(res){return{facturas:res[0],reclamadas:res[1]||[]};});
+}
+
+// Modal "🧾 Registrar venta". c = cliente del Kanban (opcional), cid = cartera desde donde se abre.
 function registrarVentaModal(c,cid,alMover){
-  if(!CU||!c)return;
+  if(!CU)return;
   var ex=document.getElementById('vta-modal');if(ex)ex.remove();
-  var previas=_ventasCliente(c.id,cid);
+  var previas=c?_ventasCliente(c.id):[];
+  var sel=null,datos=null,modoManual=false;
   var d=document.createElement('div');
   d.id='vta-modal';
-  d.style.cssText='position:fixed;inset:0;background:rgba(30,40,60,.5);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  d.style.cssText='position:fixed;inset:0;background:rgba(30,40,60,.5);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;';
   var prevHtml='';
   if(previas.length){
     prevHtml='<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:6px;">Ventas ya registradas de este cliente ('+previas.length+')</div>'+
-      previas.map(function(v){return '<div style="font-size:12px;padding:6px 10px;background:#f0fff4;border:1px solid #9ae6b4;border-radius:8px;margin-bottom:4px;color:#276749;">'+(v.dateISO||'').split('-').reverse().join('/')+' · '+(v.factura?'Fact./recibo '+escH(v.factura):'sin número')+(v.monto?' · L '+Math.round(v.monto).toLocaleString('es-HN'):'')+' · '+escH(v.userName||'')+'</div>';}).join('')+
-      '<div style="font-size:11px;color:var(--t3);margin:6px 0 14px;">Si compró otra vez, registra la nueva factura abajo — cada factura cuenta como una venta.</div>';
+      previas.map(function(v){return '<div style="font-size:12px;padding:6px 10px;background:#f0fff4;border:1px solid #9ae6b4;border-radius:8px;margin-bottom:4px;color:#276749;">'+(v.dateISO||'').split('-').reverse().join('/')+' · '+(v.factura?'Fact. '+escH(v.factura):'sin número')+(v.monto?' · L '+Math.round(v.monto).toLocaleString('es-HN'):'')+' · '+escH(v.userName||'')+'</div>';}).join('')+
+      '<div style="height:10px"></div>';
   }
   d.innerHTML=
-    '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;max-width:380px;box-shadow:var(--shadow2);">'+
-      '<div style="padding:18px 20px;border-bottom:1px solid var(--border);">'+
-        '<div style="font-size:15px;font-weight:700;color:var(--t1);">🧾 Registrar venta</div>'+
-        '<div style="font-size:12px;color:var(--t2);margin-top:3px;">'+escH(c.nombre)+'</div>'+
+    '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;max-width:440px;max-height:92vh;display:flex;flex-direction:column;box-shadow:var(--shadow2);">'+
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--border);">'+
+        '<div style="font-size:15px;font-weight:700;color:var(--t1);">🧾 ¿Cuál venta fue?</div>'+
+        '<div style="font-size:12px;color:var(--t2);margin-top:3px;">'+(c?escH(c.nombre)+' · ':'')+'Elige la factura del arqueo</div>'+
       '</div>'+
-      '<div style="padding:18px 20px 16px;">'+prevHtml+
-        '<label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px;">Número de factura o recibo</label>'+
-        '<input id="vta-fact" type="text" inputmode="numeric" placeholder="Ej: 122368 o recibo 16576" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;" />'+
-        '<label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px;">Monto (L.) <span style="font-weight:400;color:var(--t3);">opcional</span></label>'+
-        '<input id="vta-monto" type="number" min="0" placeholder="Ej: 4000" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:10px;box-sizing:border-box;" />'+
-        '<div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Cuenta para tu meta del mes. No hace falta agregarla también con ➕ en Mi Meta.</div>'+
-        '<button id="vta-ok" style="width:100%;padding:14px;background:linear-gradient(135deg,#48bb78,#2f855a);color:#fff;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;border:none;margin-bottom:8px;">Guardar venta</button>'+
+      '<div style="padding:14px 20px;overflow-y:auto;flex:1;">'+prevHtml+
+        '<div id="vta-sel-wrap">'+
+          '<input id="vta-buscar" type="text" placeholder="Buscar cliente, factura o artículo..." style="width:100%;padding:11px 13px;border:2px solid var(--border);border-radius:10px;font-size:14px;margin-bottom:10px;box-sizing:border-box;" />'+
+          '<div id="vta-lista" style="display:flex;flex-direction:column;gap:6px;"><div style="font-size:12px;color:var(--t3);text-align:center;padding:16px;">Cargando facturas de Arqueos…</div></div>'+
+          '<div style="margin-top:12px;text-align:center;"><a id="vta-no-aparece" style="font-size:12px;color:var(--blue);cursor:pointer;text-decoration:underline;">No aparece — el arqueo de ese día aún no se sube</a></div>'+
+        '</div>'+
+        '<div id="vta-manual" style="display:none;">'+
+          '<div style="font-size:12px;color:#744210;background:#fffaf0;border:1px solid #fbd38d;border-radius:8px;padding:9px 11px;margin-bottom:12px;">Regístrala con el número de factura. Cuando suban el arqueo, esa factura ya aparecerá como tuya y nadie más podrá reclamarla.</div>'+
+          '<label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px;">Número de factura</label>'+
+          '<input id="vta-fact" type="text" inputmode="numeric" placeholder="Ej: 000-001-01-00122368" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;" />'+
+          (c?'':'<label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px;">Cliente</label><input id="vta-cli" type="text" placeholder="Nombre del cliente" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;" />')+
+          '<label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px;">Monto (L.) <span style="font-weight:400;color:var(--t3);">opcional</span></label>'+
+          '<input id="vta-monto" type="number" min="0" placeholder="Ej: 4000" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:6px;box-sizing:border-box;" />'+
+          '<div style="margin-top:6px;text-align:center;"><a id="vta-volver" style="font-size:12px;color:var(--blue);cursor:pointer;text-decoration:underline;">← Volver a la lista de Arqueos</a></div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="padding:12px 20px 16px;border-top:1px solid var(--border);">'+
+        '<button id="vta-ok" disabled style="width:100%;padding:14px;background:linear-gradient(135deg,#48bb78,#2f855a);color:#fff;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;border:none;margin-bottom:8px;opacity:.5;">Elige una factura</button>'+
         '<button id="vta-no" style="width:100%;padding:11px;background:#f7f9fc;color:var(--t2);border:1.5px solid var(--border);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">'+(alMover?'Ahora no (no cuenta como venta)':'Cancelar')+'</button>'+
       '</div>'+
     '</div>';
   document.body.appendChild(d);
+  var okBtn=document.getElementById('vta-ok');
+  function setOk(txt,on){okBtn.textContent=txt;okBtn.disabled=!on;okBtn.style.opacity=on?'1':'.5';}
+  function reclamadaPor(fact){
+    if(!datos)return null;
+    var r=datos.reclamadas.find(function(x){return _mismaFactura(x.num2,fact);});
+    return r?(r.user_name||'otro asesor'):null;
+  }
+  function pintar(){
+    var lista=document.getElementById('vta-lista');if(!lista)return;
+    if(!datos||!datos.facturas){lista.innerHTML='<div style="font-size:12px;color:#c53030;text-align:center;padding:14px;">No se pudieron cargar las facturas de Arqueos. Revisa tu conexión o usa "No aparece".</div>';return;}
+    var q=_normNombre((document.getElementById('vta-buscar')||{}).value||'');
+    var nomC=c?_normNombre(c.nombre):'';
+    var fs=datos.facturas.filter(function(f){
+      if(!q)return true;
+      return _normNombre(f.cliente).indexOf(q)>-1||(f.factura||'').indexOf(q)>-1||_normNombre(f.articulo).indexOf(q)>-1;
+    });
+    // Las del mismo cliente del Kanban primero
+    if(nomC)fs.sort(function(a,b){var ma=_normNombre(a.cliente)===nomC?0:1,mb=_normNombre(b.cliente)===nomC?0:1;return ma-mb||(a.fecha<b.fecha?1:-1);});
+    if(!fs.length){lista.innerHTML='<div style="font-size:12px;color:var(--t3);text-align:center;padding:14px;">Sin facturas que coincidan.</div>';return;}
+    lista.innerHTML=fs.slice(0,80).map(function(f,i){
+      var por=reclamadaPor(f.factura);
+      var esSel=sel&&sel.factura===f.factura;
+      var esCli=nomC&&_normNombre(f.cliente)===nomC;
+      var clasCol=/CONTADO/.test(f.clasificacion||'')?'#2f855a':/PRIMA/.test(f.clasificacion||'')?'#2b6cb0':'#744210';
+      return '<div data-i="'+i+'" class="vta-item" style="padding:9px 11px;border-radius:10px;border:2px solid '+(esSel?'#48bb78':esCli?'#90cdf4':'var(--border)')+';background:'+(por?'#f7f7f7':esSel?'#f0fff4':'#fff')+';cursor:'+(por?'not-allowed':'pointer')+';opacity:'+(por?'.55':'1')+';">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;"><span style="font-size:13px;font-weight:700;color:var(--t1);">'+escH(f.cliente)+'</span><span style="font-size:12px;font-weight:700;color:var(--t1);white-space:nowrap;">L '+Math.round(f.total||0).toLocaleString('es-HN')+'</span></div>'+
+        '<div style="font-size:11px;color:var(--t2);margin-top:2px;">'+(f.fecha||'').split('-').reverse().join('/')+' · '+SUCURSAL_NOMBRE[f.sucursal]+' · Fact. …'+escH((f.factura||'').slice(-6))+' · <span style="color:'+clasCol+';font-weight:600;">'+escH(f.clasificacion||'')+'</span></div>'+
+        (f.articulo&&f.articulo!=='ILEGIBLE'?'<div style="font-size:11px;color:var(--t3);margin-top:2px;">'+escH(f.articulo)+'</div>':'')+
+        (por?'<div style="font-size:11px;color:#c53030;font-weight:600;margin-top:3px;">Ya registrada por '+escH(por)+'</div>':'')+
+      '</div>';
+    }).join('');
+    lista.querySelectorAll('.vta-item').forEach(function(el){
+      el.onclick=function(){
+        var f=fs[+el.dataset.i];
+        if(reclamadaPor(f.factura)){toast('Esa factura ya la registró '+reclamadaPor(f.factura),'err');return;}
+        sel=f;pintar();setOk('Registrar venta · '+f.cliente.split(' ')[0]+' · L '+Math.round(f.total||0).toLocaleString('es-HN'),true);
+      };
+    });
+  }
+  document.getElementById('vta-buscar').oninput=pintar;
   document.getElementById('vta-no').onclick=function(){d.remove();};
-  document.getElementById('vta-ok').onclick=function(){
-    var fact=(document.getElementById('vta-fact').value||'').trim();
-    var monto=parseFloat(document.getElementById('vta-monto').value)||0;
-    if(fact&&previas.some(function(v){return _normFactura(v.factura)===_normFactura(fact);})){toast('Esa factura ya está registrada para este cliente','err');return;}
-    if(!fact&&previas.length&&!document.getElementById('vta-ok').dataset.confirmado){
-      document.getElementById('vta-ok').dataset.confirmado='1';
-      document.getElementById('vta-ok').textContent='Guardar sin número de factura';
-      toast('Este cliente ya tiene ventas registradas — escribe el número de la nueva factura para no duplicar','err');return;
-    }
-    var rec=_nuevaFilaVenta('vta',cid,'venta','venta-kanban',c.nombre,fact,{monto:monto,unidades:1,ts:Date.now(),clientId:c.id});
-    DB.calls.push(rec);saveDB();
-    sbUp('gestiones',_gestionRow(rec)).then(function(ok){if(!ok)toast('⚠️ La venta no se guardó en la nube — revisa tu conexión','err');});
-    d.remove();
-    toast('🎉 Venta registrada'+(fact?' · '+fact:''),'ok');
-    if(typeof renderKanban==='function'&&document.getElementById('kb-modal-overlay')===null)renderKanban();
+  document.getElementById('vta-no-aparece').onclick=function(){
+    modoManual=true;sel=null;
+    document.getElementById('vta-sel-wrap').style.display='none';
+    document.getElementById('vta-manual').style.display='block';
+    setOk('Guardar venta',true);
+    setTimeout(function(){var i=document.getElementById('vta-fact');if(i)i.focus();},50);
   };
-  setTimeout(function(){var i=document.getElementById('vta-fact');if(i)i.focus();},100);
+  document.getElementById('vta-volver').onclick=function(){
+    modoManual=false;
+    document.getElementById('vta-sel-wrap').style.display='block';
+    document.getElementById('vta-manual').style.display='none';
+    setOk('Elige una factura',false);pintar();
+  };
+  _cargarFacturasArqueo(_sucursalesDeUsuario(cid)).then(function(r){datos=r;pintar();});
+  okBtn.onclick=function(){
+    var fact,monto,nombre,cartVenta,fecha,extra={};
+    if(modoManual){
+      fact=(document.getElementById('vta-fact').value||'').trim();
+      monto=parseFloat(document.getElementById('vta-monto').value)||0;
+      nombre=c?c.nombre:((document.getElementById('vta-cli')||{}).value||'').trim();
+      if(!fact){toast('Escribe el número de factura','err');return;}
+      if(!c&&!nombre){toast('Escribe el nombre del cliente','err');return;}
+      var enArq=datos&&datos.facturas&&datos.facturas.find(function(f){return _mismaFactura(f.factura,fact);});
+      if(enArq){toast('Esa factura sí está en Arqueos — elígela de la lista','err');document.getElementById('vta-volver').onclick();document.getElementById('vta-buscar').value=fact;pintar();return;}
+      cartVenta=cid;fecha=null;extra.origen='manual';
+    }else{
+      if(!sel)return;
+      fact=sel.factura;monto=Number(sel.total)||0;nombre=sel.cliente;
+      cartVenta=SUCURSAL_CART[sel.sucursal]||cid;fecha=sel.fecha;
+      extra={origen:'arqueo',sucursal:sel.sucursal,articulo:sel.articulo||'',clasificacion:sel.clasificacion||''};
+    }
+    if(reclamadaPor(fact)){toast('Esa factura ya la registró '+reclamadaPor(fact),'err');return;}
+    // cliente del CRM al que se liga (para "ventas de este cliente" en su tarjeta)
+    var cliId=c?c.id:null;
+    if(!cliId){var nn=_normNombre(nombre);Object.keys(DB.clients).some(function(k){var m=(DB.clients[k]||[]).find(function(x){return _normNombre(x.nombre)===nn;});if(m){cliId=m.id;return true;}return false;});}
+    var notas=Object.assign({monto:monto,unidades:1,ts:Date.now(),clientId:cliId},extra);
+    var rec=_nuevaFilaVenta('vta',cartVenta,'venta','venta-kanban',nombre,fact,notas);
+    if(fecha){rec.dateISO=fecha;rec.date=fecha.slice(8,10)+'/'+fecha.slice(5,7)+'/'+fecha.slice(0,4);}
+    setOk('Guardando…',false);
+    sbUp('gestiones',_gestionRow(rec)).then(function(ok){
+      if(!ok){setOk('Registrar venta',true);toast('No se guardó: esa factura ya está registrada o no hay conexión','err');return;}
+      DB.calls.push(rec);saveDB();
+      d.remove();
+      toast('🎉 Venta registrada · '+nombre.split(' ')[0]+(fact?' · …'+fact.slice(-6):''),'ok');
+      var enMeta=document.getElementById('ni-meta')&&document.getElementById('ni-meta').classList.contains('on');
+      if(enMeta)goTo('meta');else if(document.getElementById('ni-kanban')&&document.getElementById('ni-kanban').classList.contains('on'))try{renderKanban();}catch(e){}
+    });
+  };
 }
 
 // Calcula ventas y monto vendido de un vendedor en una cartera
@@ -1891,7 +2010,9 @@ function vMeta(){
 }
 
 // Modal para agregar venta manual a la meta
-function metaAbrirForm(cartId){
+function metaAbrirForm(cartId){registrarVentaModal(null,cartId,false);}
+// Registro manual sin factura (solo cuenta unidades/monto) — ya no se ofrece desde ➕; se deja por compatibilidad
+function metaAbrirFormManual(cartId){
   if(!CU||!METAS[CU.id])return;
   var mc=METAS[CU.id][cartId];
   var cart=DB.carteras.find(function(c){return c.id===cartId;});
