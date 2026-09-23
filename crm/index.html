@@ -403,7 +403,14 @@ function loadFromSB(){
   ]).then(function(res){
     var cl=res[0]||[],ge=res[1]||[],us=res[2]||[],ld=res[3]||[];
     DB.clients={};
-    var _CM={'roca2':'roca2motors','moto1':'roca1motors','moto2':'roca2motors','mueble':'sumuebledanli'};
+    // BUG 2026-09-24: este mapa remapeaba ids de cartera viejos/duplicados a carteras REALES (roca1motors,
+    // roca2motors, sumuebledanli) pero apuntaba mal — 'moto1' (1479 filas) es copia identica de
+    // 'sumuebledanli', 'moto2' (377) de 'sumotodanli', 'roca2' (240) de 'roca1motors', 'mueble' (562) de
+    // 'roca2motors', y el mapa las mandaba TODAS a una cartera distinta a la que en realidad pertenecen
+    // (ej. clientes de Su Mueble Danli aparecian duplicados como si fueran de Roca Motors 1 — caso real:
+    // Oscar Rene Espinoza Cardenas). Se deja vacio: estos ids huerfanos/duplicados se descartan, igual que
+    // ya se descartaba '2121' (que nunca estuvo en este mapa y no daba problema).
+    var _CM={};
     var _knownCarts=DB.carteras.map(function(x){return x.id;});
     cl.forEach(function(c){
       var _cid=_CM[c.cartera_id]||c.cartera_id;
@@ -1006,7 +1013,7 @@ function vClientes(){
   var sy=Object.keys(yrs).sort(function(a,b){return a==='todos'?-1:b==='todos'?1:b-a;});
   var yH='<div class="filter-row">'+sy.map(function(y){return '<div class="ytab '+(activeYear===y?'on':'')+'" data-yr="'+y+'" onclick="setYear(this)">'+(y==='todos'?'📅 Todos':y)+'</div>';}).join('')+'</div>';
   var progBar=CU.role==='vendedor'?'<div id="vend-meta-bar"></div>':'';
-  return progBar+cartH+yH+'<div class="filter-row"><button class="cfilter all '+(activeCat==='all'?'on':'')+'" data-cat="all" onclick="setCat(this)">Todos</button><button class="cfilter ex '+(activeCat==='ex'?'on':'')+'" data-cat="ex" onclick="setCat(this)">⭐ Excelente</button><button class="cfilter bu '+(activeCat==='bu'?'on':'')+'" data-cat="bu" onclick="setCat(this)">👍 Bueno</button><button class="cfilter re '+(activeCat==='re'?'on':'')+'" data-cat="re" onclick="setCat(this)">⚠️ Regular</button><button class="cfilter ri '+(activeCat==='ri'?'on':'')+'" data-cat="ri" onclick="setCat(this)">🔴 Riesgoso</button><button class="cfilter" style="border-color:var(--blue);color:var(--blue);'+(activeCat==='cancelados'?'background:var(--bluel);':'')+'" data-cat="cancelados" onclick="setCat(this)">🏁 Cancelados recientes</button><button class="cfilter" style="border-color:#c53030;color:#c53030;'+(activeCat==='retiros'?'background:#fff5f5;':'')+'" data-cat="retiros" onclick="setCat(this)">⚠️ Posible retiro de producto</button><button class="cfilter" style="border-color:#38b2ac;color:#38b2ac;'+(activeCat==='contado'?'background:#e6fffa;':'')+'" data-cat="contado" onclick="setCat(this)">💵 Ventas de contado</button><input class="srch" id="srch" placeholder="🔍 Buscar cliente..." oninput="renderCards()" /><span class="res-ct" id="res-ct"></span></div><div class="cards-grid" id="cards-grid"></div><div id=\"pagination\"></div>';
+  return progBar+cartH+yH+'<div class="filter-row"><button class="cfilter all '+(activeCat==='all'?'on':'')+'" data-cat="all" onclick="setCat(this)">Todos</button><button class="cfilter ex '+(activeCat==='ex'?'on':'')+'" data-cat="ex" onclick="setCat(this)">⭐ Excelente</button><button class="cfilter bu '+(activeCat==='bu'?'on':'')+'" data-cat="bu" onclick="setCat(this)">👍 Bueno</button><button class="cfilter re '+(activeCat==='re'?'on':'')+'" data-cat="re" onclick="setCat(this)">⚠️ Regular</button><button class="cfilter ri '+(activeCat==='ri'?'on':'')+'" data-cat="ri" onclick="setCat(this)">🔴 Riesgoso</button><button class="cfilter" style="border-color:var(--blue);color:var(--blue);'+(activeCat==='cancelados'?'background:var(--bluel);':'')+'" data-cat="cancelados" onclick="setCat(this)">🏁 Cancelados recientes</button><button class="cfilter" style="border-color:#c53030;color:#c53030;'+(activeCat==='retiros'?'background:#fff5f5;':'')+'" data-cat="retiros" onclick="setCat(this)">⚠️ Posible retiro de producto</button><button class="cfilter" style="border-color:#38b2ac;color:#38b2ac;'+(activeCat==='contado'?'background:#e6fffa;':'')+'" data-cat="contado" onclick="setCat(this)">💵 Ventas de contado</button><button class="cfilter" style="border-color:#9f7aea;color:#9f7aea;'+(activeCat==='activos_venta'?'background:#faf5ff;':'')+'" data-cat="activos_venta" onclick="setCat(this)">🛒 Recompra (activos)</button><input class="srch" id="srch" placeholder="🔍 Buscar cliente..." oninput="renderCards()" /><span class="res-ct" id="res-ct"></span></div><div class="cards-grid" id="cards-grid"></div><div id=\"pagination\"></div>';
 }
 // Clientes que cancelaron en Cobranza (ya no aparecen en el PDF, o su saldo llego a 0) —
 // alimentado por pushCancelado() en Cobranza, tabla crm_cancelados. No son parte del pool normal
@@ -1080,6 +1087,77 @@ function abrirCanceladoModal(id,origenFiltro){
   }
   openMov('mov-canc');
 }
+// ── Recompra (clientes activos, leidos EN VIVO de Cobranza) ──
+// Segundo proyecto Supabase (Cobranza), solo lectura, mismo patron que crm_cancelados pero sin copiar datos.
+var COBRANZA_URL='https://ixskgawbpwwxdjnkiixt.supabase.co',COBRANZA_KEY='sb_publishable_-JUaSYPPkq8n4wJIKPtXGw_XMyj3EE7';
+var COBRANZA_CART_MAP={roca1:'LA_ROCA_COMERCIAL_1',roca1motors:'LA_ROCA_MOTORS_BARRIO_ARRIBA_1',roca2motors:'LA_ROCA_MOTORS_LA_LIBERTAD_2',sumuebledanli:'SU_MUEBLE',sumotodanli:'SU_MOTO_DANLI'};
+var ACTIVOS_VENTA=null,_activosVentaLoading=false;
+function cargarActivosVenta(){
+  if(_activosVentaLoading)return;
+  _activosVentaLoading=true;
+  var ids=Object.values(COBRANZA_CART_MAP).map(function(x){return '"'+x+'"';}).join(',');
+  fetch(COBRANZA_URL+'/rest/v1/carteras?id=in.('+ids+')&select=id,clientes',{headers:{apikey:COBRANZA_KEY,Authorization:'Bearer '+COBRANZA_KEY}})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      var out=[];
+      var crmOf={};Object.keys(COBRANZA_CART_MAP).forEach(function(k){crmOf[COBRANZA_CART_MAP[k]]=k;});
+      (rows||[]).forEach(function(row){
+        var crmCart=crmOf[row.id];if(!crmCart)return;
+        (row.clientes||[]).forEach(function(c){
+          if(c.tramo==='INACTIVO')return;
+          var enMora=c.tramo&&c.tramo!=='MES';
+          var restantes=c.cuota>0?Math.round((c.saldo||0)/c.cuota*10)/10:null;
+          var proximo=!enMora&&restantes!==null&&restantes<=2;
+          var estado=enMora?'mora':proximo?'proximo':'aldia';
+          var _localCl=(DB.clients[crmCart]||[]).find(function(x){return x.nombre.toUpperCase()===c.nombre.toUpperCase();});
+          out.push({cartera_id:crmCart,nombre:c.nombre,telefono:_localCl?_localCl.telefono:'',clientId:_localCl?_localCl.id:null,saldo:c.saldo||0,cuota:c.cuota||0,restantes:restantes,tramo:c.tramo,dias_mora:c.dias_mora||0,estado:estado});
+        });
+      });
+      ACTIVOS_VENTA=out;
+      if(activeCat==='activos_venta')renderCards();
+    }).catch(function(){ACTIVOS_VENTA=ACTIVOS_VENTA||[];}).finally(function(){_activosVentaLoading=false;});
+}
+function renderCardsActivosVenta(grid){
+  if(ACTIVOS_VENTA===null){
+    grid.innerHTML='<div class="empty-st"><div class="ei">⏳</div><p>Cargando clientes activos desde Cobranza...</p></div>';
+    document.getElementById('pagination')&&(document.getElementById('pagination').innerHTML='');
+    cargarActivosVenta();
+    return;
+  }
+  var visibles=getCarterasVend();
+  var q=document.getElementById('srch')?document.getElementById('srch').value.toLowerCase():'';
+  var lst=ACTIVOS_VENTA.filter(function(c){return visibles.indexOf(c.cartera_id)>=0;});
+  if(activeCart)lst=lst.filter(function(c){return c.cartera_id===activeCart;});
+  if(q)lst=lst.filter(function(c){return c.nombre.toLowerCase().includes(q);});
+  var orden={proximo:0,aldia:1,mora:2};
+  lst.sort(function(a,b){return orden[a.estado]-orden[b.estado];});
+  var rc=document.getElementById('res-ct');if(rc)rc.textContent=lst.length+' clientes activos';
+  if(!lst.length){
+    grid.innerHTML='<div class="empty-st"><div class="ei">🛒</div><p>Sin clientes activos en tu cartera.</p></div>';
+    document.getElementById('pagination')&&(document.getElementById('pagination').innerHTML='');
+    return;
+  }
+  var estilos={
+    proximo:{acc:'#38b2ac',bg:'#e6fffa',txt:'#2c7a7b',badge:'🟢 Próximo a terminar',nota:'Le faltan '+ '__R__'+' cuota(s) — buen momento para ofrecerle algo nuevo.'},
+    aldia:{acc:'#5b8dee',bg:'var(--bluel)',txt:'var(--blue)',badge:'✅ Al día',nota:'Paga puntual, sin mora — candidato normal a recompra.'},
+    mora:{acc:'#c53030',bg:'#fff5f5',txt:'#c53030',badge:'🔴 En mora',nota:'No recomendado ofrecerle algo nuevo todavía — cobrar primero.'}
+  };
+  var h='';
+  lst.forEach(function(c){
+    var cart=DB.carteras.find(function(x){return x.id===c.cartera_id;});
+    var st=estilos[c.estado];
+    var nota=c.estado==='proximo'?('Le faltan '+c.restantes+' cuota(s) — buen momento para ofrecerle algo nuevo.'):st.nota;
+    var tel=c.telefono?'<a href="tel:'+c.telefono+'" onclick="event.stopPropagation()" style="color:#276749;font-size:11px;font-weight:600;">📞 '+c.telefono+'</a>':'<span style="font-size:11px;color:var(--t3);">Sin teléfono</span>';
+    h+='<div class="ccard" '+(c.clientId?'onclick="openCl(\''+c.cartera_id+'\',\''+c.clientId+'\')" style="cursor:pointer;"':'')+'>';
+    h+='<div class="ccard-top" style="background:'+st.acc+';"></div>';
+    h+='<div class="cc-head"><div class="cc-av" style="background:'+st.bg+';color:'+st.txt+';">'+c.nombre[0]+'</div><div class="cc-info"><div class="cc-name" style="white-space:normal;overflow:visible;line-height:1.25;">'+c.nombre+'</div><div class="cc-sub">'+tel+' · '+(cart?cart.name:c.cartera_id)+'</div></div><span class="cat-badge" style="background:'+st.bg+';color:'+st.txt+';white-space:nowrap;">'+st.badge+'</span></div>';
+    h+='<div style="padding:0 14px 12px;font-size:12px;color:var(--t2);">'+nota+'</div>';
+    h+='<div style="padding:0 14px 12px;font-size:11px;color:var(--t3);">Saldo L '+Math.round(c.saldo).toLocaleString('es-HN')+' · Cuota L '+Math.round(c.cuota).toLocaleString('es-HN')+(c.dias_mora>0?' · '+c.dias_mora+' días de mora':'')+'</div>';
+    h+='</div>';
+  });
+  grid.innerHTML=h;
+  document.getElementById('pagination')&&(document.getElementById('pagination').innerHTML='');
+}
 function renderCardsCancelados(grid,origenFiltro){
   var visibles=getCarterasVend();
   var q=document.getElementById('srch')?document.getElementById('srch').value.toLowerCase():'';
@@ -1118,6 +1196,7 @@ function renderCards(){
   if(activeCat==='cancelados'){renderCardsCancelados(grid,'pago_confirmado');return;}
   if(activeCat==='retiros'){renderCardsCancelados(grid,'posible_retiro_producto');return;}
   if(activeCat==='contado'){renderCardsCancelados(grid,'venta_contado');return;}
+  if(activeCat==='activos_venta'){renderCardsActivosVenta(grid);return;}
   // Barra de meta para vendedor en vista Clientes
   var _vmb=document.getElementById('vend-meta-bar');
   if(_vmb&&CU.role==='vendedor'){
