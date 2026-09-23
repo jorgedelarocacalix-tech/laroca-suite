@@ -702,14 +702,15 @@ function nombreSim(a,b){
   var comunes=wa.filter(function(w){return wb.indexOf(w)>=0;}).length;
   return comunes>=Math.min(2,Math.min(wa.length,wb.length));
 }
+// Devuelve el cobro de Arqueos que cuadra con este saldo (fecha/monto/recibo), o null si no hay ninguno.
 async function huboAbonoReal(cartIdCobranza,nombre,saldoAnterior){
   try{
-    if(!supa||!saldoAnterior)return false;
-    var suc=CANCEL_SUC_MAP[cartIdCobranza];if(!suc)return false;
+    if(!supa||!saldoAnterior)return null;
+    var suc=CANCEL_SUC_MAP[cartIdCobranza];if(!suc)return null;
     var desde=new Date(HOY);desde.setDate(desde.getDate()-15);
-    var r=await supa.from('arqueos').select('analisis_json').eq('sucursal',suc)
+    var r=await supa.from('arqueos').select('fecha,analisis_json').eq('sucursal',suc)
       .gte('fecha',desde.toISOString().split('T')[0]).lte('fecha',HOY.toISOString().split('T')[0]);
-    if(r.error||!r.data)return false;
+    if(r.error||!r.data)return null;
     var tol=Math.max(200,saldoAnterior*0.15);
     for(var i=0;i<r.data.length;i++){
       var aj=r.data[i].analisis_json;if(!aj)continue;
@@ -718,12 +719,23 @@ async function huboAbonoReal(cartIdCobranza,nombre,saldoAnterior){
         var cb=cobros[j];
         if((cb.tipo==='ABONO'||cb.tipo==='CONTADO'||cb.tipo==='NOTA CRÉDITO'||cb.tipo==='NOTA DÉBITO')&&
            nombreSim(nombre,cb.cliente)&&Math.abs((cb.monto||0)-saldoAnterior)<=tol){
-          return true;
+          return {fecha:r.data[i].fecha,monto:cb.monto,recibo:cb.recibo||null};
         }
       }
     }
-    return false;
-  }catch(e){console.error('huboAbonoReal:',e);return false;}
+    return null;
+  }catch(e){console.error('huboAbonoReal:',e);return null;}
+}
+// Ultimo comentario/gestion antes de la cancelacion (para que quien revise en el CRM vea el contexto).
+async function ultimoComentario(cartId,nombre){
+  try{
+    var r=await supa.from('historial_clientes').select('nota,gestor,created_at')
+      .eq('cartera_id',cartId).eq('cliente_nombre',nombre)
+      .in('tipo',['nota','promesa','posponer','no-contesta','no_contesta'])
+      .order('created_at',{ascending:false}).limit(1);
+    if(r.error||!r.data||!r.data.length)return null;
+    return {nota:r.data[0].nota,gestor:r.data[0].gestor,fecha:(r.data[0].created_at||'').split('T')[0]};
+  }catch(e){return null;}
 }
 async function pushCancelado(cartIdCobranza,cliente,motivoDeteccion){
   try{
@@ -732,15 +744,21 @@ async function pushCancelado(cartIdCobranza,cliente,motivoDeteccion){
     // Venta de contado: se facturo a 1 o 2 pagos (no es un plan de cuotas real), asi que terminar de
     // pagar no es una "cobranza recuperada" — va a su propia pestana, sin pasar por el cruce de Arqueos.
     var esContado=(cliente.num_cuotas||0)>0&&cliente.num_cuotas<=2;
-    var origen=esContado?'venta_contado':(await huboAbonoReal(cartIdCobranza,cliente.nombre,cliente.saldo||0)?'pago_confirmado':'posible_retiro_producto');
+    var abono=esContado?null:await huboAbonoReal(cartIdCobranza,cliente.nombre,cliente.saldo||0);
+    var origen=esContado?'venta_contado':(abono?'pago_confirmado':'posible_retiro_producto');
+    var uc=await ultimoComentario(cartIdCobranza,cliente.nombre);
     await rrF('crm_cancelados','POST',{
       id:crmCart+'::'+cliente.nombre,cartera_id:crmCart,nombre:cliente.nombre,telefono:tel,
       saldo_anterior:cliente.saldo||0,num_cuotas:cliente.num_cuotas||null,fecha_cancelacion:HOY.toISOString().split('T')[0],
       origen:origen,motivo_deteccion:motivoDeteccion,
+      fecha_inicio_credito:cliente.fecha_factura?isoFromHN(cliente.fecha_factura):null,
+      arqueo_fecha:abono?abono.fecha:null,arqueo_monto:abono?abono.monto:null,arqueo_recibo:abono?abono.recibo:null,
+      ultimo_comentario:uc?uc.nota:null,ultimo_comentario_gestor:uc?uc.gestor:null,ultimo_comentario_fecha:uc?uc.fecha:null,
       cartera_origen_cobranza:cartIdCobranza,updated_at:new Date().toISOString()
     });
   }catch(e){console.error('pushCancelado:',e);}
 }
+function isoFromHN(s){var p=(s||'').split('/');return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:null;}
 var RRHH_URL='https://upaenjotkocmdvfuobii.supabase.co';
 var RRHH_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
 var RRHH_CARTERAS={

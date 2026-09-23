@@ -1067,7 +1067,15 @@ function abrirCanceladoModal(id,origenFiltro){
   var motivoLbl=c.motivo_deteccion==='saldo_en_cero'?'Saldo llegó a L0':'Ya no aparece en la cartera';
   var h='<div style="font-size:19px;font-weight:800;color:var(--t1);margin-bottom:4px;">'+c.nombre+'</div>';
   h+='<div style="font-size:13px;color:var(--t2);margin-bottom:14px;">'+(cart?cart.name:c.cartera_id)+' · '+motivoLbl+' · '+(c.fecha_cancelacion||'')+'</div>';
-  h+='<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--t2);">Saldo con el que se fue: <strong style="color:var(--t1);">L '+Math.round(c.saldo_anterior||0).toLocaleString('es-HN')+'</strong></div>';
+  h+='<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--t2);">Saldo con el que se fue: <strong style="color:var(--t1);">L '+Math.round(c.saldo_anterior||0).toLocaleString('es-HN')+'</strong>'+(c.fecha_inicio_credito?'<br>Cliente desde (primer registro): <strong style="color:var(--t1);">'+c.fecha_inicio_credito+'</strong>':'')+'</div>';
+  if(c.arqueo_monto){
+    h+='<div style="background:#f0fff4;border:1px solid #9ae6b4;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#276749;">✅ <strong>Abono encontrado en Arqueos:</strong> L '+Math.round(c.arqueo_monto).toLocaleString('es-HN')+' el '+(c.arqueo_fecha||'—')+(c.arqueo_recibo?' · recibo '+c.arqueo_recibo:'')+'</div>';
+  } else if(c.origen==='posible_retiro_producto'){
+    h+='<div style="background:#fff5f5;border:1px solid #fed7d7;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#c53030;">❌ No se encontró ningún abono en Arqueos que cuadre con este saldo, en los ±15 días alrededor de la cancelación.</div>';
+  }
+  if(c.ultimo_comentario){
+    h+='<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--t2);">💬 <strong style="color:var(--t1);">Último comentario</strong> ('+(c.ultimo_comentario_gestor||'—')+', '+(c.ultimo_comentario_fecha||'—')+'):<br>'+c.ultimo_comentario+'</div>';
+  }
   h+='<label class="fl" style="display:block;font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:5px;">📞 Teléfono</label>';
   h+='<div style="display:flex;gap:8px;margin-bottom:14px;"><input class="finp" id="canc-tel-inp" value="'+(c.telefono||'')+'" placeholder="Agregar teléfono..." style="flex:1;">';
   h+='<button class="btn-s" onclick="guardarTelCancelado(\''+id.replace(/'/g,"\\'")+'\')">💾</button></div>';
