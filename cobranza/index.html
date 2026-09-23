@@ -784,7 +784,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260923-39';
+var APP_VERSION='20260923-40';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
@@ -1097,7 +1097,7 @@ async function loadAutores(){
       // ("Sayda JAMILETH..." vs "SAYDA JAMILETH..."): gana la primera variante vista.
       var vistos={},lista=[];
       Object.keys(nombresPorCartera[cartId]).forEach(function(n){
-        var k=n.trim().toLowerCase();if(vistos[k])return;vistos[k]=1;lista.push(n);
+        var k=n.trim().toLowerCase();if(vistos[k]||NOMBRES_GENERICOS.indexOf(n)>-1)return;vistos[k]=1;lista.push(n);
       });
       EQUIPO_POR_CARTERA[cartId]=lista.sort(function(a,b){return a.localeCompare(b,'es');});
     });
