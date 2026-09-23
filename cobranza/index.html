@@ -674,6 +674,33 @@ function nombreComentarista(){
 }
 // ══ LOGIN INDIVIDUAL VIA RRHH ══
 // Cada asociado entra con su propio PIN de RRHH; aquí se define qué carteras ve según su equipo.
+// ══ Clientes que cancelaron → CRM (tabla crm_cancelados, mismo Supabase que RRHH/CRM) ══
+// Se detecta cuando: (a) el cliente ya no aparece en el PDF nuevo, o (b) su saldo llega a 0 en el PDF.
+// Se manda con upsert (id=carteraCRM::nombre) para no duplicar; se busca el telefono en clientes/sm_clientes por nombre.
+var CANCEL_CART_MAP={LA_ROCA_COMERCIAL_1:'roca1',LA_ROCA_MOTORS_BARRIO_ARRIBA_1:'roca1motors',LA_ROCA_MOTORS_LA_LIBERTAD_2:'roca2motors',SU_MUEBLE:'sumuebledanli',SU_MOTO_DANLI:'sumotodanli'};
+function rrF(t,m,b,q){return fetch(RRHH_URL+'/rest/v1/'+t+(q||''),{method:m||'GET',headers:{'Content-Type':'application/json','apikey':RRHH_KEY,'Authorization':'Bearer '+RRHH_KEY,'Prefer':m==='POST'?'resolution=merge-duplicates':''},...(b?{body:JSON.stringify(b)}:{})}).then(function(r){if(!r.ok)return null;return(m||'GET')==='GET'?r.json():true;}).catch(function(){return null;});}
+async function buscarTelefonoCRM(nombre){
+  try{
+    var q='?nombre=ilike.'+encodeURIComponent(nombre)+'&select=telefono&limit=1';
+    var r1=await rrF('clientes','GET',null,q);
+    if(r1&&r1.length&&r1[0].telefono)return r1[0].telefono;
+    var q2='?contacto=ilike.'+encodeURIComponent(nombre)+'&select=telefono&limit=1';
+    var r2=await rrF('sm_clientes','GET',null,q2);
+    if(r2&&r2.length&&r2[0].telefono)return r2[0].telefono;
+  }catch(e){}
+  return null;
+}
+async function pushCancelado(cartIdCobranza,cliente,origen){
+  try{
+    var crmCart=CANCEL_CART_MAP[cartIdCobranza];if(!crmCart)return;
+    var tel=await buscarTelefonoCRM(cliente.nombre);
+    await rrF('crm_cancelados','POST',{
+      id:crmCart+'::'+cliente.nombre,cartera_id:crmCart,nombre:cliente.nombre,telefono:tel,
+      saldo_anterior:cliente.saldo||0,fecha_cancelacion:HOY.toISOString().split('T')[0],
+      origen:origen,cartera_origen_cobranza:cartIdCobranza,updated_at:new Date().toISOString()
+    });
+  }catch(e){console.error('pushCancelado:',e);}
+}
 var RRHH_URL='https://upaenjotkocmdvfuobii.supabase.co';
 var RRHH_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
 var RRHH_CARTERAS={
@@ -1705,6 +1732,7 @@ async function processPDF(file){
             // 2026-08-31 con Su Mueble). Si de verdad cancelo, su promesa vieja queda
             // huerfana sin causar dano; si fue un PDF incompleto, no se pierde nada.
             histPromises.push(dbSaveHist({cartera_id:id,cliente_nombre:c.nombre,tipo:'pago',monto:c.saldo,nota:'Cliente cancelado — ya no aparece en la cartera (saldo anterior: L '+fmt(c.saldo)+')',fecha_accion:HOY.toISOString().split('T')[0],gestor:'Sistema',created_at:new Date().toISOString()}));
+            pushCancelado(id,c,'ya_no_aparece_en_pdf');
           }
         }
       });
@@ -1713,6 +1741,7 @@ async function processPDF(file){
         if(ps!==undefined&&c.saldo<ps.saldo){
           var abonado=ps.saldo-c.saldo;
           var tipo=(c.saldo===0||abonado>=ps.cuota*0.9)?'pago':'abono';
+          if(c.saldo===0)pushCancelado(id,c,'saldo_en_cero');
           var key=id+'::'+c.nombre;var prom=PROMESAS[key];
           var notaHist=tipo==='pago'?'Pago detectado al subir PDF':'Abono parcial de L '+fmt(abonado);
           if(prom&&prom.estado==='promesa'){

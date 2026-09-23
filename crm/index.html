@@ -604,6 +604,10 @@ function cargarMetasMensuales(){
     if(rows&&rows.length&&rows[0].value&&typeof rows[0].value==='object'&&Object.keys(rows[0].value).length)METAS=rows[0].value;
   }).catch(function(){});
 }
+var CANCELADOS=[];
+function cargarCancelados(){
+  return sbF('crm_cancelados','GET',null,'?order=fecha_cancelacion.desc&limit=400').then(function(rows){CANCELADOS=rows||[];}).catch(function(){});
+}
 function abrirMetasMensuales(){
   var sellers=DB.users.filter(function(u){return u.role==='vendedor'||METAS[u.id];});
   var seen={};sellers=sellers.filter(function(u){if(seen[u.id])return false;seen[u.id]=1;return true;});
@@ -799,6 +803,7 @@ function launchApp(){
   connectRealtime();
   cargarMetaLlamadas();
   cargarMetasMensuales();
+  cargarCancelados();
   loadFromSB().then(function(){
     // Para vendedores: asegurar que sus propias gestiones estén en DB.calls
     if(CU.role==='vendedor'){
@@ -993,10 +998,40 @@ function vClientes(){
   var sy=Object.keys(yrs).sort(function(a,b){return a==='todos'?-1:b==='todos'?1:b-a;});
   var yH='<div class="filter-row">'+sy.map(function(y){return '<div class="ytab '+(activeYear===y?'on':'')+'" data-yr="'+y+'" onclick="setYear(this)">'+(y==='todos'?'📅 Todos':y)+'</div>';}).join('')+'</div>';
   var progBar=CU.role==='vendedor'?'<div id="vend-meta-bar"></div>':'';
-  return progBar+cartH+yH+'<div class="filter-row"><button class="cfilter all '+(activeCat==='all'?'on':'')+'" data-cat="all" onclick="setCat(this)">Todos</button><button class="cfilter ex '+(activeCat==='ex'?'on':'')+'" data-cat="ex" onclick="setCat(this)">⭐ Excelente</button><button class="cfilter bu '+(activeCat==='bu'?'on':'')+'" data-cat="bu" onclick="setCat(this)">👍 Bueno</button><button class="cfilter re '+(activeCat==='re'?'on':'')+'" data-cat="re" onclick="setCat(this)">⚠️ Regular</button><button class="cfilter ri '+(activeCat==='ri'?'on':'')+'" data-cat="ri" onclick="setCat(this)">🔴 Riesgoso</button><input class="srch" id="srch" placeholder="🔍 Buscar cliente..." oninput="renderCards()" /><span class="res-ct" id="res-ct"></span></div><div class="cards-grid" id="cards-grid"></div><div id=\"pagination\"></div>';
+  return progBar+cartH+yH+'<div class="filter-row"><button class="cfilter all '+(activeCat==='all'?'on':'')+'" data-cat="all" onclick="setCat(this)">Todos</button><button class="cfilter ex '+(activeCat==='ex'?'on':'')+'" data-cat="ex" onclick="setCat(this)">⭐ Excelente</button><button class="cfilter bu '+(activeCat==='bu'?'on':'')+'" data-cat="bu" onclick="setCat(this)">👍 Bueno</button><button class="cfilter re '+(activeCat==='re'?'on':'')+'" data-cat="re" onclick="setCat(this)">⚠️ Regular</button><button class="cfilter ri '+(activeCat==='ri'?'on':'')+'" data-cat="ri" onclick="setCat(this)">🔴 Riesgoso</button><button class="cfilter" style="border-color:var(--blue);color:var(--blue);'+(activeCat==='cancelados'?'background:var(--bluel);':'')+'" data-cat="cancelados" onclick="setCat(this)">🏁 Cancelados recientes</button><input class="srch" id="srch" placeholder="🔍 Buscar cliente..." oninput="renderCards()" /><span class="res-ct" id="res-ct"></span></div><div class="cards-grid" id="cards-grid"></div><div id=\"pagination\"></div>';
+}
+// Clientes que cancelaron en Cobranza (ya no aparecen en el PDF, o su saldo llego a 0) —
+// alimentado por pushCancelado() en Cobranza, tabla crm_cancelados. No son parte del pool normal
+// (no llevan gestiones/kanban), es solo un aviso para que ventas los contacte si conviene recompra.
+function renderCardsCancelados(grid){
+  var visibles=getCarterasVend();
+  var q=document.getElementById('srch')?document.getElementById('srch').value.toLowerCase():'';
+  var lst=CANCELADOS.filter(function(c){return visibles.indexOf(c.cartera_id)>=0;});
+  if(activeCart)lst=lst.filter(function(c){return c.cartera_id===activeCart;});
+  if(q)lst=lst.filter(function(c){return c.nombre.toLowerCase().includes(q);});
+  var rc=document.getElementById('res-ct');if(rc)rc.textContent=lst.length+' cancelados';
+  if(!lst.length){
+    grid.innerHTML='<div class="empty-st"><div class="ei">🏁</div><p>Sin clientes cancelados recientemente.</p></div>';
+    document.getElementById('pagination')&&(document.getElementById('pagination').innerHTML='');
+    return;
+  }
+  var h='';
+  lst.forEach(function(c){
+    var cart=DB.carteras.find(function(x){return x.id===c.cartera_id;});
+    var tel=c.telefono?'<a href="tel:'+c.telefono+'" onclick="event.stopPropagation()" style="color:#276749;font-size:11px;font-weight:600;">📞 '+c.telefono+'</a>':'<span style="font-size:11px;color:var(--t3);">Sin teléfono</span>';
+    var origenLbl=c.origen==='saldo_en_cero'?'Saldo llegó a L0':'Ya no aparece en la cartera';
+    h+='<div class="ccard">';
+    h+='<div class="ccard-top" style="background:var(--blue);"></div>';
+    h+='<div class="cc-head"><div class="cc-av" style="background:var(--bluel);color:var(--blue);">'+c.nombre[0]+'</div><div class="cc-info"><div class="cc-name">'+c.nombre+'</div><div class="cc-sub">'+tel+(cart?' · <span style="font-size:10px;color:var(--t3);">'+cart.name+'</span>':'')+'</div></div><span class="cat-badge" style="background:var(--bluel);color:var(--blue);">🏁 Cancelado</span></div>';
+    h+='<div style="padding:0 14px 12px;font-size:12px;color:var(--t2);">'+origenLbl+' · '+(c.fecha_cancelacion||'')+(c.saldo_anterior?' · Saldo anterior L '+Math.round(c.saldo_anterior).toLocaleString('es-HN'):'')+'</div>';
+    h+='</div>';
+  });
+  grid.innerHTML=h;
+  document.getElementById('pagination')&&(document.getElementById('pagination').innerHTML='');
 }
 function renderCards(){
   var grid=document.getElementById('cards-grid');if(!grid)return;
+  if(activeCat==='cancelados'){renderCardsCancelados(grid);return;}
   // Barra de meta para vendedor en vista Clientes
   var _vmb=document.getElementById('vend-meta-bar');
   if(_vmb&&CU.role==='vendedor'){
