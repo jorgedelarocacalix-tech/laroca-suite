@@ -784,7 +784,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20260826-38';
+var APP_VERSION='20260923-39';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
@@ -1080,9 +1080,26 @@ async function loadAutores(){
     // en ESA cartera especifica (no hay un roster fijo de "todo el equipo" ni de accesos
     // por cartera en esta app, ver login RRHH). Solo se ofrece etiquetar a quien ya
     // trabajó esa cartera, para no mostrar gente de otras sucursales sin acceso.
+    // El roster sale de la vista equipo_por_cartera (distinct cartera_id,gestor de TODO el historial):
+    // con solo los ultimos 800 comentarios, quien no comentaba hace unas semanas (ej. v_jor "Jorge"
+    // en Su Mueble) desaparecia del picker. Si la vista falla, se usa lo visto en los 800.
+    try{
+      var eq=await supa.from('equipo_por_cartera').select('cartera_id,gestor').limit(5000);
+      if(!eq.error)(eq.data||[]).forEach(function(x){
+        if(!x.gestor)return;
+        if(!nombresPorCartera[x.cartera_id])nombresPorCartera[x.cartera_id]={};
+        nombresPorCartera[x.cartera_id][x.gestor]=1;
+      });
+    }catch(e2){console.error('equipo_por_cartera:',e2);}
     EQUIPO_POR_CARTERA={};
     Object.keys(nombresPorCartera).forEach(function(cartId){
-      EQUIPO_POR_CARTERA[cartId]=Object.keys(nombresPorCartera[cartId]).sort(function(a,b){return a.localeCompare(b,'es');});
+      // Un solo nombre por persona aunque haya comentado con distintas mayusculas
+      // ("Sayda JAMILETH..." vs "SAYDA JAMILETH..."): gana la primera variante vista.
+      var vistos={},lista=[];
+      Object.keys(nombresPorCartera[cartId]).forEach(function(n){
+        var k=n.trim().toLowerCase();if(vistos[k])return;vistos[k]=1;lista.push(n);
+      });
+      EQUIPO_POR_CARTERA[cartId]=lista.sort(function(a,b){return a.localeCompare(b,'es');});
     });
   }catch(e){console.error('loadAutores:',e);}
 }
@@ -1313,7 +1330,7 @@ var _MENC_PENDIENTES=[];
 function renderBadgeMenciones(){
   var yo=nombreComentaristaActual();
   if(!yo||!supa){var b0=document.getElementById('menc-fab');if(b0)b0.remove();return;}
-  supa.from('menciones').select('*').eq('mencionado',yo).is('leido_at',null).order('created_at',{ascending:false}).then(function(r){
+  supa.from('menciones').select('*').ilike('mencionado',yo.replace(/[%_\\]/g,'\\$&')).is('leido_at',null).order('created_at',{ascending:false}).then(function(r){
     var btn=document.getElementById('menc-fab');
     if(r.error||!r.data||!r.data.length){if(btn)btn.remove();_MENC_PENDIENTES=[];return;}
     _MENC_PENDIENTES=r.data;
@@ -4518,7 +4535,7 @@ function mencToggle(n){
 function mencFiltrar(){
   var q=((document.getElementById('menc-buscar')||{}).value||'').trim().toLowerCase();
   var yo=nombreComentaristaActual();
-  var opciones=(EQUIPO_POR_CARTERA[MENC_PICKER_CART]||[]).filter(function(n){return n!==yo;});
+  var opciones=(EQUIPO_POR_CARTERA[MENC_PICKER_CART]||[]).filter(function(n){return !yo||n.trim().toLowerCase()!==yo.trim().toLowerCase();});
   var lista=document.getElementById('menc-lista');if(!lista)return;
   var filtradas=q?opciones.filter(function(n){return n.toLowerCase().indexOf(q)>-1;}):opciones;
   var html=filtradas.map(function(n){return mencOpcionHtml(n);}).join('');
@@ -4538,7 +4555,7 @@ function abrirPickerMenciones(cartId){
   var old=document.getElementById('menc-picker-overlay');if(old){old.remove();mencRenderChips();return;}
   MENC_PICKER_CART=cartId;
   var yo=nombreComentaristaActual();
-  var opciones=(EQUIPO_POR_CARTERA[cartId]||[]).filter(function(n){return n!==yo;});
+  var opciones=(EQUIPO_POR_CARTERA[cartId]||[]).filter(function(n){return !yo||n.trim().toLowerCase()!==yo.trim().toLowerCase();});
   var div=document.createElement('div');
   div.id='menc-picker-overlay';
   div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000;display:flex;align-items:flex-end;justify-content:center';
