@@ -998,7 +998,7 @@ function vClientes(){
   var sy=Object.keys(yrs).sort(function(a,b){return a==='todos'?-1:b==='todos'?1:b-a;});
   var yH='<div class="filter-row">'+sy.map(function(y){return '<div class="ytab '+(activeYear===y?'on':'')+'" data-yr="'+y+'" onclick="setYear(this)">'+(y==='todos'?'📅 Todos':y)+'</div>';}).join('')+'</div>';
   var progBar=CU.role==='vendedor'?'<div id="vend-meta-bar"></div>':'';
-  return progBar+cartH+yH+'<div class="filter-row"><button class="cfilter all '+(activeCat==='all'?'on':'')+'" data-cat="all" onclick="setCat(this)">Todos</button><button class="cfilter ex '+(activeCat==='ex'?'on':'')+'" data-cat="ex" onclick="setCat(this)">⭐ Excelente</button><button class="cfilter bu '+(activeCat==='bu'?'on':'')+'" data-cat="bu" onclick="setCat(this)">👍 Bueno</button><button class="cfilter re '+(activeCat==='re'?'on':'')+'" data-cat="re" onclick="setCat(this)">⚠️ Regular</button><button class="cfilter ri '+(activeCat==='ri'?'on':'')+'" data-cat="ri" onclick="setCat(this)">🔴 Riesgoso</button><button class="cfilter" style="border-color:var(--blue);color:var(--blue);'+(activeCat==='cancelados'?'background:var(--bluel);':'')+'" data-cat="cancelados" onclick="setCat(this)">🏁 Cancelados recientes</button><button class="cfilter" style="border-color:#c53030;color:#c53030;'+(activeCat==='retiros'?'background:#fff5f5;':'')+'" data-cat="retiros" onclick="setCat(this)">⚠️ Posible retiro de producto</button><input class="srch" id="srch" placeholder="🔍 Buscar cliente..." oninput="renderCards()" /><span class="res-ct" id="res-ct"></span></div><div class="cards-grid" id="cards-grid"></div><div id=\"pagination\"></div>';
+  return progBar+cartH+yH+'<div class="filter-row"><button class="cfilter all '+(activeCat==='all'?'on':'')+'" data-cat="all" onclick="setCat(this)">Todos</button><button class="cfilter ex '+(activeCat==='ex'?'on':'')+'" data-cat="ex" onclick="setCat(this)">⭐ Excelente</button><button class="cfilter bu '+(activeCat==='bu'?'on':'')+'" data-cat="bu" onclick="setCat(this)">👍 Bueno</button><button class="cfilter re '+(activeCat==='re'?'on':'')+'" data-cat="re" onclick="setCat(this)">⚠️ Regular</button><button class="cfilter ri '+(activeCat==='ri'?'on':'')+'" data-cat="ri" onclick="setCat(this)">🔴 Riesgoso</button><button class="cfilter" style="border-color:var(--blue);color:var(--blue);'+(activeCat==='cancelados'?'background:var(--bluel);':'')+'" data-cat="cancelados" onclick="setCat(this)">🏁 Cancelados recientes</button><button class="cfilter" style="border-color:#c53030;color:#c53030;'+(activeCat==='retiros'?'background:#fff5f5;':'')+'" data-cat="retiros" onclick="setCat(this)">⚠️ Posible retiro de producto</button><button class="cfilter" style="border-color:#38b2ac;color:#38b2ac;'+(activeCat==='contado'?'background:#e6fffa;':'')+'" data-cat="contado" onclick="setCat(this)">💵 Ventas de contado</button><input class="srch" id="srch" placeholder="🔍 Buscar cliente..." oninput="renderCards()" /><span class="res-ct" id="res-ct"></span></div><div class="cards-grid" id="cards-grid"></div><div id=\"pagination\"></div>';
 }
 // Clientes que cancelaron en Cobranza (ya no aparecen en el PDF, o su saldo llego a 0) —
 // alimentado por pushCancelado() en Cobranza, tabla crm_cancelados. No son parte del pool normal
@@ -1011,21 +1011,22 @@ function renderCardsCancelados(grid,origenFiltro){
   if(q)lst=lst.filter(function(c){return c.nombre.toLowerCase().includes(q);});
   var rc=document.getElementById('res-ct');if(rc)rc.textContent=lst.length+' cancelados';
   if(!lst.length){
-    var msgVacio=origenFiltro==='posible_retiro_producto'?'Sin casos de posible retiro de producto.':'Sin clientes cancelados recientemente.';
+    var msgVacio=origenFiltro==='posible_retiro_producto'?'Sin casos de posible retiro de producto.':origenFiltro==='venta_contado'?'Sin ventas de contado recientes.':'Sin clientes cancelados recientemente.';
     grid.innerHTML='<div class="empty-st"><div class="ei">🏁</div><p>'+msgVacio+'</p></div>';
     document.getElementById('pagination')&&(document.getElementById('pagination').innerHTML='');
     return;
   }
   var h='';
   var esRetiro=origenFiltro==='posible_retiro_producto';
-  var colorAcc=esRetiro?'#c53030':'var(--blue)',colorBg=esRetiro?'#fff5f5':'var(--bluel)',colorTxt=esRetiro?'#c53030':'var(--blue)';
+  var esContado=origenFiltro==='venta_contado';
+  var colorAcc=esRetiro?'#c53030':esContado?'#38b2ac':'var(--blue)',colorBg=esRetiro?'#fff5f5':esContado?'#e6fffa':'var(--bluel)',colorTxt=esRetiro?'#c53030':esContado?'#38b2ac':'var(--blue)';
   lst.forEach(function(c){
     var cart=DB.carteras.find(function(x){return x.id===c.cartera_id;});
     var tel=c.telefono?'<a href="tel:'+c.telefono+'" onclick="event.stopPropagation()" style="color:#276749;font-size:11px;font-weight:600;">📞 '+c.telefono+'</a>':'<span style="font-size:11px;color:var(--t3);">Sin teléfono</span>';
     var motivoLbl=c.motivo_deteccion==='saldo_en_cero'?'Saldo llegó a L0':'Ya no aparece en la cartera';
     h+='<div class="ccard">';
     h+='<div class="ccard-top" style="background:'+colorAcc+';"></div>';
-    h+='<div class="cc-head"><div class="cc-av" style="background:'+colorBg+';color:'+colorTxt+';">'+c.nombre[0]+'</div><div class="cc-info"><div class="cc-name">'+c.nombre+'</div><div class="cc-sub">'+tel+(cart?' · <span style="font-size:10px;color:var(--t3);">'+cart.name+'</span>':'')+'</div></div><span class="cat-badge" style="background:'+colorBg+';color:'+colorTxt+';">'+(esRetiro?'⚠️ Sin pago confirmado':'🏁 Pago confirmado')+'</span></div>';
+    h+='<div class="cc-head"><div class="cc-av" style="background:'+colorBg+';color:'+colorTxt+';">'+c.nombre[0]+'</div><div class="cc-info"><div class="cc-name">'+c.nombre+'</div><div class="cc-sub">'+tel+(cart?' · <span style="font-size:10px;color:var(--t3);">'+cart.name+'</span>':'')+'</div></div><span class="cat-badge" style="background:'+colorBg+';color:'+colorTxt+';">'+(esRetiro?'⚠️ Sin pago confirmado':esContado?'💵 '+(c.num_cuotas||1)+' pago(s)':'🏁 Pago confirmado')+'</span></div>';
     h+='<div style="padding:0 14px 12px;font-size:12px;color:var(--t2);">'+motivoLbl+' · '+(c.fecha_cancelacion||'')+(c.saldo_anterior?' · Saldo anterior L '+Math.round(c.saldo_anterior).toLocaleString('es-HN'):'')+'</div>';
     if(esRetiro)h+='<div style="padding:0 14px 12px;font-size:11px;color:#c53030;">No se encontró un abono en Arqueos que cuadre con este saldo — verificar si se le retiró el producto antes de ofrecer recompra.</div>';
     h+='</div>';
@@ -1037,6 +1038,7 @@ function renderCards(){
   var grid=document.getElementById('cards-grid');if(!grid)return;
   if(activeCat==='cancelados'){renderCardsCancelados(grid,'pago_confirmado');return;}
   if(activeCat==='retiros'){renderCardsCancelados(grid,'posible_retiro_producto');return;}
+  if(activeCat==='contado'){renderCardsCancelados(grid,'venta_contado');return;}
   // Barra de meta para vendedor en vista Clientes
   var _vmb=document.getElementById('vend-meta-bar');
   if(_vmb&&CU.role==='vendedor'){

@@ -729,11 +729,14 @@ async function pushCancelado(cartIdCobranza,cliente,motivoDeteccion){
   try{
     var crmCart=CANCEL_CART_MAP[cartIdCobranza];if(!crmCart)return;
     var tel=await buscarTelefonoCRM(cliente.nombre);
-    var pagoReal=await huboAbonoReal(cartIdCobranza,cliente.nombre,cliente.saldo||0);
+    // Venta de contado: se facturo a 1 o 2 pagos (no es un plan de cuotas real), asi que terminar de
+    // pagar no es una "cobranza recuperada" — va a su propia pestana, sin pasar por el cruce de Arqueos.
+    var esContado=(cliente.num_cuotas||0)>0&&cliente.num_cuotas<=2;
+    var origen=esContado?'venta_contado':(await huboAbonoReal(cartIdCobranza,cliente.nombre,cliente.saldo||0)?'pago_confirmado':'posible_retiro_producto');
     await rrF('crm_cancelados','POST',{
       id:crmCart+'::'+cliente.nombre,cartera_id:crmCart,nombre:cliente.nombre,telefono:tel,
-      saldo_anterior:cliente.saldo||0,fecha_cancelacion:HOY.toISOString().split('T')[0],
-      origen:pagoReal?'pago_confirmado':'posible_retiro_producto',motivo_deteccion:motivoDeteccion,
+      saldo_anterior:cliente.saldo||0,num_cuotas:cliente.num_cuotas||null,fecha_cancelacion:HOY.toISOString().split('T')[0],
+      origen:origen,motivo_deteccion:motivoDeteccion,
       cartera_origen_cobranza:cartIdCobranza,updated_at:new Date().toISOString()
     });
   }catch(e){console.error('pushCancelado:',e);}
