@@ -1683,7 +1683,10 @@ function _sucursalesDeUsuario(extraCid){
   return out;
 }
 function _cargarFacturasArqueo(sucursales){
-  var desde=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
+  // Solo facturas del mes actual. Los primeros 3 dias del mes tambien las del mes anterior, porque el
+  // arqueo del ultimo dia del mes se sube al dia siguiente (la venta cuenta en el mes de la factura).
+  var hoy=monFechaHN(0),desde=hoy.slice(0,8)+'01';
+  if(+hoy.slice(8,10)<=3){var pm=new Date(Date.UTC(+hoy.slice(0,4),+hoy.slice(5,7)-2,1));desde=pm.toISOString().slice(0,10);}
   var h={apikey:COBRANZA_KEY,Authorization:'Bearer '+COBRANZA_KEY};
   return Promise.all([
     fetch(COBRANZA_URL+'/rest/v1/arqueo_facturas?select=*&fecha=gte.'+desde+'&sucursal=in.('+sucursales.join(',')+')&order=fecha.desc',{headers:h}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
@@ -1692,12 +1695,13 @@ function _cargarFacturasArqueo(sucursales){
   ]).then(function(res){return{facturas:res[0],reclamadas:res[1]||[]};});
 }
 
-// Modal "🧾 Registrar venta". c = cliente del Kanban (opcional), cid = cartera desde donde se abre.
+// Modal "🧾 ¿Cuál venta fue?" — se abre desde ➕ Agregar en Mi Meta (el Kanban ya NO registra ventas).
+// El asesor elige la factura del arqueo (mes actual) al día siguiente de que suben el arqueo.
 function registrarVentaModal(c,cid,alMover){
   if(!CU)return;
   var ex=document.getElementById('vta-modal');if(ex)ex.remove();
   var previas=c?_ventasCliente(c.id):[];
-  var sel=null,datos=null,modoManual=false;
+  var sel=null,datos=null;
   var d=document.createElement('div');
   d.id='vta-modal';
   d.style.cssText='position:fixed;inset:0;background:rgba(30,40,60,.5);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;';
@@ -1711,22 +1715,13 @@ function registrarVentaModal(c,cid,alMover){
     '<div style="background:var(--card);border:1.5px solid var(--border);border-radius:20px;width:100%;max-width:440px;max-height:92vh;display:flex;flex-direction:column;box-shadow:var(--shadow2);">'+
       '<div style="padding:16px 20px;border-bottom:1px solid var(--border);">'+
         '<div style="font-size:15px;font-weight:700;color:var(--t1);">🧾 ¿Cuál venta fue?</div>'+
-        '<div style="font-size:12px;color:var(--t2);margin-top:3px;">'+(c?escH(c.nombre)+' · ':'')+'Elige la factura del arqueo</div>'+
+        '<div style="font-size:12px;color:var(--t2);margin-top:3px;">'+(c?escH(c.nombre)+' · ':'')+'Elige al cliente que le vendiste (facturas del arqueo de este mes)</div>'+
       '</div>'+
       '<div style="padding:14px 20px;overflow-y:auto;flex:1;">'+prevHtml+
         '<div id="vta-sel-wrap">'+
           '<input id="vta-buscar" type="text" placeholder="Buscar cliente, factura o artículo..." style="width:100%;padding:11px 13px;border:2px solid var(--border);border-radius:10px;font-size:14px;margin-bottom:10px;box-sizing:border-box;" />'+
           '<div id="vta-lista" style="display:flex;flex-direction:column;gap:6px;"><div style="font-size:12px;color:var(--t3);text-align:center;padding:16px;">Cargando facturas de Arqueos…</div></div>'+
-          '<div style="margin-top:12px;text-align:center;"><a id="vta-no-aparece" style="font-size:12px;color:var(--blue);cursor:pointer;text-decoration:underline;">No aparece — el arqueo de ese día aún no se sube</a></div>'+
-        '</div>'+
-        '<div id="vta-manual" style="display:none;">'+
-          '<div style="font-size:12px;color:#744210;background:#fffaf0;border:1px solid #fbd38d;border-radius:8px;padding:9px 11px;margin-bottom:12px;">Regístrala con el número de factura. Cuando suban el arqueo, esa factura ya aparecerá como tuya y nadie más podrá reclamarla.</div>'+
-          '<label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px;">Número de factura</label>'+
-          '<input id="vta-fact" type="text" inputmode="numeric" placeholder="Ej: 000-001-01-00122368" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;" />'+
-          (c?'':'<label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px;">Cliente</label><input id="vta-cli" type="text" placeholder="Nombre del cliente" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:12px;box-sizing:border-box;" />')+
-          '<label style="font-size:12px;font-weight:700;color:var(--t2);display:block;margin-bottom:6px;">Monto (L.) <span style="font-weight:400;color:var(--t3);">opcional</span></label>'+
-          '<input id="vta-monto" type="number" min="0" placeholder="Ej: 4000" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:10px;font-size:15px;margin-bottom:6px;box-sizing:border-box;" />'+
-          '<div style="margin-top:6px;text-align:center;"><a id="vta-volver" style="font-size:12px;color:var(--blue);cursor:pointer;text-decoration:underline;">← Volver a la lista de Arqueos</a></div>'+
+          '<div style="margin-top:12px;font-size:11px;color:var(--t3);text-align:center;">¿No aparece tu venta? El arqueo de ese día aún no se sube — regístrala el día siguiente.</div>'+
         '</div>'+
       '</div>'+
       '<div style="padding:12px 20px 16px;border-top:1px solid var(--border);">'+
@@ -1776,43 +1771,18 @@ function registrarVentaModal(c,cid,alMover){
   }
   document.getElementById('vta-buscar').oninput=pintar;
   document.getElementById('vta-no').onclick=function(){d.remove();};
-  document.getElementById('vta-no-aparece').onclick=function(){
-    modoManual=true;sel=null;
-    document.getElementById('vta-sel-wrap').style.display='none';
-    document.getElementById('vta-manual').style.display='block';
-    setOk('Guardar venta',true);
-    setTimeout(function(){var i=document.getElementById('vta-fact');if(i)i.focus();},50);
-  };
-  document.getElementById('vta-volver').onclick=function(){
-    modoManual=false;
-    document.getElementById('vta-sel-wrap').style.display='block';
-    document.getElementById('vta-manual').style.display='none';
-    setOk('Elige una factura',false);pintar();
-  };
   _cargarFacturasArqueo(_sucursalesDeUsuario(cid)).then(function(r){datos=r;pintar();});
   okBtn.onclick=function(){
-    var fact,monto,nombre,cartVenta,fecha,extra={};
-    if(modoManual){
-      fact=(document.getElementById('vta-fact').value||'').trim();
-      monto=parseFloat(document.getElementById('vta-monto').value)||0;
-      nombre=c?c.nombre:((document.getElementById('vta-cli')||{}).value||'').trim();
-      if(!fact){toast('Escribe el número de factura','err');return;}
-      if(!c&&!nombre){toast('Escribe el nombre del cliente','err');return;}
-      var enArq=datos&&datos.facturas&&datos.facturas.find(function(f){return _mismaFactura(f.factura,fact);});
-      if(enArq){toast('Esa factura sí está en Arqueos — elígela de la lista','err');document.getElementById('vta-volver').onclick();document.getElementById('vta-buscar').value=fact;pintar();return;}
-      cartVenta=cid;fecha=null;extra.origen='manual';
-    }else{
-      if(!sel)return;
-      fact=sel.factura;monto=Number(sel.total)||0;nombre=sel.cliente;
-      cartVenta=SUCURSAL_CART[sel.sucursal]||cid;fecha=sel.fecha;
-      extra={origen:'arqueo',sucursal:sel.sucursal,articulo:sel.articulo||'',clasificacion:sel.clasificacion||''};
-    }
+    if(!sel)return;
+    var fact=sel.factura,monto=Number(sel.total)||0,nombre=sel.cliente;
+    var cartVenta=SUCURSAL_CART[sel.sucursal]||cid,fecha=sel.fecha;
+    var extra={origen:'arqueo',sucursal:sel.sucursal,articulo:sel.articulo||'',clasificacion:sel.clasificacion||''};
     if(reclamadaPor(fact)){toast('Esa factura ya la registró '+reclamadaPor(fact),'err');return;}
     // cliente del CRM al que se liga (para "ventas de este cliente" en su tarjeta)
     var cliId=c?c.id:null;
     if(!cliId){var nn=_normNombre(nombre);Object.keys(DB.clients).some(function(k){var m=(DB.clients[k]||[]).find(function(x){return _normNombre(x.nombre)===nn;});if(m){cliId=m.id;return true;}return false;});}
     var notas=Object.assign({monto:monto,unidades:1,ts:Date.now(),clientId:cliId},extra);
-    var rec=_nuevaFilaVenta('vta',cartVenta,'venta','venta-kanban',nombre,fact,notas);
+    var rec=_nuevaFilaVenta('vta',cartVenta,'venta','venta-meta',nombre,fact,notas);
     if(fecha){rec.dateISO=fecha;rec.date=fecha.slice(8,10)+'/'+fecha.slice(5,7)+'/'+fecha.slice(0,4);}
     setOk('Guardando…',false);
     sbUp('gestiones',_gestionRow(rec)).then(function(ok){
@@ -2669,7 +2639,7 @@ function kbTouchEnd(e){
         if(l){l[field]=colId;saveDB();saveLeadToSB(l);var _brd=activeBoard==='facebook'?KB.facebook:KB.nuevos;var cn=(_brd.cols.find(function(x){return x.id===colId;})||{name:colId}).name;regActividad('kanban-lead',l.nombre,'leads','→ '+cn);renderKanban();toast(colId==='nv'?'🎉 ¡VENTA CERRADA! '+l.nombre+' 🏆':l.nombre+' → '+cn,'ok');}
       } else {
         var c2=(DB.clients[cd.cid]||[]).find(function(x){return x.id===cd.id;});
-        if(c2){c2[field]=colId;saveDB();saveCtoSB(c2,cd.cid);var cn2=(KB.recompra.cols.find(function(x){return x.id===colId;})||{name:colId}).name;regActividad('kanban-recompra',c2.nombre,cd.cid,'→ '+cn2);renderKanban();if(colId==='vendido')registrarVentaModal(c2,cd.cid,true);toast((colId==='credito'||colId==='ncr')?'🎉 ¡Cuenta activa! '+c2.nombre+' 🏆':c2.nombre+' → '+cn2,'ok');}
+        if(c2){c2[field]=colId;saveDB();saveCtoSB(c2,cd.cid);var cn2=(KB.recompra.cols.find(function(x){return x.id===colId;})||{name:colId}).name;regActividad('kanban-recompra',c2.nombre,cd.cid,'→ '+cn2);renderKanban();toast((colId==='credito'||colId==='ncr')?'🎉 ¡Cuenta activa! '+c2.nombre+' 🏆':c2.nombre+' → '+cn2,'ok');}
       }
     }
   }
@@ -2680,7 +2650,7 @@ function kbDrop(e,el){
   e.preventDefault();el.classList.remove('drag-over');if(!dragClient)return;
   var colId=el.dataset.col,field=el.dataset.field||'kbCol';
   if(dragClient.isLead){var l=(DB.newLeads||[]).find(function(x){return x.id===dragClient.id;});if(l){l[field]=colId;saveDB();saveLeadToSB(l);var _brd=activeBoard==='facebook'?KB.facebook:KB.nuevos;var cn=(_brd.cols.find(function(x){return x.id===colId;})||{name:colId}).name;regActividad('kanban-lead',l.nombre,'leads','→ '+cn);renderKanban();if(colId==='nv')toast('🎉 ¡Felicitaciones! '+l.nombre+' — ¡VENTA CERRADA! 🏆','ok');else toast(l.nombre+' → '+cn,'ok');}}
-  else{var c=(DB.clients[dragClient.cid]||[]).find(function(x){return x.id===dragClient.id;});if(c){c[field]=colId;saveDB();saveCtoSB(c,dragClient.cid);var cn2=(KB.recompra.cols.find(function(x){return x.id===colId;})||{name:colId}).name;regActividad('kanban-recompra',c.nombre,dragClient.cid,'→ '+cn2);renderKanban();if(colId==='vendido')registrarVentaModal(c,dragClient.cid,true);if(colId==='credito'||colId==='ncr')toast('🎉 ¡Felicitaciones! '+c.nombre+' — ¡Con cuenta activa! 🏆','ok');else toast(c.nombre+' → '+cn2,'ok');}}
+  else{var c=(DB.clients[dragClient.cid]||[]).find(function(x){return x.id===dragClient.id;});if(c){c[field]=colId;saveDB();saveCtoSB(c,dragClient.cid);var cn2=(KB.recompra.cols.find(function(x){return x.id===colId;})||{name:colId}).name;regActividad('kanban-recompra',c.nombre,dragClient.cid,'→ '+cn2);renderKanban();if(colId==='credito'||colId==='ncr')toast('🎉 ¡Felicitaciones! '+c.nombre+' — ¡Con cuenta activa! 🏆','ok');else toast(c.nombre+' → '+cn2,'ok');}}
   dragClient=null;
 }
 function openKbCard(el){
@@ -2714,15 +2684,8 @@ function openKbCard(el){
   }
   var slbl=document.createElement('div');slbl.style.cssText='font-size:11px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.09em;margin-bottom:10px;border-bottom:1.5px solid #e2e8f0;padding-bottom:7px;';slbl.textContent='🏷️ Etapa actual';
   var sw=document.createElement('div');sw.style.cssText='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;';
-  board.cols.forEach(function(col){var btn=document.createElement('button');var active=(c[colField]||defCol)===col.id;btn.style.cssText='padding:7px 14px;border-radius:24px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid '+(active?col.color:'#e2e8f0')+';background:'+(active?col.bg:'#f7f9fc')+';color:'+(active?col.color:'#718096')+';transition:all .12s;';btn.textContent=col.name;btn.onclick=function(){c[colField]=col.id;saveDB();if(!isLead){saveCtoSB(c,cid);regActividad('kanban-recompra',c.nombre,cid,'→ '+col.name);if(col.id==='vendido')registrarVentaModal(c,cid,true);}else{saveLeadToSB(c);regActividad('kanban-lead',c.nombre,'leads','→ '+col.name);}sw.querySelectorAll('button').forEach(function(b){b.style.background='#f7f9fc';b.style.borderColor='#e2e8f0';b.style.color='#718096';});this.style.background=col.bg;this.style.borderColor=col.color;this.style.color=col.color;if(col.id==='nv')toast('🎉 ¡Felicitaciones! '+c.nombre+' — ¡VENTA CERRADA! 🏆','ok');else if(col.id==='credito'||col.id==='ncr')toast('🎉 ¡Felicitaciones! '+c.nombre+' — ¡Con cuenta activa! 🏆','ok');else toast('Movido a '+col.name,'ok');renderKanban();};sw.appendChild(btn);});
+  board.cols.forEach(function(col){var btn=document.createElement('button');var active=(c[colField]||defCol)===col.id;btn.style.cssText='padding:7px 14px;border-radius:24px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid '+(active?col.color:'#e2e8f0')+';background:'+(active?col.bg:'#f7f9fc')+';color:'+(active?col.color:'#718096')+';transition:all .12s;';btn.textContent=col.name;btn.onclick=function(){c[colField]=col.id;saveDB();if(!isLead){saveCtoSB(c,cid);regActividad('kanban-recompra',c.nombre,cid,'→ '+col.name);}else{saveLeadToSB(c);regActividad('kanban-lead',c.nombre,'leads','→ '+col.name);}sw.querySelectorAll('button').forEach(function(b){b.style.background='#f7f9fc';b.style.borderColor='#e2e8f0';b.style.color='#718096';});this.style.background=col.bg;this.style.borderColor=col.color;this.style.color=col.color;if(col.id==='nv')toast('🎉 ¡Felicitaciones! '+c.nombre+' — ¡VENTA CERRADA! 🏆','ok');else if(col.id==='credito'||col.id==='ncr')toast('🎉 ¡Felicitaciones! '+c.nombre+' — ¡Con cuenta activa! 🏆','ok');else toast('Movido a '+col.name,'ok');renderKanban();};sw.appendChild(btn);});
   body.appendChild(slbl);body.appendChild(sw);
-  if(!isLead){
-    var nV=_ventasCliente(c.id,cid).length;
-    var vb=document.createElement('button');vb.style.cssText='width:100%;padding:11px;background:#f0fff4;border:2px solid #9ae6b4;color:#276749;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:18px;';
-    vb.textContent='🧾 Registrar venta (factura)'+(nV?' · ya tiene '+nV+' registrada'+(nV>1?'s':''):'');
-    vb.onclick=function(){ov.remove();registrarVentaModal(c,cid,false);};
-    body.appendChild(vb);
-  }
   var clbl=document.createElement('div');clbl.style.cssText='font-size:11px;font-weight:700;color:#a0aec0;text-transform:uppercase;letter-spacing:.09em;margin-bottom:8px;';clbl.textContent='💬 Agregar comentario de seguimiento';
   var ta2=document.createElement('textarea');ta2.style.cssText='width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:13px;min-height:72px;resize:vertical;font-family:inherit;margin-bottom:10px;transition:border-color .15s;';ta2.placeholder='Ej: Se llamó pero estaba trabajando. Acordamos llamar el viernes a las 3pm...';ta2.onfocus=function(){this.style.borderColor='var(--blue)';};ta2.onblur=function(){this.style.borderColor='#e2e8f0';};
   var ab=document.createElement('button');ab.style.cssText='width:100%;padding:12px;background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:20px;box-shadow:0 3px 10px rgba(91,141,238,.3);';ab.textContent='💬 Guardar comentario';
