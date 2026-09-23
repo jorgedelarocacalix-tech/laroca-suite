@@ -690,14 +690,51 @@ async function buscarTelefonoCRM(nombre){
   }catch(e){}
   return null;
 }
-async function pushCancelado(cartIdCobranza,cliente,origen){
+var CANCEL_SUC_MAP={LA_ROCA_COMERCIAL_1:'R1',LA_ROCA_MOTORS_BARRIO_ARRIBA_1:'R2',LA_ROCA_MOTORS_LA_LIBERTAD_2:'R3',SU_MUEBLE:'R4',SU_MOTO_DANLI:'R5'};
+// ¿El saldo que se dio de baja tiene un abono real en Arqueos que lo explique (pago), o probablemente
+// le retiraron el producto (nadie pagó esa cantidad)? Nombre similar (ignora acentos/orden) + monto
+// dentro del 15% del saldo, en los ultimos 15 dias en la misma sucursal.
+function nombreSim(a,b){
+  var na=(a||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z ]/g,'').trim();
+  var nb=(b||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z ]/g,'').trim();
+  if(!na||!nb)return false;
+  var wa=na.split(' ').filter(function(w){return w.length>2;}),wb=nb.split(' ').filter(function(w){return w.length>2;});
+  var comunes=wa.filter(function(w){return wb.indexOf(w)>=0;}).length;
+  return comunes>=Math.min(2,Math.min(wa.length,wb.length));
+}
+async function huboAbonoReal(cartIdCobranza,nombre,saldoAnterior){
+  try{
+    if(!supa||!saldoAnterior)return false;
+    var suc=CANCEL_SUC_MAP[cartIdCobranza];if(!suc)return false;
+    var desde=new Date(HOY);desde.setDate(desde.getDate()-15);
+    var r=await supa.from('arqueos').select('analisis_json').eq('sucursal',suc)
+      .gte('fecha',desde.toISOString().split('T')[0]).lte('fecha',HOY.toISOString().split('T')[0]);
+    if(r.error||!r.data)return false;
+    var tol=Math.max(200,saldoAnterior*0.15);
+    for(var i=0;i<r.data.length;i++){
+      var aj=r.data[i].analisis_json;if(!aj)continue;
+      var cobros=aj.cobros||[];
+      for(var j=0;j<cobros.length;j++){
+        var cb=cobros[j];
+        if((cb.tipo==='ABONO'||cb.tipo==='CONTADO'||cb.tipo==='NOTA CRÉDITO'||cb.tipo==='NOTA DÉBITO')&&
+           nombreSim(nombre,cb.cliente)&&Math.abs((cb.monto||0)-saldoAnterior)<=tol){
+          return true;
+        }
+      }
+    }
+    return false;
+  }catch(e){console.error('huboAbonoReal:',e);return false;}
+}
+async function pushCancelado(cartIdCobranza,cliente,motivoDeteccion){
   try{
     var crmCart=CANCEL_CART_MAP[cartIdCobranza];if(!crmCart)return;
     var tel=await buscarTelefonoCRM(cliente.nombre);
+    var pagoReal=await huboAbonoReal(cartIdCobranza,cliente.nombre,cliente.saldo||0);
     await rrF('crm_cancelados','POST',{
       id:crmCart+'::'+cliente.nombre,cartera_id:crmCart,nombre:cliente.nombre,telefono:tel,
       saldo_anterior:cliente.saldo||0,fecha_cancelacion:HOY.toISOString().split('T')[0],
-      origen:origen,cartera_origen_cobranza:cartIdCobranza,updated_at:new Date().toISOString()
+      origen:pagoReal?'pago_confirmado':'posible_retiro_producto',motivo_deteccion:motivoDeteccion,
+      cartera_origen_cobranza:cartIdCobranza,updated_at:new Date().toISOString()
     });
   }catch(e){console.error('pushCancelado:',e);}
 }
