@@ -1900,6 +1900,13 @@ function getCanonicalId(empresa){
 }
 
 // ══ GERENTE HOME PANEL ══
+// Listas largas del panel gerente: cerradas por defecto tras un boton; se recuerda si se abrieron
+// para que un re-render (aprobar mora, volver a Inicio) no las cierre de golpe.
+var _GER_DET_OPEN={};
+function _gerDetOpen(k,label){
+  return '<details'+(_GER_DET_OPEN[k]?' open':'')+' ontoggle="_GER_DET_OPEN[\''+k+'\']=this.open">'
+    +'<summary style="cursor:pointer;display:inline-block;padding:6px 12px;margin-bottom:8px;border-radius:6px;border:1px solid var(--border);background:var(--surface,#fff);font-size:11px;font-weight:600;color:var(--purple);list-style:none">'+label+'</summary>';
+}
 async function _renderGerentePanel(){
   var panel=document.getElementById('gerente-panel');
   if(!panel)return;
@@ -2111,6 +2118,7 @@ async function _renderGerentePanel(){
   h+='</tbody></table>';
   // Listado de clientes incumplidos (buscable, con scroll)
   if(listaIncumplidas.length){
+    h+=_gerDetOpen('inc','👁️ Ver clientes con promesa incumplida ('+listaIncumplidas.length+')');
     h+='<input class="tbl-search" id="promInc-search" onkeyup="flt(\'promInc-tbl\',\'promInc-search\')" placeholder="Buscar cliente..." style="width:100%;margin-bottom:6px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px">';
     h+='<div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">';
     h+='<table id="promInc-tbl" style="width:100%;border-collapse:collapse;font-size:11px">';
@@ -2134,6 +2142,7 @@ async function _renderGerentePanel(){
       h+='</tr>';
     });
     h+='</tbody></table></div>';
+    h+='</details>';
   }else{
     h+='<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">🎉 Sin promesas incumplidas este mes.</div>';
   }
@@ -2246,6 +2255,9 @@ async function _renderGerentePanel(){
     +'<div style="font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">📅 PENDIENTE POR COBRAR — HOY AL '+lastDay+' DE '+HOY.toLocaleString('es-HN',{month:'long'}).toUpperCase()+' (todas las carteras)</div>';
 
   var semKeys=Object.keys(semanas).map(Number).sort();
+  var semN=semKeys.reduce(function(a,s){return a+semanas[s].length;},0);
+  var semTot=semKeys.reduce(function(a,s){return a+semanas[s].reduce(function(b,p){return b+p.monto;},0);},0);
+  if(semKeys.length)h+=_gerDetOpen('sem','👁️ Ver detalle por semana ('+semN+' promesas · L '+fmt(semTot)+')');
   if(!semKeys.length){
     h+='<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">Sin promesas activas registradas.</div>';
   }else{
@@ -2269,6 +2281,7 @@ async function _renderGerentePanel(){
       });
       h+='</div>';
     });
+    h+='</details>';
   }
   h+='</div>';
 
