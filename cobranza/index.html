@@ -1275,7 +1275,7 @@ async function _enviarSolicitudMora(cartId,nombre,moraActual){
   var key=cartId+'::'+nombre;
   var quien=_nombreEfectivo((USER&&USER.nombre)||'—');
   var ex=PROMESAS[key]||{};
-  PROMESAS[key]=Object.assign({},ex,{mora_solicitud:{pendiente:true,motivo:motivo,valor_propuesto:valorProp,mora_al_pedir:moraActual,solicitado_por:quien,solicitado_at:new Date().toISOString()}});
+  PROMESAS[key]=Object.assign({},ex,{mora_solicitud:{pendiente:true,motivo:motivo,valor_propuesto:valorProp,mora_al_pedir:moraActual,solicitado_por:quien,solicitado_at:new Date().toISOString(),ajuste:(ex.mora_solicitud&&ex.mora_solicitud.ajuste!=null)?ex.mora_solicitud.ajuste:null}});
   await dbSaveProm(cartId,nombre);
   await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'solicitud_mora',nota:'Solicitud de corrección de mora: '+motivo+' (actual: L '+fmt(moraActual)+' → propuesta: L '+fmt(valorProp)+')',monto:valorProp,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
   var ov=document.getElementById('sol-mora-overlay');if(ov)ov.remove();
@@ -1288,10 +1288,17 @@ async function resolverCorreccionMora(cartId,nombre,aprobar){
   var ex=PROMESAS[key]||{};
   var sol=ex.mora_solicitud||{};
   var quien=_nombreEfectivo((USER&&USER.nombre)||'—');
+  // Ajuste = valor aprobado - mora segun formula hoy (ver calcMoraCliente); si se rechaza, se conserva el anterior
+  var ajuste=sol.ajuste!=null?sol.ajuste:null;
+  if(aprobar){
+    var cli=((CARTERAS[cartId]||{}).clientes||[]).find(function(x){return x.nombre===nombre;});
+    var f=cli?calcMoraFormula(cli,cartId):null;
+    if(f)ajuste=(sol.valor_propuesto!=null?sol.valor_propuesto:0)-f.diferencia;
+  }
   PROMESAS[key]=Object.assign({},ex,{
     mora_anulada:aprobar?true:(ex.mora_anulada||false),
     mora_valor:aprobar?(sol.valor_propuesto!=null?sol.valor_propuesto:0):(ex.mora_valor!=null?ex.mora_valor:null),
-    mora_solicitud:Object.assign({},sol,{pendiente:false,resuelto_por:quien,resuelto_at:new Date().toISOString(),aprobada:!!aprobar})
+    mora_solicitud:Object.assign({},sol,{pendiente:false,resuelto_por:quien,resuelto_at:new Date().toISOString(),aprobada:!!aprobar},{ajuste:ajuste})
   });
   await dbSaveProm(cartId,nombre);
   await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:(aprobar?'✅ Mora corregida a L '+fmt(sol.valor_propuesto||0)+' por ':'❌ Solicitud de mora rechazada por ')+quien+(sol.motivo?' — motivo original: '+sol.motivo:''),monto:null,fecha_accion:HOY.toISOString().split('T')[0],gestor:quien,created_at:new Date().toISOString()});
@@ -2780,11 +2787,26 @@ function primaDeducida(total,numCuotas,cuota,c){
 
 // ── Cálculo inline de mora esperada (misma fórmula que Mora Global) ──
 function calcMoraCliente(c, cartId){
-  var hoy=HOY;
   var pCeroPrima=PROMESAS[cartId+'::'+c.nombre];
   // Mora anulada/corregida — aprobado por Milagro o Jorge tras una solicitud (ver
   // solicitarCorreccionMora/resolverCorreccionMora): el cliente queda "al dia" a proposito.
-  if(pCeroPrima&&pCeroPrima.mora_anulada){var mv=pCeroPrima.mora_valor!=null?pCeroPrima.mora_valor:0;return{esperado:c.saldo-mv,diferencia:mv,cuotasTrans:null};}
+  // Se guarda como AJUSTE sobre la formula (valor aprobado - formula al aprobar), no como monto fijo:
+  // asi los pagos posteriores la bajan y las cuotas nuevas la suben (caso Edgardo Ulloa Bueso: corregida
+  // a L4,009, pago L3,932 y seguia en L4,009). Correcciones viejas sin ajuste: se usa mora_al_pedir.
+  if(pCeroPrima&&pCeroPrima.mora_anulada){
+    var mv=pCeroPrima.mora_valor!=null?pCeroPrima.mora_valor:0;
+    var sm=pCeroPrima.mora_solicitud||{};
+    var aj=sm.ajuste!=null?sm.ajuste:((sm.aprobada&&sm.mora_al_pedir>0)?mv-sm.mora_al_pedir:null);
+    var base=aj!=null?calcMoraFormula(c,cartId):null;
+    if(!base)return{esperado:c.saldo-mv,diferencia:mv,cuotasTrans:null};
+    var dif=Math.round(base.diferencia+aj);
+    return{esperado:c.saldo-dif,diferencia:dif,cuotasTrans:base.cuotasTrans};
+  }
+  return calcMoraFormula(c,cartId);
+}
+function calcMoraFormula(c, cartId){
+  var hoy=HOY;
+  var pCeroPrima=PROMESAS[cartId+'::'+c.nombre];
   var ov=MG_OVERRIDES&&MG_OVERRIDES[cartId+'::'+c.nombre]||{};
   var numCuotas = ov.num_cuotas_real || c.num_cuotas || 0;
   var totalCredito = ov.total_credito_real || ((c.pagado||0)+(c.saldo||0));
