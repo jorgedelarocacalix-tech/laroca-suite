@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>La Roca — Reclamos SAC</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F2F4F7;color:#1a1d23;min-height:100%}
+body{padding:20px 16px 60px}
+.wrap{max-width:1200px;margin:0 auto}
+.top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+.brand h1{font-size:20px;font-weight:800}
+.brand p{font-size:12px;color:#6b7280;margin-top:2px}
+.chip{font-size:12px;color:#4b5563;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.back{font-size:12px;color:#1a55a0;text-decoration:none;border:1px solid #d8dce3;padding:6px 12px;border-radius:8px;background:#fff}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tab{background:#fff;border:1px solid #d8dce3;color:#4b5563;font-size:13px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;font-family:inherit}
+.tab.on{background:#1a55a0;border-color:#1a55a0;color:#fff}
+.tab .n{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:9px;background:#E53E3E;color:#fff;font-size:11px;line-height:18px;text-align:center}
+.card{background:#fff;border:1px solid #e3e6eb;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(20,25,35,.05)}
+.card h2{font-size:15px;font-weight:800;margin-bottom:10px}
+.muted{color:#6b7280;font-size:12px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+input,select,textarea{font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid #d8dce3;border-radius:8px;background:#fff;color:#1a1d23;width:100%}
+textarea{min-height:80px;resize:vertical}
+.filters input,.filters select{width:auto;flex:1;min-width:140px}
+label{display:block;font-size:11px;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.04em;margin:10px 0 4px}
+label .req{color:#c0392b}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.btn{background:#1a55a0;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.sec{background:#fff;color:#1a55a0;border:1px solid #1a55a0}
+.btn.ok{background:#1a7a3c}.btn.warn{background:#b06a00}.btn.bad{background:#c0392b}
+.btn.sm{padding:6px 10px;font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.err{color:#c0392b;font-size:12px;font-weight:600;margin-top:8px;min-height:16px}
+/* lista */
+.rec{display:grid;grid-template-columns:8px 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid #e6e9ee;border-radius:10px;margin-bottom:8px;background:#fff;cursor:pointer}
+.rec:hover{border-color:#1a55a0;background:#f7faff}
+.sem{width:8px;align-self:stretch;border-radius:4px}
+.sem.g{background:#2E9E5B}.sem.y{background:#E0A800}.sem.r{background:#D93A3A}.sem.n{background:#9aa3af}
+.rec .t{font-weight:700;font-size:14px}
+.rec .s{font-size:12px;color:#6b7280;margin-top:2px}
+.rec .al{font-size:12px;color:#b3261e;font-weight:600;margin-top:4px}
+.days{text-align:right;font-weight:800;font-size:18px}
+.days small{display:block;font-size:10px;color:#6b7280;font-weight:600}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;background:#eef2f7;color:#334155;margin-right:4px}
+.pill.ingresado{background:#fdeaea;color:#b3261e}
+.pill.reportado{background:#fff3db;color:#8a5b00}
+.pill.visita_agendada{background:#e6f0ff;color:#1a55a0}
+.pill.en_proceso{background:#efe7ff;color:#6b3fc4}
+.pill.resuelto{background:#e6f7ec;color:#1a7a3c}
+.pill.cerrado{background:#e5e7eb;color:#374151}
+.pill.rechazado{background:#374151;color:#fff}
+/* clientes */
+.sug{border:1px solid #d8dce3;border-radius:8px;max-height:220px;overflow-y:auto;background:#fff;margin-top:4px;display:none}
+.sug div{padding:8px 10px;font-size:13px;border-bottom:1px solid #f0f0f0;cursor:pointer}
+.sug div:hover{background:#eef4fb}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.thumbs a,.thumbs span{display:block;width:72px;height:72px;border-radius:8px;overflow:hidden;border:1px solid #d8dce3;background:#f3f4f6;font-size:10px;text-align:center;color:#4b5563;text-decoration:none}
+.thumbs img{width:100%;height:100%;object-fit:cover}
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(15,20,30,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 12px}
+.modal{background:#fff;border-radius:14px;max-width:760px;width:100%;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.2)}
+.mh{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}
+.x{background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:4px 10px;font-size:13px;margin:8px 0}
+.kv b{color:#6b7280;font-weight:600}
+@media(max-width:640px){.kv{grid-template-columns:1fr}}
+.tl{border-left:2px solid #e3e6eb;margin:10px 0 0 6px;padding-left:14px}
+.tl .e{position:relative;margin-bottom:10px;font-size:13px}
+.tl .e::before{content:'';position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:50%;background:#1a55a0}
+.tl .e .w{font-size:11px;color:#6b7280}
+.act{background:#f8f9fb;border:1px solid #e6e9ee;border-radius:10px;padding:12px;margin-top:12px}
+.act h3{font-size:13px;font-weight:800;margin-bottom:4px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:#f8f9fb;border:1px solid #e6e9ee;border-radius:10px;padding:12px}
+.kpi .l{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em}
+.kpi .v{font-size:22px;font-weight:800;margin-top:4px}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+table.t th{text-align:left;font-size:10px;color:#6b7280;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid #e3e6eb}
+table.t td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
+.tscroll{overflow-x:auto}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1d23;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:99;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><h1>🛠️ Reclamos SAC</h1><p>Reclamos de clientes a proveedores · Corporación La Roca</p></div>
+    <div class="chip"><span id="who"></span><a class="back" href="/">← Menú</a></div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div id="view"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ══ Config ══
+var HUB_URL='https://upaenjotkocmdvfuobii.supabase.co'; // CRM/RRHH (tablas sac_*)
+var HUB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+var COB_URL='https://ixskgawbpwwxdjnkiixt.supabase.co'; // Cobranza (clientes de cartera)
+var COB_KEY='sb_publishable_-JUaSYPPkq8n4wJIKPtXGw_XMyj3EE7';
+var sb=window.supabase.createClient(HUB_URL,HUB_KEY);
+var sbCob=window.supabase.createClient(COB_URL,COB_KEY);
+var BUCKET='sac-evidencias';
+
+var SUCS={
+  R1:{nombre:'La Roca Comercial #1',cartera:'LA_ROCA_COMERCIAL_1'},
+  R2:{nombre:'La Roca Motors Barrio Arriba #1',cartera:'LA_ROCA_MOTORS_BARRIO_ARRIBA_1'},
+  R3:{nombre:'La Roca Motors La Libertad #2',cartera:'LA_ROCA_MOTORS_LA_LIBERTAD_2'},
+  R4:{nombre:'Su Mueble',cartera:'SU_MUEBLE'},
+  R5:{nombre:'Su Moto Danlí',cartera:'SU_MOTO_DANLI'}
+};
+// Administrador de cada sucursal: recibe la alerta, sube la evidencia al proveedor y da seguimiento.
+var ADMIN_SUC={R1:['v_ana'],R2:['v_ana'],R3:['v_mil'],R4:['v_say'],R5:['v_say']};
+// Ven y gestionan todas las sucursales (Jorge, Isis) + quien tenga accesos_apps.sac_todo
+var VER_TODO=['ADMIN','v_joh'];
+// Semáforo (días desde que se reportó al proveedor)
+var SLA_VERDE=3, SLA_AMARILLO=7;
+
+var ESTADOS={
+  ingresado:'Ingresado · por reportar',
+  reportado:'Reportado al proveedor',
+  visita_agendada:'Visita agendada',
+  en_proceso:'En proceso',
+  resuelto:'Resuelto · por confirmar',
+  cerrado:'Cerrado',
+  rechazado:'Rechazado'
+};
+var ABIERTOS=['ingresado','reportado','visita_agendada','en_proceso','resuelto'];
+var TIPOS=['Falla / no funciona','Daño en entrega','Faltante de piezas','Garantía','Instalación','Otro'];
+var SOLUCIONES=['Reparado','Cambio de producto','Repuesto entregado','Nota de crédito / devolución','Otro'];
+
+// ══ Sesión (viene de CaliFon App) ══
+var SES=null;
+try{SES=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');}catch(e){}
+if(!SES||!SES.codigo){location.href='/';}
+var ACC=(SES&&SES.accesos_apps)||{};
+var YO={codigo:SES?SES.codigo:'',nombre:SES?SES.nombre:''};
+var TODO=VER_TODO.indexOf(YO.codigo)>=0||ACC.sac_todo===true;
+var MIS_ADMIN=Object.keys(ADMIN_SUC).filter(function(s){return ADMIN_SUC[s].indexOf(YO.codigo)>=0;});
+var MIS_SUCS=TODO?Object.keys(SUCS):uniq((Array.isArray(ACC.sucursales)?ACC.sucursales:[]).concat(MIS_ADMIN)).filter(function(s){return SUCS[s];});
+function puedeGestionar(r){return TODO||MIS_ADMIN.indexOf(r.sucursal)>=0;}
+function puedeVer(r){return TODO||MIS_SUCS.indexOf(r.sucursal)>=0||r.creado_por_codigo===YO.codigo;}
+
+// ══ Estado ══
+var RECS=[],EVS={},PROVS=[],TAB='agenda',FIL={suc:'',estado:'abiertos',q:'',alertas:false};
+
+// ══ Utilidades ══
+function uniq(a){return a.filter(function(x,i){return a.indexOf(x)===i;});}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function hoyISO(){var d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10);}
+function addDiasISO(iso,n){var d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function fFecha(iso){if(!iso)return '—';var d=new Date(iso.length<=10?iso+'T12:00:00':iso);return d.toLocaleDateString('es-HN',{day:'2-digit',month:'short',year:'numeric'});}
+function fFechaHora(iso){if(!iso)return '—';return new Date(iso).toLocaleString('es-HN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}
+function toast(t){var el=document.getElementById('toast');el.textContent=t;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(function(){el.style.display='none';},2600);}
+function diasAbierto(r){
+  var ini=new Date(r.reportado_at||r.created_at);
+  var fin=r.cerrado_at?new Date(r.cerrado_at):r.estado==='rechazado'?new Date(r.updated_at):new Date();
+  return Math.max(0,Math.floor((fin-ini)/86400000));
+}
+function semaforo(r){
+  if(r.estado==='cerrado'||r.estado==='rechazado')return 'n';
+  var d=diasAbierto(r);return d<=SLA_VERDE?'g':d<=SLA_AMARILLO?'y':'r';
+}
+function telLimpio(t){var d=String(t||'').replace(/\D/g,'');if(d.length===8)d='504'+d;return d;}
+
+// ══ Alertas (lo que hay que hacer con cada reclamo) ══
+function alertas(r){
+  var a=[],hoy=hoyISO(),man=addDiasISO(hoy,1),evs=EVS[r.id]||[];
+  if(ABIERTOS.indexOf(r.estado)<0)return a;
+  var ultimo=evs.length?new Date(evs[evs.length-1].created_at):new Date(r.created_at);
+  if(r.estado==='ingresado'){
+    a.push({p:1,t:puedeGestionar(r)?'Reportar al proveedor: subir captura del chat o foto del correo':'Esperando que el administrador lo reporte al proveedor'});
+  }
+  if(r.estado==='reportado'){
+    var desde=new Date(r.reportado_at||r.created_at);
+    var fallida=evs.some(function(e){return e.tipo==='visita_fallida';});
+    if(fallida)a.push({p:1,t:'Visita fallida: pedir nueva fecha al proveedor'});
+    else if((new Date()-desde)/86400000>=2)a.push({p:2,t:'Sin fecha de visita: pedirla al proveedor'});
+  }
+  if(r.estado==='visita_agendada'&&r.fecha_visita){
+    if(r.fecha_visita<hoy)a.push({p:1,t:'La visita fue el '+fFecha(r.fecha_visita)+': registrar resultado'});
+    else if(r.fecha_visita===hoy||r.fecha_visita===man){
+      var agendadaAt=null;evs.forEach(function(e){if(e.tipo==='visita_agendada')agendadaAt=e.created_at;});
+      var confirmo=evs.some(function(e){return e.tipo==='llamada'&&e.datos&&e.datos.motivo==='Confirmar visita'&&e.resultado==='Contestó'&&(!agendadaAt||e.created_at>=agendadaAt);});
+      if(!confirmo)a.push({p:1,t:'Visita '+(r.fecha_visita===hoy?'HOY':'mañana')+': llamar al cliente para que esté pendiente'});
+    }
+  }
+  if(r.estado==='en_proceso'&&r.fecha_resolucion_est&&r.fecha_resolucion_est<hoy)a.push({p:2,t:'Proveedor atrasado: prometió resolver el '+fFecha(r.fecha_resolucion_est)});
+  if(r.estado==='resuelto')a.push({p:2,t:'Llamar al cliente para confirmar y cerrar'});
+  if((new Date()-ultimo)/3600000>=48&&r.estado!=='ingresado')a.push({p:3,t:'Sin actualización en 48 h'});
+  if(semaforo(r)==='r')a.push({p:3,t:'Más de '+SLA_AMARILLO+' días abierto'});
+  return a;
+}
+
+// ══ Carga ══
+async function cargar(){
+  var r1=await sb.from('sac_reclamos').select('*').order('created_at',{ascending:false});
+  if(r1.error){document.getElementById('view').innerHTML='<div class="card err">Error cargando reclamos: '+esc(r1.error.message)+'</div>';return;}
+  RECS=(r1.data||[]).filter(puedeVer);
+  EVS={};
+  var ids=RECS.map(function(r){return r.id;});
+  if(ids.length){
+    var r2=await sb.from('sac_eventos').select('*').in('reclamo_id',ids).order('created_at',{ascending:true});
+    (r2.data||[]).forEach(function(e){(EVS[e.reclamo_id]=EVS[e.reclamo_id]||[]).push(e);});
+  }
+  if(!PROVS.length){
+    var r3=await sb.from('ft_proveedores_catalogo').select('nombre,categoria').eq('activo',true).order('nombre');
+    PROVS=(r3.data||[]).map(function(p){return p.nombre;});
+  }
+  render();
+}
+
+// ══ Render ══
+function render(){
+  document.getElementById('who').textContent='👤 '+YO.nombre+(TODO?' · todas las sucursales':MIS_ADMIN.length?' · admin '+MIS_ADMIN.join(', '):'');
+  var nAl=RECS.filter(function(r){return puedeGestionar(r)&&alertas(r).some(function(a){return a.p<=2;});}).length;
+  var tabs=[['agenda','📋 Agenda'+(nAl?'<span class="n">'+nAl+'</span>':'')],['nuevo','➕ Nuevo reclamo'],['datos','📊 Indicadores']];
+  document.getElementById('tabs').innerHTML=tabs.map(function(t){return '<button class="tab'+(TAB===t[0]?' on':'')+'" onclick="irTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('');
+  if(TAB==='agenda')renderAgenda();
+  else if(TAB==='nuevo')renderNuevo();
+  else renderDatos();
+}
+function irTab(t){TAB=t;render();}
+
+function renderAgenda(){
+  var sucOpts='<option value="">Todas las sucursales</option>'+MIS_SUCS.map(function(s){return '<option value="'+s+'"'+(FIL.suc===s?' selected':'')+'>'+esc(SUCS[s].nombre)+'</option>';}).join('');
+  var estOpts=[['abiertos','Abiertos'],['todos','Todos']].concat(Object.keys(ESTADOS).map(function(k){return [k,ESTADOS[k]];}))
+    .map(function(o){return '<option value="'+o[0]+'"'+(FIL.estado===o[0]?' selected':'')+'>'+esc(o[1])+'</option>';}).join('');
+  var h='<div class="card"><div class="filters">'
+    +'<input id="fq" placeholder="Buscar cliente, ticket, proveedor…" value="'+esc(FIL.q)+'" oninput="FIL.q=this.value;pintarLista()">'
+    +'<select onchange="FIL.suc=this.value;pintarLista()">'+sucOpts+'</select>'
+    +'<select onchange="FIL.estado=this.value;pintarLista()">'+estOpts+'</select>'
+    +'<label class="row" style="margin:0;text-transform:none;font-size:13px;font-weight:600;letter-spacing:0"><input type="checkbox" style="width:auto"'+(FIL.alertas?' checked':'')+' onchange="FIL.alertas=this.checked;pintarLista()"> Solo con pendientes</label>'
+    +'</div><div class="muted" style="margin-bottom:10px">Orden: primero lo que tiene pendiente urgente, luego los de más días. 🟢 hasta '+SLA_VERDE+' días · 🟡 '+(SLA_VERDE+1)+'–'+SLA_AMARILLO+' · 🔴 más de '+SLA_AMARILLO+'</div>'
+    +'<div id="lista"></div></div>';
+  document.getElementById('view').innerHTML=h;
+  pintarLista();
+}
+function pintarLista(){
+  var q=FIL.q.trim().toLowerCase();
+  var l=RECS.filter(function(r){
+    if(FIL.suc&&r.sucursal!==FIL.suc)return false;
+    if(FIL.estado==='abiertos'&&ABIERTOS.indexOf(r.estado)<0)return false;
+    if(FIL.estado!=='abiertos'&&FIL.estado!=='todos'&&r.estado!==FIL.estado)return false;
+    if(q&&[r.cliente_nombre,r.ticket,r.proveedor,r.producto,r.telefono].join(' ').toLowerCase().indexOf(q)<0)return false;
+    if(FIL.alertas&&!alertas(r).length)return false;
+    return true;
+  }).map(function(r){var a=alertas(r);return{r:r,a:a,p:a.length?Math.min.apply(null,a.map(function(x){return x.p;})):9,d:diasAbierto(r)};});
+  l.sort(function(x,y){return x.p-y.p||y.d-x.d;});
+  var el=document.getElementById('lista');
+  if(!l.length){el.innerHTML='<div class="muted">No hay reclamos con este filtro.</div>';return;}
+  el.innerHTML=l.map(function(x){
+    var r=x.r;
+    return '<div class="rec" onclick="abrir('+r.id+')"><div class="sem '+semaforo(r)+'"></div><div>'
+      +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span></div>'
+      +'<div class="s">'+(r.ticket?'<b>'+esc(r.ticket)+'</b> · ':'')+esc(SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal)+' · '+esc(r.proveedor)+(r.producto?' · '+esc(r.producto):'')
+      +(r.fecha_visita&&r.estado==='visita_agendada'?' · 🗓️ visita '+fFecha(r.fecha_visita):'')+'</div>'
+      +x.a.filter(function(a){return a.p<=2;}).map(function(a){return '<div class="al">⚠️ '+esc(a.t)+'</div>';}).join('')
+      +'</div><div class="days">'+x.d+'<small>'+(x.d===1?'día':'días')+'</small></div></div>';
+  }).join('');
+}
+
+// ══ Nuevo reclamo ══
+var NV={clientes:[],cli:null,fotos:[]};
+function renderNuevo(){
+  NV={clientes:[],cli:null,fotos:[]};
+  var sucs=MIS_SUCS.length?MIS_SUCS:Object.keys(SUCS);
+  var h='<div class="card"><h2>Nuevo reclamo</h2><div class="muted">Queda como <b>Ingresado</b> y le llega la alerta al administrador de la sucursal para reportarlo al proveedor.</div>'
+    +'<div class="grid2">'
+    +'<div><label>Sucursal <span class="req">*</span></label><select id="n-suc" onchange="cargarClientes()"><option value="">— Elegir —</option>'+sucs.map(function(s){return '<option value="'+s+'">'+esc(SUCS[s].nombre)+'</option>';}).join('')+'</select></div>'
+    +'<div><label>Proveedor <span class="req">*</span></label><select id="n-prov" onchange="document.getElementById(\'n-prov-otro\').style.display=this.value===\'__otro\'?\'block\':\'none\'"><option value="">— Elegir —</option>'+PROVS.map(function(p){return '<option>'+esc(p)+'</option>';}).join('')+'<option value="__otro">Otro…</option></select>'
+    +'<input id="n-prov-otro" placeholder="Nombre del proveedor" style="display:none;margin-top:6px"></div>'
+    +'</div>'
+    +'<label>Cliente (de Cobranza) <span class="req">*</span></label>'
+    +'<input id="n-cli" placeholder="Primero elige la sucursal…" autocomplete="off" oninput="buscarCliente()" disabled>'
+    +'<div class="sug" id="n-sug"></div><div class="muted" id="n-cli-info" style="margin-top:4px"></div>'
+    +'<div class="grid2">'
+    +'<div><label>Teléfono del cliente <span class="req">*</span></label><input id="n-tel" inputmode="tel" placeholder="9999-9999"></div>'
+    +'<div><label>Otro teléfono (familiar / trabajo)</label><input id="n-tel2" inputmode="tel"></div>'
+    +'</div>'
+    +'<label>Dirección para la visita del técnico</label><input id="n-dir">'
+    +'<div class="grid2">'
+    +'<div><label>Producto</label><input id="n-prod" placeholder="Ej. Moto Italika DM150, refrigeradora…"></div>'
+    +'<div><label>Serie / chasis / motor</label><input id="n-serie"></div>'
+    +'<div><label>N° de factura</label><input id="n-fact"></div>'
+    +'<div><label>Tipo de reclamo</label><select id="n-tipo">'+TIPOS.map(function(t){return '<option>'+t+'</option>';}).join('')+'</select></div>'
+    +'</div>'
+    +'<label>¿Qué presenta el cliente? <span class="req">*</span></label><textarea id="n-desc" placeholder="Describe la falla o el problema tal como lo cuenta el cliente"></textarea>'
+    +'<label>Fotos del reclamo <span class="req">*</span></label><input type="file" id="n-fotos" accept="image/*" multiple onchange="agregarFotos(this)">'
+    +'<div class="thumbs" id="n-thumbs"></div>'
+    +'<div class="err" id="n-err"></div>'
+    +'<div class="row" style="margin-top:10px"><button class="btn" id="n-btn" onclick="guardarNuevo()">Guardar reclamo</button></div>'
+    +'</div>';
+  document.getElementById('view').innerHTML=h;
+}
+async function cargarClientes(){
+  var s=document.getElementById('n-suc').value,inp=document.getElementById('n-cli');
+  NV.clientes=[];NV.cli=null;inp.value='';document.getElementById('n-cli-info').textContent='';
+  if(!s){inp.disabled=true;inp.placeholder='Primero elige la sucursal…';return;}
+  inp.disabled=true;inp.placeholder='Cargando clientes…';
+  var r=await sbCob.from('carteras').select('clientes').eq('id',SUCS[s].cartera).maybeSingle();
+  NV.clientes=((r.data&&r.data.clientes)||[]).map(function(c){return{nombre:c.nombre,saldo:c.saldo,fecha_factura:c.fecha_factura,cuota:c.cuota};});
+  inp.disabled=false;inp.placeholder='Escribe el nombre ('+NV.clientes.length+' clientes en cartera)';inp.focus();
+}
+function buscarCliente(){
+  var q=document.getElementById('n-cli').value.trim().toLowerCase(),box=document.getElementById('n-sug');
+  NV.cli=null;document.getElementById('n-cli-info').textContent='';
+  if(q.length<2){box.style.display='none';return;}
+  var parts=q.split(/\s+/);
+  var l=NV.clientes.filter(function(c){var n=c.nombre.toLowerCase();return parts.every(function(p){return n.indexOf(p)>=0;});}).slice(0,12);
+  box.innerHTML=l.map(function(c,i){return '<div onclick="elegirCliente('+NV.clientes.indexOf(c)+')">'+esc(c.nombre)+' <span class="muted">· factura '+esc(c.fecha_factura||'—')+'</span></div>';}).join('')
+    +'<div onclick="clienteContado()" style="color:#1a55a0;font-weight:600">➕ No está en Cobranza (cliente de contado): usar "'+esc(document.getElementById('n-cli').value.trim())+'"</div>';
+  box.style.display='block';
+}
+function elegirCliente(i){
+  var c=NV.clientes[i];NV.cli={nombre:c.nombre,cobranza:true};
+  document.getElementById('n-cli').value=c.nombre;document.getElementById('n-sug').style.display='none';
+  document.getElementById('n-cli-info').innerHTML='✅ Cliente de Cobranza · factura '+esc(c.fecha_factura||'—')+' · saldo L '+Number(c.saldo||0).toLocaleString('es-HN');
+}
+function clienteContado(){
+  var n=document.getElementById('n-cli').value.trim();if(!n)return;
+  NV.cli={nombre:n,cobranza:false};document.getElementById('n-sug').style.display='none';
+  document.getElementById('n-cli-info').innerHTML='🧾 Cliente de contado (no está en la cartera de Cobranza)';
+}
+async function comprimir(file){
+  if(!file.type||file.type.indexOf('image/')!==0)return file;
+  try{
+    var bmp=await createImageBitmap(file);var max=1600,sc=Math.min(1,max/Math.max(bmp.width,bmp.height));
+    var cv=document.createElement('canvas');cv.width=Math.round(bmp.width*sc);cv.height=Math.round(bmp.height*sc);
+    cv.getContext('2d').drawImage(bmp,0,0,cv.width,cv.height);
+    var blob=await new Promise(function(res){cv.toBlob(res,'image/jpeg',0.82);});
+    return blob?new File([blob],file.name.replace(/\.\w+$/,'')+'.jpg',{type:'image/jpeg'}):file;
+  }catch(e){return file;}
+}
+function agregarFotos(inp){
+  Array.prototype.forEach.call(inp.files,function(f){NV.fotos.push(f);});inp.value='';
+  document.getElementById('n-thumbs').innerHTML=NV.fotos.map(function(f,i){return '<span title="Quitar" onclick="NV.fotos.splice('+i+',1);agregarFotos({files:[]})" style="cursor:pointer"><img src="'+URL.createObjectURL(f)+'"></span>';}).join('');
+}
+async function subirArchivos(files,carpeta){
+  var out=[];
+  for(var i=0;i<files.length;i++){
+    var f=await comprimir(files[i]);
+    var ext=(f.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
+    var path=carpeta+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
+    var r=await sb.storage.from(BUCKET).upload(path,f,{contentType:f.type||undefined});
+    if(r.error)throw new Error('No se pudo subir '+files[i].name+': '+r.error.message);
+    out.push({url:sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl,nombre:files[i].name,tipo:f.type||''});
+  }
+  return out;
+}
+async function guardarNuevo(){
+  var err=document.getElementById('n-err'),btn=document.getElementById('n-btn');
+  var suc=document.getElementById('n-suc').value;
+  var prov=document.getElementById('n-prov').value;if(prov==='__otro')prov=document.getElementById('n-prov-otro').value.trim();
+  var tel=document.getElementById('n-tel').value.trim(),desc=document.getElementById('n-desc').value.trim();
+  if(!suc)return err.textContent='Elige la sucursal.';
+  if(!prov)return err.textContent='Elige el proveedor.';
+  if(!NV.cli)return err.textContent='Elige el cliente de la lista (o la opción de cliente de contado).';
+  if(telLimpio(tel).length<11)return err.textContent='Escribe un teléfono válido del cliente (8 dígitos).';
+  if(!desc)return err.textContent='Describe lo que presenta el cliente.';
+  if(!NV.fotos.length)return err.textContent='Agrega al menos una foto del reclamo.';
+  err.textContent='';btn.disabled=true;btn.textContent='Subiendo fotos…';
+  try{
+    var fotos=await subirArchivos(NV.fotos,'reclamos/'+suc);
+    btn.textContent='Guardando…';
+    var row={estado:'ingresado',sucursal:suc,cartera_id:NV.cli.cobranza?SUCS[suc].cartera:null,cliente_nombre:NV.cli.nombre,
+      telefono:tel,telefono2:document.getElementById('n-tel2').value.trim()||null,direccion:document.getElementById('n-dir').value.trim()||null,
+      proveedor:prov,producto:document.getElementById('n-prod').value.trim()||null,serie:document.getElementById('n-serie').value.trim()||null,
+      factura:document.getElementById('n-fact').value.trim()||null,tipo:document.getElementById('n-tipo').value,descripcion:desc,fotos:fotos,
+      creado_por:YO.nombre,creado_por_codigo:YO.codigo};
+    var r=await sb.from('sac_reclamos').insert(row).select('id').single();
+    if(r.error)throw new Error(r.error.message);
+    await evento(r.data.id,'creado',null,'Reclamo ingresado: '+desc);
+    toast('✅ Reclamo ingresado. El administrador de la sucursal ya tiene la alerta.');
+    TAB='agenda';await cargar();abrir(r.data.id);
+  }catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Guardar reclamo';}
+}
+
+// ══ Eventos / actualizaciones ══
+async function evento(id,tipo,resultado,nota,datos){
+  return sb.from('sac_eventos').insert({reclamo_id:id,tipo:tipo,resultado:resultado||null,nota:nota||null,datos:datos||null,autor:YO.nombre,autor_codigo:YO.codigo});
+}
+async function actualizar(id,campos){
+  var r=await sb.from('sac_reclamos').update(campos).eq('id',id).select('*').single();
+  if(r.error)throw new Error(r.error.message);
+  return r.data;
+}
+
+// ══ Detalle ══
+var EV_ICON={creado:'📝',reportado:'📨',visita_agendada:'🗓️',llamada:'📞',visita_realizada:'🔧',visita_fallida:'❌',comentario:'💬',en_proceso:'⏳',resuelto:'✅',cerrado:'🔒',rechazado:'⛔',fecha_estimada:'📅'};
+function thumbs(arr){
+  return '<div class="thumbs">'+(arr||[]).map(function(f){
+    return /^image\//.test(f.tipo)||/\.(jpe?g|png|webp|gif)$/i.test(f.url)?'<a href="'+esc(f.url)+'" target="_blank"><img src="'+esc(f.url)+'"></a>':'<a href="'+esc(f.url)+'" target="_blank" style="padding-top:26px">📄 '+esc((f.nombre||'archivo').slice(0,12))+'</a>';
+  }).join('')+'</div>';
+}
+function abrir(id){
+  var r=RECS.find(function(x){return x.id===id;});if(!r)return;
+  var evs=EVS[id]||[],g=puedeGestionar(r),al=alertas(r);
+  var wa=telLimpio(r.telefono);
+  var h='<div class="ov" id="ov" onclick="if(event.target.id===\'ov\')cerrarModal()"><div class="modal">'
+    +'<div class="mh"><div><div style="font-size:18px;font-weight:800">'+esc(r.cliente_nombre)+'</div>'
+    +'<div class="muted">'+(r.ticket?'<b style="color:#1a55a0">'+esc(r.ticket)+'</b> · ':'Sin ticket (falta reportar) · ')+'<span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado])+'</span> '+diasAbierto(r)+' días</div></div>'
+    +'<button class="x" onclick="cerrarModal()">×</button></div>'
+    +al.map(function(a){return '<div class="al" style="color:#b3261e;font-weight:600;font-size:13px">⚠️ '+esc(a.t)+'</div>';}).join('')
+    +'<div class="kv">'
+    +'<b>Teléfono</b><span>'+esc(r.telefono)+' <a href="tel:'+esc(r.telefono)+'">📞</a> <a href="https://wa.me/'+wa+'" target="_blank">WhatsApp</a>'+(r.telefono2?' · otro: '+esc(r.telefono2):'')+'</span>'
+    +(r.direccion?'<b>Dirección</b><span>'+esc(r.direccion)+'</span>':'')
+    +'<b>Sucursal</b><span>'+esc(SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal)+(r.cartera_id?' · cliente de Cobranza':' · cliente de contado')+'</span>'
+    +'<b>Proveedor</b><span>'+esc(r.proveedor)+(r.proveedor_caso?' · caso del proveedor: '+esc(r.proveedor_caso):'')+'</span>'
+    +'<b>Producto</b><span>'+esc(r.producto||'—')+(r.serie?' · serie '+esc(r.serie):'')+(r.factura?' · factura '+esc(r.factura):'')+'</span>'
+    +'<b>Tipo</b><span>'+esc(r.tipo||'—')+'</span>'
+    +'<b>Presenta</b><span>'+esc(r.descripcion)+'</span>'
+    +(r.fecha_visita?'<b>Visita técnico</b><span>'+fFecha(r.fecha_visita)+(r.hora_visita?' · '+esc(r.hora_visita):'')+(r.tecnico?' · '+esc(r.tecnico):'')+'</span>':'')
+    +(r.fecha_resolucion_est?'<b>Resolución estimada</b><span>'+fFecha(r.fecha_resolucion_est)+'</span>':'')
+    +(r.solucion?'<b>Solución</b><span>'+esc(r.solucion)+'</span>':'')
+    +'<b>Ingresado por</b><span>'+esc(r.creado_por||'—')+' · '+fFechaHora(r.created_at)+'</span>'
+    +(r.reportado_at?'<b>Reportado</b><span>'+esc(r.reportado_por||'—')+' · '+fFechaHora(r.reportado_at)+'</span>':'')
+    +'</div>'
+    +'<div class="muted" style="margin-top:6px">Fotos del reclamo</div>'+thumbs(r.fotos)
+    +(r.evidencia&&r.evidencia.length?'<div class="muted" style="margin-top:8px">Evidencia enviada al proveedor</div>'+thumbs(r.evidencia):'')
+    +acciones(r,g)
+    +'<h3 style="font-size:13px;margin-top:16px">Historial</h3><div class="tl">'
+    +evs.slice().reverse().map(function(e){
+      return '<div class="e"><div>'+(EV_ICON[e.tipo]||'•')+' '+(e.resultado?'<b>'+esc(e.resultado)+'</b> — ':'')+esc(e.nota||'')+'</div><div class="w">'+esc(e.autor||'')+' · '+fFechaHora(e.created_at)+'</div></div>';
+    }).join('')+'</div>'
+    +'</div></div>';
+  cerrarModal();document.body.insertAdjacentHTML('beforeend',h);
+}
+function cerrarModal(){var o=document.getElementById('ov');if(o)o.remove();}
+
+function acciones(r,g){
+  var id=r.id,h='';
+  var abierto=ABIERTOS.indexOf(r.estado)>=0;
+  if(g&&r.estado==='ingresado'){
+    h+='<div class="act"><h3>📨 Reportar al proveedor</h3><div class="muted">Sube la captura del chat de WhatsApp o la foto del correo enviado a '+esc(r.proveedor)+'. Al guardar se genera el ticket del cliente.</div>'
+      +'<label>Evidencia <span class="req">*</span></label><input type="file" id="a-evid" accept="image/*,application/pdf" multiple>'
+      +'<label>N° de caso / referencia del proveedor</label><input id="a-caso">'
+      +'<label>Nota</label><input id="a-nota">'
+      +'<div class="err" id="a-err"></div><button class="btn" onclick="accReportar('+id+',this)">Guardar y generar ticket</button></div>';
+  }
+  if(g&&(r.estado==='reportado'||r.estado==='visita_agendada')){
+    h+='<div class="act"><h3>🗓️ '+(r.estado==='visita_agendada'?'Cambiar fecha de visita':'Agendar visita del técnico')+'</h3><div class="muted">Fecha que dio el proveedor. Un día antes y el mismo día el sistema pide llamar al cliente para que esté pendiente.</div>'
+      +'<div class="grid2"><div><label>Fecha de visita <span class="req">*</span></label><input type="date" id="a-fv" min="'+hoyISO()+'" value="'+(r.fecha_visita||'')+'"></div>'
+      +'<div><label>Hora / jornada</label><select id="a-hv"><option value="">—</option>'+['Mañana','Tarde','Todo el día'].map(function(x){return '<option'+(r.hora_visita===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div></div>'
+      +'<label>Técnico (si el proveedor lo dijo)</label><input id="a-tec" value="'+esc(r.tecnico||'')+'">'
+      +'<div class="err" id="a-err2"></div><button class="btn" onclick="accAgendar('+id+',this)">Guardar visita</button></div>';
+  }
+  if(g&&r.estado==='visita_agendada'){
+    h+='<div class="act"><h3>🔧 Resultado de la visita</h3>'
+      +'<label>¿Se hizo la visita? <span class="req">*</span></label><select id="a-vr" onchange="document.getElementById(\'a-vr-ok\').style.display=this.value===\'si\'?\'block\':\'none\';document.getElementById(\'a-vr-no\').style.display=this.value===\'no\'?\'block\':\'none\'"><option value="">—</option><option value="si">Sí, el técnico llegó</option><option value="no">No se hizo (visita fallida)</option></select>'
+      +'<div id="a-vr-ok" style="display:none"><label>Comentario / diagnóstico del técnico <span class="req">*</span></label><textarea id="a-diag"></textarea>'
+      +'<label>¿Quedó resuelto?</label><select id="a-vr-res" onchange="document.getElementById(\'a-vr-est\').style.display=this.value===\'no\'?\'block\':\'none\'"><option value="si">Sí, quedó resuelto en la visita</option><option value="no">No, queda pendiente (repuesto, cambio, taller…)</option></select>'
+      +'<div id="a-vr-est" style="display:none"><label>Fecha estimada de resolución (según proveedor)</label><input type="date" id="a-fest"></div></div>'
+      +'<div id="a-vr-no" style="display:none"><label>Motivo <span class="req">*</span></label><select id="a-vf-mot"><option>El técnico llamó y el cliente no contestó</option><option>El cliente no estaba en casa</option><option>El técnico no llegó</option><option>Otro</option></select><label>Nota</label><input id="a-vf-nota"></div>'
+      +'<div class="err" id="a-err3"></div><button class="btn" onclick="accVisita('+id+',this)">Guardar resultado</button></div>';
+  }
+  if(g&&r.estado==='en_proceso'){
+    h+='<div class="act"><h3>⏳ En proceso</h3>'
+      +'<label>Nueva fecha estimada de resolución</label><div class="row"><input type="date" id="a-fest2" style="max-width:200px" value="'+(r.fecha_resolucion_est||'')+'"><button class="btn sec sm" onclick="accFechaEst('+id+')">Actualizar fecha</button></div>'
+      +'<label>Marcar resuelto — solución</label><select id="a-sol">'+SOLUCIONES.map(function(s){return '<option>'+s+'</option>';}).join('')+'</select>'
+      +'<label>Detalle</label><input id="a-sol-nota">'
+      +'<div class="err" id="a-err4"></div><button class="btn ok" onclick="accResuelto('+id+',this)">Marcar resuelto</button></div>';
+  }
+  if(g&&r.estado==='resuelto'){
+    h+='<div class="act"><h3>🔒 Cerrar con el cliente</h3><div class="muted">Llama al cliente para confirmar que quedó bien antes de cerrar.</div>'
+      +'<label>¿El cliente quedó satisfecho?</label><select id="a-sat"><option>Satisfecho</option><option>Parcialmente</option><option>No satisfecho</option></select>'
+      +'<label>Nota</label><input id="a-cierre-nota">'
+      +'<div class="row" style="margin-top:8px"><button class="btn ok" onclick="accCerrar('+id+',this)">Cerrar reclamo</button><button class="btn sec" onclick="accReabrir('+id+',this)">No quedó bien: reabrir</button></div></div>';
+  }
+  if(abierto){
+    h+='<div class="act"><h3>📞 Registrar llamada al cliente</h3><div class="grid2">'
+      +'<div><label>Motivo</label><select id="a-lm">'+['Confirmar visita','Seguimiento','Pedir datos','Confirmar solución'].map(function(x){return '<option'+(r.estado==='visita_agendada'&&x==='Confirmar visita'?' selected':r.estado==='resuelto'&&x==='Confirmar solución'?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
+      +'<div><label>Resultado</label><select id="a-lr"><option>Contestó</option><option>No contestó</option><option>Apagado / fuera de servicio</option><option>Número equivocado</option></select></div></div>'
+      +'<label>Nota</label><input id="a-ln"><div class="row" style="margin-top:8px"><button class="btn sec" onclick="accLlamada('+id+',this)">Guardar llamada</button></div></div>';
+    h+='<div class="act"><h3>💬 Comentario</h3><textarea id="a-com" style="min-height:60px" placeholder="Lo que dijo el proveedor, avances, etc."></textarea><div class="row" style="margin-top:8px"><button class="btn sec" onclick="accComentario('+id+',this)">Agregar comentario</button></div></div>';
+  }
+  if(g&&abierto&&r.estado!=='ingresado'){
+    h+='<div class="act"><h3>⛔ Proveedor rechazó el reclamo</h3><label>Motivo</label><input id="a-rech"><div class="row" style="margin-top:8px"><button class="btn bad sm" onclick="accRechazar('+id+',this)">Marcar rechazado</button></div></div>';
+  }
+  return h;
+}
+async function trasAccion(id,msg){toast(msg);await cargar();abrir(id);}
+function val(i){var e=document.getElementById(i);return e?e.value.trim():'';}
+
+async function accReportar(id,btn){
+  var f=document.getElementById('a-evid').files,err=document.getElementById('a-err');
+  if(!f.length){err.textContent='Sube la captura del chat o la foto del correo.';return;}
+  btn.disabled=true;btn.textContent='Subiendo…';
+  try{
+    var ev=await subirArchivos(f,'evidencia/'+id);
+    var r=RECS.find(function(x){return x.id===id;});
+    var d=await actualizar(id,{estado:'reportado',evidencia:(r.evidencia||[]).concat(ev),proveedor_caso:val('a-caso')||null,reportado_por:YO.nombre});
+    await evento(id,'reportado',null,'Reportado a '+d.proveedor+'. Ticket '+d.ticket+(val('a-nota')?' — '+val('a-nota'):''),{ticket:d.ticket});
+    await trasAccion(id,'✅ Ticket '+d.ticket+' generado');
+    avisoTicket(d);
+  }catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Guardar y generar ticket';}
+}
+function avisoTicket(r){
+  var msg='Hola '+r.cliente_nombre.split(' ')[0]+', le saluda La Roca. Su reclamo de '+(r.producto||'su producto')+' quedó registrado con el ticket '+r.ticket+' y ya fue reportado al proveedor '+r.proveedor+'. Le avisaremos la fecha de visita del técnico. Por favor esté pendiente de su teléfono.';
+  var h='<div class="act" style="border-color:#1a55a0"><h3>📲 Enviar ticket al cliente</h3><div class="muted" style="margin-bottom:6px">'+esc(msg)+'</div>'
+    +'<a class="btn ok sm" style="text-decoration:none;display:inline-block" target="_blank" href="https://wa.me/'+telLimpio(r.telefono)+'?text='+encodeURIComponent(msg)+'">Enviar por WhatsApp</a></div>';
+  var m=document.querySelector('#ov .modal .kv');if(m)m.insertAdjacentHTML('beforebegin',h);
+}
+async function accAgendar(id,btn){
+  var fv=val('a-fv'),err=document.getElementById('a-err2');
+  if(!fv){err.textContent='Pon la fecha de visita que dio el proveedor.';return;}
+  btn.disabled=true;
+  try{
+    var r=RECS.find(function(x){return x.id===id;});
+    await actualizar(id,{estado:'visita_agendada',fecha_visita:fv,hora_visita:val('a-hv')||null,tecnico:val('a-tec')||null});
+    await evento(id,'visita_agendada',null,(r.fecha_visita?'Visita cambiada de '+fFecha(r.fecha_visita)+' a ':'Visita agendada para ')+fFecha(fv)+(val('a-hv')?' ('+val('a-hv')+')':'')+(val('a-tec')?' · técnico '+val('a-tec'):''),{fecha:fv});
+    await trasAccion(id,'🗓️ Visita guardada');
+  }catch(e){err.textContent=e.message;btn.disabled=false;}
+}
+async function accVisita(id,btn){
+  var v=val('a-vr'),err=document.getElementById('a-err3');
+  if(!v){err.textContent='Indica si se hizo la visita.';return;}
+  btn.disabled=true;
+  try{
+    if(v==='si'){
+      var diag=val('a-diag');if(!diag){err.textContent='Escribe el comentario del técnico.';btn.disabled=false;return;}
+      var resuelto=val('a-vr-res')==='si';
+      await actualizar(id,{estado:resuelto?'resuelto':'en_proceso',visita_realizada_at:new Date().toISOString(),resuelto_at:resuelto?new Date().toISOString():null,
+        solucion:resuelto?'Resuelto en visita técnica':null,fecha_resolucion_est:resuelto?null:(val('a-fest')||null)});
+      await evento(id,'visita_realizada',resuelto?'Resuelto en la visita':'Queda pendiente',diag);
+    }else{
+      await actualizar(id,{estado:'reportado',fecha_visita:null,hora_visita:null});
+      await evento(id,'visita_fallida',val('a-vf-mot'),val('a-vf-nota')||'Pedir nueva fecha al proveedor');
+    }
+    await trasAccion(id,'Resultado guardado');
+  }catch(e){err.textContent=e.message;btn.disabled=false;}
+}
+async function accFechaEst(id){
+  var f=val('a-fest2');if(!f)return;
+  await actualizar(id,{fecha_resolucion_est:f});await evento(id,'fecha_estimada',null,'Proveedor estima resolver el '+fFecha(f));
+  trasAccion(id,'Fecha actualizada');
+}
+async function accResuelto(id,btn){
+  btn.disabled=true;
+  try{
+    var s=val('a-sol')+(val('a-sol-nota')?': '+val('a-sol-nota'):'');
+    await actualizar(id,{estado:'resuelto',resuelto_at:new Date().toISOString(),solucion:s});
+    await evento(id,'resuelto',val('a-sol'),val('a-sol-nota'));
+    await trasAccion(id,'✅ Marcado como resuelto');
+  }catch(e){document.getElementById('a-err4').textContent=e.message;btn.disabled=false;}
+}
+async function accCerrar(id,btn){
+  btn.disabled=true;
+  await actualizar(id,{estado:'cerrado',cerrado_at:new Date().toISOString(),satisfaccion:val('a-sat')});
+  await evento(id,'cerrado',val('a-sat'),val('a-cierre-nota'));
+  trasAccion(id,'🔒 Reclamo cerrado');
+}
+async function accReabrir(id,btn){
+  var n=val('a-cierre-nota');if(!n){toast('Escribe en la nota qué sigue mal');return;}
+  btn.disabled=true;
+  await actualizar(id,{estado:'en_proceso',resuelto_at:null,solucion:null});
+  await evento(id,'en_proceso','Reabierto',n);
+  trasAccion(id,'Reclamo reabierto');
+}
+async function accLlamada(id,btn){
+  btn.disabled=true;
+  await evento(id,'llamada',val('a-lr'),val('a-ln')||null,{motivo:val('a-lm')});
+  trasAccion(id,'📞 Llamada registrada');
+}
+async function accComentario(id,btn){
+  var t=val('a-com');if(!t)return;btn.disabled=true;
+  await evento(id,'comentario',null,t);
+  trasAccion(id,'Comentario agregado');
+}
+async function accRechazar(id,btn){
+  var m=val('a-rech');if(!m){toast('Escribe el motivo del rechazo');return;}
+  btn.disabled=true;
+  await actualizar(id,{estado:'rechazado'});
+  await evento(id,'rechazado',null,m);
+  trasAccion(id,'Reclamo marcado como rechazado');
+}
+
+// ══ Indicadores (tiempos reales para estimar) ══
+function prom(a){return a.length?Math.round(a.reduce(function(x,y){return x+y;},0)/a.length*10)/10:null;}
+function difDias(a,b){return (new Date(b)-new Date(a))/86400000;}
+function renderDatos(){
+  var ab=RECS.filter(function(r){return ABIERTOS.indexOf(r.estado)>=0;});
+  var aVisita=[],aResol=[],fallidas=0,visitas=0,porProv={};
+  RECS.forEach(function(r){
+    var evs=EVS[r.id]||[];
+    var ag=evs.find(function(e){return e.tipo==='visita_agendada';});
+    if(r.reportado_at&&ag&&ag.datos&&ag.datos.fecha)aVisita.push(Math.max(0,difDias(r.reportado_at,ag.datos.fecha+'T12:00:00')));
+    var fin=r.resuelto_at||r.cerrado_at;
+    if(r.reportado_at&&fin)aResol.push(Math.max(0,difDias(r.reportado_at,fin)));
+    evs.forEach(function(e){if(e.tipo==='visita_fallida'){fallidas++;visitas++;}if(e.tipo==='visita_realizada')visitas++;});
+    var p=porProv[r.proveedor]=porProv[r.proveedor]||{n:0,ab:0,res:[],rojo:0,rech:0};
+    p.n++;if(ABIERTOS.indexOf(r.estado)>=0)p.ab++;if(semaforo(r)==='r')p.rojo++;if(r.estado==='rechazado')p.rech++;
+    if(r.reportado_at&&fin)p.res.push(difDias(r.reportado_at,fin));
+  });
+  var cnt={};ab.forEach(function(r){cnt[r.estado]=(cnt[r.estado]||0)+1;});
+  var h='<div class="card"><h2>Indicadores</h2><div class="kpis">'
+    +'<div class="kpi"><div class="l">Abiertos</div><div class="v">'+ab.length+'</div></div>'
+    +'<div class="kpi"><div class="l">🔴 Más de '+SLA_AMARILLO+' días</div><div class="v" style="color:#D93A3A">'+ab.filter(function(r){return semaforo(r)==='r';}).length+'</div></div>'
+    +'<div class="kpi"><div class="l">Días promedio reporte → visita</div><div class="v">'+(prom(aVisita)==null?'—':prom(aVisita))+'</div></div>'
+    +'<div class="kpi"><div class="l">Días promedio reporte → resuelto</div><div class="v">'+(prom(aResol)==null?'—':prom(aResol))+'</div></div>'
+    +'<div class="kpi"><div class="l">Visitas fallidas</div><div class="v">'+(visitas?Math.round(fallidas/visitas*100)+'%':'—')+'</div><div class="muted">'+fallidas+' de '+visitas+'</div></div>'
+    +'</div><div class="muted" style="margin-bottom:6px">Abiertos por estado: '+(Object.keys(cnt).map(function(k){return ESTADOS[k]+' '+cnt[k];}).join(' · ')||'—')+'</div>'
+    +'<h2 style="margin-top:14px">Por proveedor</h2><div class="tscroll"><table class="t"><thead><tr><th>Proveedor</th><th>Reclamos</th><th>Abiertos</th><th>🔴</th><th>Rechazados</th><th>Días prom. resolver</th></tr></thead><tbody>'
+    +Object.keys(porProv).sort(function(a,b){return porProv[b].n-porProv[a].n;}).map(function(k){var p=porProv[k];var pr=prom(p.res);
+      return '<tr><td><b>'+esc(k)+'</b></td><td>'+p.n+'</td><td>'+p.ab+'</td><td>'+p.rojo+'</td><td>'+p.rech+'</td><td>'+(pr==null?'—':pr)+'</td></tr>';}).join('')
+    +'</tbody></table></div></div>';
+  document.getElementById('view').innerHTML=h;
+}
+
+cargar();
+setInterval(function(){if(!document.getElementById('ov')&&TAB==='agenda')cargar();},60000);
+</script>
+</body>
+</html>
