@@ -84,6 +84,22 @@ table.t{width:100%;border-collapse:collapse;font-size:12.5px}
 table.t th{text-align:left;font-size:10px;color:#6b7280;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid #e3e6eb}
 table.t td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
 .tscroll{overflow-x:auto}
+.pill.demo{background:#7c3aed;color:#fff}
+.bar{height:10px;background:#eef2f7;border-radius:4px;overflow:hidden}.bar span{display:block;height:100%;background:#1a55a0;border-radius:4px}
+.cols{display:flex;align-items:flex-end;gap:10px;height:160px;padding-top:6px;border-bottom:1px solid #e3e6eb}
+.col{flex:1;max-width:70px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;font-size:12px}
+.col span{width:100%;background:#1a55a0;border-radius:4px 4px 0 0}.col small{color:#6b7280;font-size:11px;margin-bottom:-18px}
+.dgrid{gap:0 28px;margin-bottom:20px}.cols{margin-bottom:28px}
+@media(max-width:640px){.kpis{grid-template-columns:1fr 1fr;gap:8px}.kpi{padding:10px}.kpi .v{font-size:19px}.kpi .muted{font-size:11px}}
+.help{font-size:12px;color:#1a55a0;border:1px solid #1a55a0;padding:6px 12px;border-radius:8px;background:#fff;cursor:pointer;font-family:inherit;font-weight:600}
+.tuto{max-width:520px;text-align:left;margin-top:6vh}.tuto-i{font-size:44px;margin-bottom:6px}.tuto h2{font-size:18px;font-weight:800;margin-bottom:8px}
+.tuto-b{font-size:14px;line-height:1.55;color:#374151;min-height:170px}.tuto-b ul{margin:8px 0 0 18px}.tuto-b li{margin-bottom:5px}
+.tuto-dots{display:flex;gap:6px;justify-content:center;margin-top:12px}.tuto-dots span{width:8px;height:8px;border-radius:50%;background:#d8dce3;cursor:pointer}.tuto-dots span.on{background:#1a55a0;width:20px;border-radius:4px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}.dot.g{background:#2E9E5B}.dot.y{background:#E0A800}.dot.r{background:#D93A3A}
+.steps{display:flex;gap:4px;margin:10px 0 6px}.st{flex:1;text-align:center;font-size:11px;color:#9aa3af;font-weight:600}
+.st span{display:flex;align-items:center;justify-content:center;width:24px;height:24px;margin:0 auto 3px;border-radius:50%;background:#eef2f7;color:#6b7280;font-size:12px;font-weight:800}
+.st.ok{color:#1a7a3c}.st.ok span{background:#1a7a3c;color:#fff}.st.on{color:#1a55a0}.st.on span{background:#1a55a0;color:#fff}.st.bad{color:#b3261e}.st.bad span{background:#b3261e}
+.sigue{background:#eef4fb;border-radius:8px;padding:9px 11px;font-size:13px;color:#1a3d6e;margin-bottom:6px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1d23;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:99;display:none}
 </style>
 </head>
@@ -91,7 +107,7 @@ table.t td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
 <div class="wrap">
   <div class="top">
     <div class="brand"><h1>🛠️ Reclamos SAC</h1><p>Reclamos de clientes a proveedores · Corporación La Roca</p></div>
-    <div class="chip"><span id="who"></span><a class="back" href="/">← Menú</a></div>
+    <div class="chip"><span id="who"></span><button class="help" onclick="tutoAbrir()">❓ ¿Cómo se usa?</button><a class="back" href="/">← Menú</a></div>
   </div>
   <div class="tabs" id="tabs"></div>
   <div id="view"></div>
@@ -145,11 +161,13 @@ var YO={codigo:SES?SES.codigo:'',nombre:SES?SES.nombre:''};
 var TODO=VER_TODO.indexOf(YO.codigo)>=0||ACC.sac_todo===true;
 var MIS_ADMIN=Object.keys(ADMIN_SUC).filter(function(s){return ADMIN_SUC[s].indexOf(YO.codigo)>=0;});
 var MIS_SUCS=TODO?Object.keys(SUCS):uniq((Array.isArray(ACC.sucursales)?ACC.sucursales:[]).concat(MIS_ADMIN)).filter(function(s){return SUCS[s];});
+// Pantalla de administrador (reporta al proveedor por correo y da seguimiento) o de vendedor (ingresa y consulta)
+var ADMINV=TODO||MIS_ADMIN.length>0;
 function puedeGestionar(r){return TODO||MIS_ADMIN.indexOf(r.sucursal)>=0;}
 function puedeVer(r){return TODO||MIS_SUCS.indexOf(r.sucursal)>=0||r.creado_por_codigo===YO.codigo;}
 
 // ══ Estado ══
-var RECS=[],EVS={},PROVS=[],TAB='agenda',FIL={suc:'',estado:'abiertos',q:'',alertas:false};
+var RECS=[],EVS={},PROVS=[],PROV_MAIL={},MAILED={},TAB=ADMINV?'agenda':'nuevo',FIL={suc:'',estado:'abiertos',q:'',alertas:false};
 
 // ══ Utilidades ══
 function uniq(a){return a.filter(function(x,i){return a.indexOf(x)===i;});}
@@ -161,13 +179,15 @@ function fFechaHora(iso){if(!iso)return '—';return new Date(iso).toLocaleStrin
 function toast(t){var el=document.getElementById('toast');el.textContent=t;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(function(){el.style.display='none';},2600);}
 function diasAbierto(r){
   var ini=new Date(r.reportado_at||r.created_at);
-  var fin=r.cerrado_at?new Date(r.cerrado_at):r.estado==='rechazado'?new Date(r.updated_at):new Date();
+  var rech=r.estado==='rechazado'?(EVS[r.id]||[]).filter(function(e){return e.tipo==='rechazado';}).pop():null;
+  var fin=r.cerrado_at?new Date(r.cerrado_at):rech?new Date(rech.created_at):r.estado==='rechazado'?new Date(r.updated_at):new Date();
   return Math.max(0,Math.floor((fin-ini)/86400000));
 }
 function semaforo(r){
   if(r.estado==='cerrado'||r.estado==='rechazado')return 'n';
   var d=diasAbierto(r);return d<=SLA_VERDE?'g':d<=SLA_AMARILLO?'y':'r';
 }
+function demoPill(r){return r.demo?' <span class="pill demo" title="Reclamo de demostración (ficticio)">DEMO</span>':'';}
 function telLimpio(t){var d=String(t||'').replace(/\D/g,'');if(d.length===8)d='504'+d;return d;}
 
 // ══ Alertas (lo que hay que hacer con cada reclamo) ══
@@ -211,8 +231,8 @@ async function cargar(){
     (r2.data||[]).forEach(function(e){(EVS[e.reclamo_id]=EVS[e.reclamo_id]||[]).push(e);});
   }
   if(!PROVS.length){
-    var r3=await sb.from('ft_proveedores_catalogo').select('nombre,categoria').eq('activo',true).order('nombre');
-    PROVS=(r3.data||[]).map(function(p){return p.nombre;});
+    var r3=await sb.from('ft_proveedores_catalogo').select('nombre,categoria,correo_reclamos').eq('activo',true).order('nombre');
+    PROVS=(r3.data||[]).map(function(p){if(p.correo_reclamos)PROV_MAIL[p.nombre]=p.correo_reclamos;return p.nombre;});
   }
   render();
 }
@@ -221,10 +241,13 @@ async function cargar(){
 function render(){
   document.getElementById('who').textContent='👤 '+YO.nombre+(TODO?' · todas las sucursales':MIS_ADMIN.length?' · admin '+MIS_ADMIN.join(', '):'');
   var nAl=RECS.filter(function(r){return puedeGestionar(r)&&alertas(r).some(function(a){return a.p<=2;});}).length;
-  var tabs=[['agenda','📋 Agenda'+(nAl?'<span class="n">'+nAl+'</span>':'')],['nuevo','➕ Nuevo reclamo'],['datos','📊 Indicadores']];
+  var tabs=ADMINV?[['agenda','📋 Agenda'+(nAl?'<span class="n">'+nAl+'</span>':'')],['nuevo','➕ Nuevo reclamo'],['datos','📊 Indicadores']]
+    :[['nuevo','➕ Nuevo reclamo'],['mis','📋 Mis reclamos']];
+  if(!ADMINV&&(TAB==='agenda'||TAB==='datos'))TAB='nuevo';
   document.getElementById('tabs').innerHTML=tabs.map(function(t){return '<button class="tab'+(TAB===t[0]?' on':'')+'" onclick="irTab(\''+t[0]+'\')">'+t[1]+'</button>';}).join('');
   if(TAB==='agenda')renderAgenda();
   else if(TAB==='nuevo')renderNuevo();
+  else if(TAB==='mis')renderMis();
   else renderDatos();
 }
 function irTab(t){TAB=t;render();}
@@ -259,11 +282,54 @@ function pintarLista(){
   el.innerHTML=l.map(function(x){
     var r=x.r;
     return '<div class="rec" onclick="abrir('+r.id+')"><div class="sem '+semaforo(r)+'"></div><div>'
-      +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span></div>'
+      +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span>'+demoPill(r)+'</div>'
       +'<div class="s">'+(r.ticket?'<b>'+esc(r.ticket)+'</b> · ':'')+esc(SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal)+' · '+esc(r.proveedor)+(r.producto?' · '+esc(r.producto):'')
       +(r.fecha_visita&&r.estado==='visita_agendada'?' · 🗓️ visita '+fFecha(r.fecha_visita):'')+'</div>'
       +x.a.filter(function(a){return a.p<=2;}).map(function(a){return '<div class="al">⚠️ '+esc(a.t)+'</div>';}).join('')
       +'</div><div class="days">'+x.d+'<small>'+(x.d===1?'día':'días')+'</small></div></div>';
+  }).join('');
+}
+
+// ══ Mis reclamos (pantalla del vendedor: solo consulta) ══
+var FM={q:'',mios:false};
+var PASOS=[['ingresado','Ingresado'],['reportado','Reportado'],['visita_agendada','Visita'],['en_proceso','En proceso'],['cerrado','Cerrado']];
+function queSigue(r){
+  var e=r.estado;
+  if(e==='ingresado')return 'El administrador lo va a reportar al proveedor.';
+  if(e==='reportado')return 'Reportado a '+r.proveedor+'. Esperando que den la fecha de visita.';
+  if(e==='visita_agendada')return 'El técnico va el '+fFecha(r.fecha_visita)+(r.hora_visita?' ('+r.hora_visita+')':'')+'. El cliente debe estar pendiente del teléfono.';
+  if(e==='en_proceso')return 'El proveedor lo está resolviendo'+(r.fecha_resolucion_est?' (prometió para el '+fFecha(r.fecha_resolucion_est)+')':'')+'.';
+  if(e==='resuelto')return 'Resuelto. El administrador va a llamar al cliente para confirmar.';
+  if(e==='cerrado')return 'Cerrado'+(r.solucion?': '+r.solucion:'')+'.';
+  if(e==='rechazado')return 'El proveedor rechazó el reclamo. Consulta con el administrador.';
+  return '';
+}
+function pasos(r){
+  var idx={ingresado:0,reportado:1,visita_agendada:2,en_proceso:3,resuelto:3,cerrado:4,rechazado:1}[r.estado]||0;
+  return '<div class="steps">'+PASOS.map(function(p,i){return '<div class="st'+(i<idx?' ok':i===idx?' on':'')+(r.estado==='rechazado'&&i===idx?' bad':'')+'"><span>'+(i<idx?'✓':i+1)+'</span>'+p[1]+'</div>';}).join('')+'</div>'
+    +'<div class="sigue">👉 '+esc(queSigue(r))+'</div>';
+}
+function renderMis(){
+  document.getElementById('view').innerHTML='<div class="card"><div class="filters"><input placeholder="Buscar cliente, ticket, proveedor…" value="'+esc(FM.q)+'" oninput="FM.q=this.value;pintarMis()">'
+    +'<label class="row" style="margin:0;text-transform:none;font-size:13px;font-weight:600;letter-spacing:0"><input type="checkbox" style="width:auto"'+(FM.mios?' checked':'')+' onchange="FM.mios=this.checked;pintarMis()"> Solo los que yo ingresé</label></div>'
+    +'<div class="muted" style="margin-bottom:10px">Reclamos de tu sucursal. Toca uno para ver en qué va y decirle al cliente.</div><div id="lista"></div></div>';
+  pintarMis();
+}
+function pintarMis(){
+  var q=FM.q.trim().toLowerCase();
+  var l=RECS.filter(function(r){
+    if(FM.mios&&r.creado_por_codigo!==YO.codigo)return false;
+    if(q&&[r.cliente_nombre,r.ticket,r.proveedor,r.producto].join(' ').toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).sort(function(a,b){var x=ABIERTOS.indexOf(a.estado)>=0,y=ABIERTOS.indexOf(b.estado)>=0;return (y-x)||b.created_at.localeCompare(a.created_at);});
+  var el=document.getElementById('lista');
+  if(!l.length){el.innerHTML='<div class="muted">Todavía no hay reclamos. Ingresa uno en <b>Nuevo reclamo</b>.</div>';return;}
+  el.innerHTML=l.map(function(r){
+    return '<div class="rec" onclick="abrir('+r.id+')"><div class="sem '+semaforo(r)+'"></div><div>'
+      +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span>'+demoPill(r)+'</div>'
+      +'<div class="s">'+(r.ticket?'<b>'+esc(r.ticket)+'</b> · ':'')+esc(r.proveedor)+(r.producto?' · '+esc(r.producto):'')+'</div>'
+      +'<div class="s" style="color:#1a55a0">👉 '+esc(queSigue(r))+'</div>'
+      +'</div><div class="days">'+diasAbierto(r)+'<small>'+(diasAbierto(r)===1?'día':'días')+'</small></div></div>';
   }).join('');
 }
 
@@ -272,7 +338,7 @@ var NV={clientes:[],cli:null,fotos:[]};
 function renderNuevo(){
   NV={clientes:[],cli:null,fotos:[]};
   var sucs=MIS_SUCS.length?MIS_SUCS:Object.keys(SUCS);
-  var h='<div class="card"><h2>Nuevo reclamo</h2><div class="muted">Queda como <b>Ingresado</b> y le llega la alerta al administrador de la sucursal para reportarlo al proveedor.</div>'
+  var h='<div class="card"><h2>Nuevo reclamo</h2><div class="muted">Llena todos los datos: con esto el administrador le manda el correo al proveedor. Queda como <b>Ingresado</b> y le llega la alerta al administrador de la sucursal.</div>'
     +'<div class="grid2">'
     +'<div><label>Sucursal <span class="req">*</span></label><select id="n-suc" onchange="cargarClientes()"><option value="">— Elegir —</option>'+sucs.map(function(s){return '<option value="'+s+'">'+esc(SUCS[s].nombre)+'</option>';}).join('')+'</select></div>'
     +'<div><label>Proveedor <span class="req">*</span></label><select id="n-prov" onchange="document.getElementById(\'n-prov-otro\').style.display=this.value===\'__otro\'?\'block\':\'none\'"><option value="">— Elegir —</option>'+PROVS.map(function(p){return '<option>'+esc(p)+'</option>';}).join('')+'<option value="__otro">Otro…</option></select>'
@@ -285,9 +351,9 @@ function renderNuevo(){
     +'<div><label>Teléfono del cliente <span class="req">*</span></label><input id="n-tel" inputmode="tel" placeholder="9999-9999"></div>'
     +'<div><label>Otro teléfono (familiar / trabajo)</label><input id="n-tel2" inputmode="tel"></div>'
     +'</div>'
-    +'<label>Dirección para la visita del técnico</label><input id="n-dir">'
+    +'<label>Dirección para la visita del técnico <span class="req">*</span></label><input id="n-dir" placeholder="Barrio / colonia, referencias para llegar">'
     +'<div class="grid2">'
-    +'<div><label>Producto</label><input id="n-prod" placeholder="Ej. Moto Italika DM150, refrigeradora…"></div>'
+    +'<div><label>Producto <span class="req">*</span></label><input id="n-prod" placeholder="Ej. Moto Italika DM150, refrigeradora…"></div>'
     +'<div><label>Serie / chasis / motor</label><input id="n-serie"></div>'
     +'<div><label>N° de factura</label><input id="n-fact"></div>'
     +'<div><label>Tipo de reclamo</label><select id="n-tipo">'+TIPOS.map(function(t){return '<option>'+t+'</option>';}).join('')+'</select></div>'
@@ -364,6 +430,8 @@ async function guardarNuevo(){
   if(!prov)return err.textContent='Elige el proveedor.';
   if(!NV.cli)return err.textContent='Elige el cliente de la lista (o la opción de cliente de contado).';
   if(telLimpio(tel).length<11)return err.textContent='Escribe un teléfono válido del cliente (8 dígitos).';
+  if(!val('n-dir'))return err.textContent='Escribe la dirección para la visita del técnico.';
+  if(!val('n-prod'))return err.textContent='Escribe el producto (marca y modelo).';
   if(!desc)return err.textContent='Describe lo que presenta el cliente.';
   if(!NV.fotos.length)return err.textContent='Agrega al menos una foto del reclamo.';
   err.textContent='';btn.disabled=true;btn.textContent='Subiendo fotos…';
@@ -379,7 +447,7 @@ async function guardarNuevo(){
     if(r.error)throw new Error(r.error.message);
     await evento(r.data.id,'creado',null,'Reclamo ingresado: '+desc);
     toast('✅ Reclamo ingresado. El administrador de la sucursal ya tiene la alerta.');
-    TAB='agenda';await cargar();abrir(r.data.id);
+    TAB=ADMINV?'agenda':'mis';await cargar();abrir(r.data.id);
   }catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Guardar reclamo';}
 }
 
@@ -406,9 +474,9 @@ function abrir(id){
   var wa=telLimpio(r.telefono);
   var h='<div class="ov" id="ov" onclick="if(event.target.id===\'ov\')cerrarModal()"><div class="modal">'
     +'<div class="mh"><div><div style="font-size:18px;font-weight:800">'+esc(r.cliente_nombre)+'</div>'
-    +'<div class="muted">'+(r.ticket?'<b style="color:#1a55a0">'+esc(r.ticket)+'</b> · ':'Sin ticket (falta reportar) · ')+'<span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado])+'</span> '+diasAbierto(r)+' días</div></div>'
+    +'<div class="muted">'+(r.ticket?'<b style="color:#1a55a0">'+esc(r.ticket)+'</b> · ':'Sin ticket (falta reportar) · ')+'<span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado])+'</span>'+demoPill(r)+' '+diasAbierto(r)+' días</div></div>'
     +'<button class="x" onclick="cerrarModal()">×</button></div>'
-    +al.map(function(a){return '<div class="al" style="color:#b3261e;font-weight:600;font-size:13px">⚠️ '+esc(a.t)+'</div>';}).join('')
+    +(ADMINV?al.map(function(a){return '<div class="al" style="color:#b3261e;font-weight:600;font-size:13px">⚠️ '+esc(a.t)+'</div>';}).join(''):pasos(r))
     +'<div class="kv">'
     +'<b>Teléfono</b><span>'+esc(r.telefono)+' <a href="tel:'+esc(r.telefono)+'">📞</a> <a href="https://wa.me/'+wa+'" target="_blank">WhatsApp</a>'+(r.telefono2?' · otro: '+esc(r.telefono2):'')+'</span>'
     +(r.direccion?'<b>Dirección</b><span>'+esc(r.direccion)+'</span>':'')
@@ -424,11 +492,11 @@ function abrir(id){
     +(r.reportado_at?'<b>Reportado</b><span>'+esc(r.reportado_por||'—')+' · '+fFechaHora(r.reportado_at)+'</span>':'')
     +'</div>'
     +'<div class="muted" style="margin-top:6px">Fotos del reclamo</div>'+thumbs(r.fotos)
-    +(r.evidencia&&r.evidencia.length?'<div class="muted" style="margin-top:8px">Evidencia enviada al proveedor</div>'+thumbs(r.evidencia):'')
+    +(ADMINV&&r.evidencia&&r.evidencia.length?'<div class="muted" style="margin-top:8px">Evidencia enviada al proveedor</div>'+thumbs(r.evidencia):'')
     +acciones(r,g)
     +'<h3 style="font-size:13px;margin-top:16px">Historial</h3><div class="tl">'
     +evs.slice().reverse().map(function(e){
-      return '<div class="e"><div>'+(EV_ICON[e.tipo]||'•')+' '+(e.resultado?'<b>'+esc(e.resultado)+'</b> — ':'')+esc(e.nota||'')+'</div><div class="w">'+esc(e.autor||'')+' · '+fFechaHora(e.created_at)+'</div></div>';
+      return '<div class="e"><div>'+(EV_ICON[e.tipo]||'•')+' '+(e.resultado?'<b>'+esc(e.resultado)+'</b>'+(e.nota?' — ':''):'')+esc(e.nota||'')+'</div><div class="w">'+esc(e.autor||'')+' · '+fFechaHora(e.created_at)+'</div></div>';
     }).join('')+'</div>'
     +'</div></div>';
   cerrarModal();document.body.insertAdjacentHTML('beforeend',h);
@@ -439,11 +507,15 @@ function acciones(r,g){
   var id=r.id,h='';
   var abierto=ABIERTOS.indexOf(r.estado)>=0;
   if(g&&r.estado==='ingresado'){
-    h+='<div class="act"><h3>📨 Reportar al proveedor</h3><div class="muted">Sube la captura del chat de WhatsApp o la foto del correo enviado a '+esc(r.proveedor)+'. Al guardar se genera el ticket del cliente.</div>'
-      +'<label>Evidencia <span class="req">*</span></label><input type="file" id="a-evid" accept="image/*,application/pdf" multiple>'
-      +'<label>N° de caso / referencia del proveedor</label><input id="a-caso">'
+    h+='<div class="act"><h3>📧 Reportar al proveedor por correo</h3><div class="muted"><b>Paso 1:</b> envía el correo (ya va redactado con todos los datos y los enlaces a las fotos). <b>Paso 2:</b> confirma para generar el ticket del cliente.</div>'
+      +'<label>Correo de reclamos de '+esc(r.proveedor)+' <span class="req">*</span></label><input id="a-mail" type="email" value="'+esc(PROV_MAIL[r.proveedor]||'')+'" placeholder="servicio@proveedor.com">'
+      +'<div class="muted" style="margin-top:4px">'+(PROV_MAIL[r.proveedor]?'Guardado para este proveedor. Si cambia, escríbelo y se actualiza.':'Se guarda para la próxima vez con este proveedor.')+'</div>'
+      +'<div class="row" style="margin-top:10px"><button class="btn" onclick="enviarCorreo('+id+',\'gmail\')">✉️ Abrir en Gmail</button><button class="btn sec" onclick="enviarCorreo('+id+',\'app\')">Abrir en app de correo</button><button class="btn sec" onclick="copiarCorreo('+id+')">📋 Copiar texto</button></div>'
+      +'<div id="a-mailok" class="muted" style="margin-top:6px"></div>'
+      +'<label>N° de caso / referencia que dé el proveedor</label><input id="a-caso">'
+      +'<label>Captura del correo enviado (opcional)</label><input type="file" id="a-evid" accept="image/*,application/pdf" multiple>'
       +'<label>Nota</label><input id="a-nota">'
-      +'<div class="err" id="a-err"></div><button class="btn" onclick="accReportar('+id+',this)">Guardar y generar ticket</button></div>';
+      +'<div class="err" id="a-err"></div><button class="btn ok" onclick="accReportar('+id+',this)">Ya lo envié: generar ticket</button></div>';
   }
   if(g&&(r.estado==='reportado'||r.estado==='visita_agendada')){
     h+='<div class="act"><h3>🗓️ '+(r.estado==='visita_agendada'?'Cambiar fecha de visita':'Agendar visita del técnico')+'</h3><div class="muted">Fecha que dio el proveedor. Un día antes y el mismo día el sistema pide llamar al cliente para que esté pendiente.</div>'
@@ -474,7 +546,10 @@ function acciones(r,g){
       +'<label>Nota</label><input id="a-cierre-nota">'
       +'<div class="row" style="margin-top:8px"><button class="btn ok" onclick="accCerrar('+id+',this)">Cerrar reclamo</button><button class="btn sec" onclick="accReabrir('+id+',this)">No quedó bien: reabrir</button></div></div>';
   }
-  if(abierto){
+  if(abierto&&!ADMINV){
+    h+='<div class="act"><h3>💬 Agregar información</h3><div class="muted">Si el cliente llamó o hay algo nuevo, escríbelo aquí y le llega al administrador.</div><textarea id="a-com" style="min-height:60px"></textarea><div class="row" style="margin-top:8px"><button class="btn sec" onclick="accComentario('+id+',this)">Agregar</button></div></div>';
+  }
+  if(abierto&&ADMINV){
     h+='<div class="act"><h3>📞 Registrar llamada al cliente</h3><div class="grid2">'
       +'<div><label>Motivo</label><select id="a-lm">'+['Confirmar visita','Seguimiento','Pedir datos','Confirmar solución'].map(function(x){return '<option'+(r.estado==='visita_agendada'&&x==='Confirmar visita'?' selected':r.estado==='resuelto'&&x==='Confirmar solución'?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
       +'<div><label>Resultado</label><select id="a-lr"><option>Contestó</option><option>No contestó</option><option>Apagado / fuera de servicio</option><option>Número equivocado</option></select></div></div>'
@@ -489,18 +564,46 @@ function acciones(r,g){
 async function trasAccion(id,msg){toast(msg);await cargar();abrir(id);}
 function val(i){var e=document.getElementById(i);return e?e.value.trim():'';}
 
+function correoTexto(r){
+  var suc=SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal;
+  var asunto='Reclamo de garantía – '+r.cliente_nombre+' – '+(r.producto||'')+' – La Roca ('+suc+')';
+  var L=['Buenos días, estimados de '+r.proveedor+':','','Por este medio les reportamos un reclamo de garantía de un cliente de Corporación La Roca, sucursal '+suc+'.','',
+    'Cliente: '+r.cliente_nombre,'Teléfono: '+r.telefono+(r.telefono2?' / '+r.telefono2:''),'Dirección para la visita: '+(r.direccion||'—'),
+    'Producto: '+(r.producto||'—'),'Serie / chasis / motor: '+(r.serie||'—'),'N° de factura: '+(r.factura||'—'),'Tipo de reclamo: '+(r.tipo||'—'),'Lo que presenta: '+r.descripcion,''];
+  if(r.fotos&&r.fotos.length){L.push('Fotos del reclamo:');r.fotos.forEach(function(f){L.push(f.url);});L.push('');}
+  L.push('Quedamos atentos al número de caso y a la fecha de visita del técnico. Por favor avisar al cliente antes de llegar.','','Saludos,',YO.nombre,'Corporación La Roca');
+  return {asunto:asunto,cuerpo:L.join('\n')};
+}
+function correoDestino(){var m=val('a-mail');if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)){document.getElementById('a-err').textContent='Escribe el correo de reclamos del proveedor.';return null;}document.getElementById('a-err').textContent='';return m;}
+async function guardarCorreoProv(prov,m){if(PROV_MAIL[prov]===m)return;PROV_MAIL[prov]=m;try{await sb.from('ft_proveedores_catalogo').update({correo_reclamos:m}).eq('nombre',prov);}catch(e){}}
+function enviarCorreo(id,modo){
+  var r=RECS.find(function(x){return x.id===id;}),m=correoDestino();if(!m)return;
+  var c=correoTexto(r);
+  var url=modo==='gmail'?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(m)+'&su='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(c.cuerpo)
+    :'mailto:'+m+'?subject='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(c.cuerpo);
+  window.open(url,'_blank');MAILED[id]=m;guardarCorreoProv(r.proveedor,m);
+  document.getElementById('a-mailok').innerHTML='✅ Correo abierto para <b>'+esc(m)+'</b>. Envíalo y luego presiona <b>"Ya lo envié"</b>.';
+}
+function copiarCorreo(id){
+  var r=RECS.find(function(x){return x.id===id;}),c=correoTexto(r),m=val('a-mail');
+  var t='Para: '+(m||'')+'\nAsunto: '+c.asunto+'\n\n'+c.cuerpo;
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){toast('Texto del correo copiado');},function(){toast('No se pudo copiar');});
+  if(m&&correoDestino()){MAILED[id]=m;guardarCorreoProv(r.proveedor,m);}
+}
 async function accReportar(id,btn){
   var f=document.getElementById('a-evid').files,err=document.getElementById('a-err');
-  if(!f.length){err.textContent='Sube la captura del chat o la foto del correo.';return;}
-  btn.disabled=true;btn.textContent='Subiendo…';
+  var m=MAILED[id]||val('a-mail');
+  if(!MAILED[id]&&!f.length){err.textContent='Primero abre el correo con uno de los botones y envíalo (o sube la captura del correo enviado).';return;}
+  btn.disabled=true;btn.textContent='Guardando…';
   try{
-    var ev=await subirArchivos(f,'evidencia/'+id);
+    var ev=f.length?await subirArchivos(f,'evidencia/'+id):[];
     var r=RECS.find(function(x){return x.id===id;});
+    if(m)guardarCorreoProv(r.proveedor,m);
     var d=await actualizar(id,{estado:'reportado',evidencia:(r.evidencia||[]).concat(ev),proveedor_caso:val('a-caso')||null,reportado_por:YO.nombre});
-    await evento(id,'reportado',null,'Reportado a '+d.proveedor+'. Ticket '+d.ticket+(val('a-nota')?' — '+val('a-nota'):''),{ticket:d.ticket});
+    await evento(id,'reportado',null,'Reportado por correo a '+d.proveedor+(m?' ('+m+')':'')+'. Ticket '+d.ticket+(val('a-nota')?' — '+val('a-nota'):''),{ticket:d.ticket,correo:m||null});
     await trasAccion(id,'✅ Ticket '+d.ticket+' generado');
     avisoTicket(d);
-  }catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Guardar y generar ticket';}
+  }catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Ya lo envié: generar ticket';}
 }
 function avisoTicket(r){
   var msg='Hola '+r.cliente_nombre.split(' ')[0]+', le saluda La Roca. Su reclamo de '+(r.producto||'su producto')+' quedó registrado con el ticket '+r.ticket+' y ya fue reportado al proveedor '+r.proveedor+'. Le avisaremos la fecha de visita del técnico. Por favor esté pendiente de su teléfono.';
@@ -582,40 +685,154 @@ async function accRechazar(id,btn){
   trasAccion(id,'Reclamo marcado como rechazado');
 }
 
-// ══ Indicadores (tiempos reales para estimar) ══
+// ══ Indicadores (tiempos reales para estimar y evaluar proveedores) ══
+var FD={per:'todo',suc:'',prov:''};
 function prom(a){return a.length?Math.round(a.reduce(function(x,y){return x+y;},0)/a.length*10)/10:null;}
 function difDias(a,b){return (new Date(b)-new Date(a))/86400000;}
-function renderDatos(){
-  var ab=RECS.filter(function(r){return ABIERTOS.indexOf(r.estado)>=0;});
-  var aVisita=[],aResol=[],fallidas=0,visitas=0,porProv={};
-  RECS.forEach(function(r){
+function nf(v,suf){return v==null?'—':v+(suf||'');}
+function pct(a,b){return b?Math.round(a/b*100)+'%':'—';}
+function metricas(l){
+  var m={n:l.length,ab:0,rojo:0,cer:0,sat:0,satN:0,rech:0,repH:[],aVis:[],aRes:[],aTiempo:0,resN:0,fall:0,vis:0};
+  l.forEach(function(r){
     var evs=EVS[r.id]||[];
+    if(ABIERTOS.indexOf(r.estado)>=0)m.ab++;
+    if(semaforo(r)==='r')m.rojo++;
+    if(r.estado==='cerrado')m.cer++;
+    if(r.estado==='rechazado')m.rech++;
+    if(r.satisfaccion){m.satN++;if(r.satisfaccion==='Satisfecho')m.sat++;}
+    if(r.reportado_at)m.repH.push(Math.max(0,difDias(r.created_at,r.reportado_at)*24));
     var ag=evs.find(function(e){return e.tipo==='visita_agendada';});
-    if(r.reportado_at&&ag&&ag.datos&&ag.datos.fecha)aVisita.push(Math.max(0,difDias(r.reportado_at,ag.datos.fecha+'T12:00:00')));
+    if(r.reportado_at&&ag&&ag.datos&&ag.datos.fecha)m.aVis.push(Math.max(0,difDias(r.reportado_at,ag.datos.fecha+'T12:00:00')));
     var fin=r.resuelto_at||r.cerrado_at;
-    if(r.reportado_at&&fin)aResol.push(Math.max(0,difDias(r.reportado_at,fin)));
-    evs.forEach(function(e){if(e.tipo==='visita_fallida'){fallidas++;visitas++;}if(e.tipo==='visita_realizada')visitas++;});
-    var p=porProv[r.proveedor]=porProv[r.proveedor]||{n:0,ab:0,res:[],rojo:0,rech:0};
-    p.n++;if(ABIERTOS.indexOf(r.estado)>=0)p.ab++;if(semaforo(r)==='r')p.rojo++;if(r.estado==='rechazado')p.rech++;
-    if(r.reportado_at&&fin)p.res.push(difDias(r.reportado_at,fin));
+    if(r.reportado_at&&fin){var d=Math.max(0,difDias(r.reportado_at,fin));m.aRes.push(d);m.resN++;if(d<=SLA_AMARILLO)m.aTiempo++;}
+    evs.forEach(function(e){if(e.tipo==='visita_fallida'){m.fall++;m.vis++;}if(e.tipo==='visita_realizada')m.vis++;});
   });
-  var cnt={};ab.forEach(function(r){cnt[r.estado]=(cnt[r.estado]||0)+1;});
-  var h='<div class="card"><h2>Indicadores</h2><div class="kpis">'
-    +'<div class="kpi"><div class="l">Abiertos</div><div class="v">'+ab.length+'</div></div>'
-    +'<div class="kpi"><div class="l">🔴 Más de '+SLA_AMARILLO+' días</div><div class="v" style="color:#D93A3A">'+ab.filter(function(r){return semaforo(r)==='r';}).length+'</div></div>'
-    +'<div class="kpi"><div class="l">Días promedio reporte → visita</div><div class="v">'+(prom(aVisita)==null?'—':prom(aVisita))+'</div></div>'
-    +'<div class="kpi"><div class="l">Días promedio reporte → resuelto</div><div class="v">'+(prom(aResol)==null?'—':prom(aResol))+'</div></div>'
-    +'<div class="kpi"><div class="l">Visitas fallidas</div><div class="v">'+(visitas?Math.round(fallidas/visitas*100)+'%':'—')+'</div><div class="muted">'+fallidas+' de '+visitas+'</div></div>'
-    +'</div><div class="muted" style="margin-bottom:6px">Abiertos por estado: '+(Object.keys(cnt).map(function(k){return ESTADOS[k]+' '+cnt[k];}).join(' · ')||'—')+'</div>'
-    +'<h2 style="margin-top:14px">Por proveedor</h2><div class="tscroll"><table class="t"><thead><tr><th>Proveedor</th><th>Reclamos</th><th>Abiertos</th><th>🔴</th><th>Rechazados</th><th>Días prom. resolver</th></tr></thead><tbody>'
-    +Object.keys(porProv).sort(function(a,b){return porProv[b].n-porProv[a].n;}).map(function(k){var p=porProv[k];var pr=prom(p.res);
-      return '<tr><td><b>'+esc(k)+'</b></td><td>'+p.n+'</td><td>'+p.ab+'</td><td>'+p.rojo+'</td><td>'+p.rech+'</td><td>'+(pr==null?'—':pr)+'</td></tr>';}).join('')
-    +'</tbody></table></div></div>';
+  m.pRep=prom(m.repH);m.pVis=prom(m.aVis);m.pRes=prom(m.aRes);
+  return m;
+}
+function horasTxt(h){return h==null?'—':h<24?Math.round(h)+' h':(Math.round(h/24*10)/10)+' días';}
+function filtradosDatos(){
+  var desde=null,hoy=hoyISO();
+  if(FD.per==='mes')desde=hoy.slice(0,8)+'01';
+  else if(FD.per==='30')desde=addDiasISO(hoy,-30);
+  else if(FD.per==='90')desde=addDiasISO(hoy,-90);
+  return RECS.filter(function(r){
+    if(desde&&r.created_at.slice(0,10)<desde)return false;
+    if(FD.suc&&r.sucursal!==FD.suc)return false;
+    if(FD.prov&&r.proveedor!==FD.prov)return false;
+    return true;
+  });
+}
+function barra(v,max){var w=max&&v?Math.max(2,Math.round(v/max*100)):0;return '<div class="bar"><span style="width:'+w+'%"></span></div>';}
+function renderDatos(){
+  var provs=uniq(RECS.map(function(r){return r.proveedor;})).sort();
+  var h='<div class="card"><div class="filters">'
+    +'<select onchange="FD.per=this.value;renderDatos()">'+[['todo','Todo el historial'],['mes','Este mes'],['30','Últimos 30 días'],['90','Últimos 90 días']].map(function(o){return '<option value="'+o[0]+'"'+(FD.per===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'
+    +'<select onchange="FD.suc=this.value;renderDatos()"><option value="">Todas las sucursales</option>'+MIS_SUCS.map(function(s){return '<option value="'+s+'"'+(FD.suc===s?' selected':'')+'>'+esc(SUCS[s].nombre)+'</option>';}).join('')+'</select>'
+    +'<select onchange="FD.prov=this.value;renderDatos()"><option value="">Todos los proveedores</option>'+provs.map(function(p){return '<option'+(FD.prov===p?' selected':'')+'>'+esc(p)+'</option>';}).join('')+'</select>'
+    +'<button class="btn sec sm" onclick="descargarCSV()">⬇️ Descargar Excel</button>'
+    +'</div>';
+  var l=filtradosDatos(),m=metricas(l);
+  if(!l.length){document.getElementById('view').innerHTML=h+'<div class="muted">No hay reclamos con este filtro.</div></div>';return;}
+  var kpi=function(lab,v,sub,cls){return '<div class="kpi"><div class="l">'+lab+'</div><div class="v"'+(cls?' style="color:'+cls+'"':'')+'>'+v+'</div>'+(sub?'<div class="muted">'+sub+'</div>':'')+'</div>';};
+  h+='<h2>Cómo vamos</h2><div class="kpis">'
+    +kpi('Reclamos',m.n,m.ab+' abiertos · '+m.cer+' cerrados')
+    +kpi('🔴 Más de '+SLA_AMARILLO+' días',m.rojo,'abiertos que ya pasaron el límite',m.rojo?'#D93A3A':'')
+    +kpi('Resueltos a tiempo',pct(m.aTiempo,m.resN),m.aTiempo+' de '+m.resN+' en '+SLA_AMARILLO+' días o menos')
+    +kpi('Tiempo para reportar',horasTxt(m.pRep),'del ingreso al reporte al proveedor')
+    +kpi('Días hasta la visita',nf(m.pVis),'del reporte a la visita del técnico')
+    +kpi('Días para resolver',nf(m.pRes),'del reporte a la solución')
+    +kpi('Visitas fallidas',pct(m.fall,m.vis),m.fall+' de '+m.vis+' visitas')
+    +kpi('Rechazados',m.rech,'el proveedor no aceptó el reclamo')
+    +kpi('Clientes satisfechos',pct(m.sat,m.satN),m.sat+' de '+m.satN+' encuestados al cerrar')
+    +'</div>';
+  // por mes
+  var meses={};l.forEach(function(r){var k=r.created_at.slice(0,7);meses[k]=(meses[k]||0)+1;});
+  var mk=Object.keys(meses).sort(),mmax=Math.max.apply(null,mk.map(function(k){return meses[k];}));
+  var MES=['ene','feb','mar','abr','may','jun','jul','ago','sept','oct','nov','dic'];
+  h+='<div class="grid2 dgrid"><div><h2>Reclamos ingresados por mes</h2><div class="cols">'+mk.map(function(k){
+      return '<div class="col" title="'+MES[+k.slice(5)-1]+' '+k.slice(0,4)+': '+meses[k]+' reclamos"><b>'+meses[k]+'</b><span style="height:'+Math.max(4,Math.round(meses[k]/mmax*110))+'px"></span><small>'+MES[+k.slice(5)-1]+'</small></div>';}).join('')+'</div></div>';
+  // por tipo
+  var tipos={};l.forEach(function(r){var t=r.tipo||'Otro';tipos[t]=(tipos[t]||0)+1;});
+  var tk=Object.keys(tipos).sort(function(a,b){return tipos[b]-tipos[a];}),tmax=tipos[tk[0]];
+  h+='<div><h2>Tipo de reclamo</h2><table class="t"><tbody>'+tk.map(function(t){return '<tr title="'+esc(t)+': '+tipos[t]+'"><td>'+esc(t)+'</td><td style="width:45%">'+barra(tipos[t],tmax)+'</td><td style="text-align:right"><b>'+tipos[t]+'</b></td></tr>';}).join('')+'</tbody></table></div></div>';
+  // por proveedor
+  var gp={};l.forEach(function(r){(gp[r.proveedor]=gp[r.proveedor]||[]).push(r);});
+  var filas=Object.keys(gp).map(function(k){return {k:k,m:metricas(gp[k])};});
+  filas.sort(function(a,b){return (b.m.pRes==null?-1:b.m.pRes)-(a.m.pRes==null?-1:a.m.pRes)||b.m.n-a.m.n;});
+  var rmax=Math.max.apply(null,filas.map(function(f){return f.m.pRes||0;}));
+  h+='<h2 style="margin-top:16px">Proveedores</h2><div class="muted" style="margin-bottom:6px">Ordenados del más lento al más rápido en resolver. Sirve para exigirle a cada proveedor y para decirle al cliente cuánto se tarda.</div>'
+    +'<div class="tscroll"><table class="t"><thead><tr><th>Proveedor</th><th>Reclamos</th><th>Abiertos</th><th>🔴</th><th>Días a visita</th><th style="min-width:170px">Días para resolver</th><th>Visitas fallidas</th><th>Rechazados</th><th>Satisfechos</th></tr></thead><tbody>'
+    +filas.map(function(f){var x=f.m;
+      return '<tr><td><b>'+esc(f.k)+'</b></td><td>'+x.n+'</td><td>'+x.ab+'</td><td>'+(x.rojo?'<b style="color:#D93A3A">'+x.rojo+'</b>':'0')+'</td><td>'+nf(x.pVis)+'</td>'
+        +'<td><div class="row" style="flex-wrap:nowrap"><div style="flex:1">'+barra(x.pRes||0,rmax)+'</div><b style="min-width:30px;text-align:right">'+nf(x.pRes)+'</b></div></td>'
+        +'<td>'+pct(x.fall,x.vis)+'</td><td>'+x.rech+'</td><td>'+pct(x.sat,x.satN)+'</td></tr>';}).join('')
+    +'</tbody></table></div>';
+  // por sucursal
+  var gs={};l.forEach(function(r){(gs[r.sucursal]=gs[r.sucursal]||[]).push(r);});
+  h+='<h2 style="margin-top:16px">Sucursales</h2><div class="muted" style="margin-bottom:6px">"Tiempo para reportar" mide qué tan rápido el administrador pasa el reclamo al proveedor.</div>'
+    +'<div class="tscroll"><table class="t"><thead><tr><th>Sucursal</th><th>Reclamos</th><th>Abiertos</th><th>🔴</th><th>Tiempo para reportar</th><th>Días para resolver</th><th>Satisfechos</th></tr></thead><tbody>'
+    +Object.keys(gs).sort().map(function(s){var x=metricas(gs[s]);
+      return '<tr><td><b>'+esc(SUCS[s]?SUCS[s].nombre:s)+'</b></td><td>'+x.n+'</td><td>'+x.ab+'</td><td>'+(x.rojo?'<b style="color:#D93A3A">'+x.rojo+'</b>':'0')+'</td><td>'+horasTxt(x.pRep)+'</td><td>'+nf(x.pRes)+'</td><td>'+pct(x.sat,x.satN)+'</td></tr>';}).join('')
+    +'</tbody></table></div>';
+  // en rojo
+  var rojos=l.filter(function(r){return semaforo(r)==='r';}).sort(function(a,b){return diasAbierto(b)-diasAbierto(a);});
+  if(rojos.length){
+    h+='<h2 style="margin-top:16px">🔴 Reclamos atrasados</h2>'+rojos.map(function(r){
+      return '<div class="rec" onclick="abrir('+r.id+')"><div class="sem r"></div><div><div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado])+'</span>'+demoPill(r)+'</div><div class="s"><b>'+esc(r.ticket||'')+'</b> · '+esc(r.proveedor)+' · '+esc(r.producto||'')+'</div></div><div class="days">'+diasAbierto(r)+'<small>días</small></div></div>';}).join('');
+  }
+  h+='</div>';
   document.getElementById('view').innerHTML=h;
 }
+function descargarCSV(){
+  var l=filtradosDatos();
+  var cols=[['Ticket','ticket'],['Estado',function(r){return ESTADOS[r.estado]||r.estado;}],['Sucursal',function(r){return SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal;}],['Proveedor','proveedor'],['Caso proveedor','proveedor_caso'],
+    ['Cliente','cliente_nombre'],['Teléfono','telefono'],['Producto','producto'],['Serie','serie'],['Tipo','tipo'],['Presenta','descripcion'],
+    ['Ingresado',function(r){return r.created_at.slice(0,10);}],['Reportado',function(r){return (r.reportado_at||'').slice(0,10);}],['Fecha visita','fecha_visita'],
+    ['Resuelto',function(r){return (r.resuelto_at||'').slice(0,10);}],['Cerrado',function(r){return (r.cerrado_at||'').slice(0,10);}],
+    ['Horas para reportar',function(r){return r.reportado_at?Math.round(difDias(r.created_at,r.reportado_at)*24):'';}],
+    ['Días para resolver',function(r){var f=r.resuelto_at||r.cerrado_at;return r.reportado_at&&f?Math.round(difDias(r.reportado_at,f)*10)/10:'';}],
+    ['Días abierto',function(r){return diasAbierto(r);}],['Solución','solucion'],['Satisfacción','satisfaccion'],['Ingresado por','creado_por'],['Demo',function(r){return r.demo?'sí':'';}]];
+  var q=function(v){v=v==null?'':String(v);return /[",;\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  var csv='﻿'+cols.map(function(c){return c[0];}).join(',')+'\n'+l.map(function(r){return cols.map(function(c){return q(typeof c[1]==='function'?c[1](r):r[c[1]]);}).join(',');}).join('\n');
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='reclamos_sac_'+hoyISO()+'.csv';a.click();
+}
 
-cargar();
-setInterval(function(){if(!document.getElementById('ov')&&TAB==='agenda')cargar();},60000);
+// ══ Tutorial (se muestra la primera vez; se vuelve a abrir con "¿Cómo se usa?") ══
+var TUTO_KEY='sac_tuto_v1_'+YO.codigo,TP=0;
+function tutoPasos(){
+  var admin=TODO||MIS_ADMIN.length>0;
+  var p=[
+    {i:'🛠️',t:'Bienvenido a Reclamos SAC',b:'Aquí se registra cada reclamo de un cliente sobre un producto (moto, electrodoméstico, mueble…) y se le da seguimiento con el proveedor hasta que quede resuelto.<br><br>Cada reclamo tiene un <b>ticket</b> (SAC-2026-0001) que se le manda al cliente.'},
+    {i:'➕',t:'1. El vendedor ingresa el reclamo',b:'En la pestaña <b>Nuevo reclamo</b>:<ul><li>Elige la <b>sucursal</b> y el <b>proveedor</b>.</li><li>Busca al <b>cliente</b> por su nombre (sale de Cobranza). Si es de contado, lo escribe.</li><li>El <b>teléfono</b> es obligatorio: el técnico llama antes de llegar.</li><li>Describe lo que presenta y toma <b>fotos</b> del problema.</li></ul>Queda como <span class="pill ingresado">Ingresado · por reportar</span>.'},
+    {i:'📧',t:'2. El administrador lo manda por correo',b:'Al administrador le aparece la alerta en el menú de CaliFon y en la Agenda.<ul><li>Abre el reclamo y presiona <b>Abrir en Gmail</b>: el correo ya va redactado con todos los datos y las fotos.</li><li>El correo de cada proveedor se guarda la primera vez.</li><li>Lo envía y presiona <b>Ya lo envié</b>: se genera el <b>ticket</b> y sale el botón para mandárselo al cliente por WhatsApp.</li></ul>'},
+    {i:'🗓️',t:'3. Visita del técnico',b:'Cuando el proveedor da la fecha, se anota en <b>Agendar visita</b>.<ul><li>Un día antes y el mismo día sale la alerta <b>"llamar al cliente para que esté pendiente"</b>.</li><li>Se registra la llamada. Si el cliente no contesta, el técnico no llega.</li><li>Después se anota si la visita se hizo. Si falló, el reclamo vuelve a pedir nueva fecha.</li></ul>'},
+    {i:'✅',t:'4. Resolver y cerrar',b:'Si quedó pendiente (repuesto, cambio, taller) queda <span class="pill en_proceso">En proceso</span> con la fecha que prometió el proveedor.<br><br>Cuando se resuelve, se <b>llama al cliente</b> para confirmar que quedó bien y se <b>cierra</b> anotando si quedó satisfecho.'},
+    {i:'📋',t:'La Agenda y el semáforo',b:'La <b>Agenda</b> pone arriba lo urgente. El número de la derecha son los días desde que se reportó:<ul><li><span class="dot g"></span> hasta '+SLA_VERDE+' días</li><li><span class="dot y"></span> de '+(SLA_VERDE+1)+' a '+SLA_AMARILLO+' días</li><li><span class="dot r"></span> más de '+SLA_AMARILLO+' días: hay que presionar al proveedor</li></ul>Abre cualquier reclamo para ver su historial completo, llamar o escribirle al cliente.'},
+    {i:'📊',t:'Indicadores',b:'Muestra cuánto tarda cada proveedor en visitar y resolver, cuántas visitas fallan, cuántos reclamos rechaza y qué tan satisfechos quedan los clientes. También muestra qué tan rápido reporta cada sucursal.<br><br>Con eso se le exige al proveedor y se le puede decir al cliente cuánto se tarda. Se puede <b>descargar en Excel</b>.'}
+  ];
+  if(!admin){p.splice(2,5,
+    {i:'📧',t:'2. Qué pasa después',b:'El administrador de tu sucursal le manda el reclamo por correo al proveedor y se genera el <b>ticket</b>. Luego se agenda la visita del técnico y se cierra cuando quede resuelto.<br><br>Por eso es importante llenar <b>todo</b>: teléfono, dirección, producto, serie, factura y fotos claras.'},
+    {i:'📋',t:'3. Mis reclamos',b:'En <b>Mis reclamos</b> ves en qué paso va cada reclamo de tu sucursal:<div class="steps" style="margin:12px 0"><div class="st ok"><span>✓</span>Ingresado</div><div class="st ok"><span>✓</span>Reportado</div><div class="st on"><span>3</span>Visita</div><div class="st"><span>4</span>En proceso</div><div class="st"><span>5</span>Cerrado</div></div>Si el cliente pregunta, ahí está el ticket, la fecha de visita y lo que sigue. Si el cliente te llama con algo nuevo, agrégalo y le llega al administrador.'});}
+  return p;
+}
+function tutoAbrir(){TP=0;tutoPintar();}
+function tutoPintar(){
+  var p=tutoPasos(),s=p[TP];
+  var h='<div class="ov" id="tuto" onclick="if(event.target.id===\'tuto\')tutoCerrar()"><div class="modal tuto">'
+    +'<div class="tuto-i">'+s.i+'</div><h2>'+s.t+'</h2><div class="tuto-b">'+s.b+'</div>'
+    +'<div class="tuto-dots">'+p.map(function(_,i){return '<span class="'+(i===TP?'on':'')+'" onclick="TP='+i+';tutoPintar()"></span>';}).join('')+'</div>'
+    +'<div class="row" style="justify-content:space-between;margin-top:14px"><button class="btn sec sm" onclick="tutoCerrar()">Saltar</button><div class="row">'
+    +(TP?'<button class="btn sec sm" onclick="TP--;tutoPintar()">← Atrás</button>':'')
+    +(TP<p.length-1?'<button class="btn sm" onclick="TP++;tutoPintar()">Siguiente →</button>':'<button class="btn ok sm" onclick="tutoCerrar()">¡Listo, empezar!</button>')
+    +'</div></div></div></div>';
+  var o=document.getElementById('tuto');if(o)o.remove();document.body.insertAdjacentHTML('beforeend',h);
+}
+function tutoCerrar(){var o=document.getElementById('tuto');if(o)o.remove();try{localStorage.setItem(TUTO_KEY,'1');}catch(e){}}
+function tutoPrimeraVez(){var v=null;try{v=localStorage.getItem(TUTO_KEY);}catch(e){}if(!v)tutoAbrir();}
+
+cargar().then(tutoPrimeraVez);
+setInterval(function(){if(!document.getElementById('ov')&&(TAB==='agenda'||TAB==='mis'))cargar();},60000);
 </script>
 </body>
 </html>
