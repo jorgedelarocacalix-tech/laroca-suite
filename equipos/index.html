@@ -359,7 +359,9 @@ async function fetchMoraCobranza(){
   var ids=TIENDAS.map(function(t){return t.cobranza;});
   var r=await sbA.from('carteras').select('id,clientes').in('id',ids);
   var out={}; // cartera_id -> {clientesEnMora:[{nombre,moraVal}], moraTotal}
+  CLIENTES_COBRANZA={};
   (r.data||[]).forEach(function(row){
+    CLIENTES_COBRANZA[row.id]=row.clientes||[];
     var lista=[],total=0;
     (row.clientes||[]).forEach(function(c){
       if(c.tramo==='INACTIVO')return;
@@ -369,6 +371,77 @@ async function fetchMoraCobranza(){
     out[row.id]={clientesEnMora:lista,moraTotal:total};
   });
   return out;
+}
+
+// ══ Fetch: Detalle de ventas — una fila por factura del arqueo ══
+// Factura, fecha, cliente, producto, valor y tipo salen de Arqueos (vista arqueo_facturas).
+// Asesor = quien registró esa factura en Mi Meta del CRM (gestiones estado 'venta', num2 = factura).
+// Plazo y cuota salen de Cobranza: no guarda el número de factura, así que se empareja por nombre
+// del cliente + fecha de factura (tolerancia de 7 días); si no hay pareja, queda en blanco.
+var CLIENTES_COBRANZA={}; // cartera_id -> clientes (lo llena fetchMoraCobranza)
+var VENTAS_DET={}; // tienda.id -> filas del detalle
+function normNombre(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\(\d+\)/g,'').replace(/\s+/g,' ').trim();}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function tipoVenta(clas){
+  var c=String(clas||'').toUpperCase();
+  if(c.indexOf('CONTADO')>=0)return 'Contado';
+  if(c.indexOf('0 PRIMA')>=0)return 'Crédito sin prima';
+  if(c.indexOf('PRIMA')>=0)return 'Crédito con prima';
+  if(c.indexOf('CR')===0)return 'Crédito';
+  return clas||'—';
+}
+async function fetchDetalleVentas(mesKey){
+  var partes=mesKey.split('-').map(Number);
+  var endD=new Date(partes[0],partes[1],0);
+  var start=mesKey+'-01',end=mesKey+'-'+String(endD.getDate()).padStart(2,'0');
+  var sucs=TIENDAS.map(function(t){return t.ventas;});
+  var rf=await sbA.from('arqueo_facturas').select('*').gte('fecha',start).lte('fecha',end).in('sucursal',sucs).order('fecha',{ascending:true});
+  var rv=await sbC.from('gestiones').select('num2,user_name').eq('estado','venta');
+  var asesorPorFactura={};
+  (rv.data||[]).forEach(function(g){if(g.num2)asesorPorFactura[String(g.num2).trim()]=g.user_name||'';});
+  var out={};
+  (rf.data||[]).forEach(function(f){
+    var t=TIENDAS.find(function(x){return x.ventas===f.sucursal;});if(!t)return;
+    var fF=new Date(f.fecha+'T00:00:00');
+    var nom=normNombre(f.cliente),mejor=null,mejorDif=1e9;
+    (CLIENTES_COBRANZA[t.cobranza]||[]).forEach(function(c){
+      if(normNombre(c.nombre)!==nom)return;
+      var fc=parseHNDate(c.fecha_factura);if(!fc)return;
+      var dif=Math.abs(fc-fF)/864e5;
+      if(dif<=7&&dif<mejorDif){mejor=c;mejorDif=dif;}
+    });
+    var tipo=tipoVenta(f.clasificacion);
+    var credito=tipo.indexOf('Crédito')===0;
+    if(!out[t.id])out[t.id]=[];
+    out[t.id].push({fecha:f.fecha,factura:f.factura||'',cliente:f.cliente||'',articulo:f.articulo||'',total:Number(f.total||0),pagoDia:Number(f.pago_dia||0),tipo:tipo,
+      plazo:credito&&mejor&&mejor.num_cuotas?mejor.num_cuotas:null,cuota:credito&&mejor&&mejor.cuota?mejor.cuota:null,
+      asesor:asesorPorFactura[String(f.factura||'').trim()]||''});
+  });
+  return out;
+}
+function fmtFecha(iso){var p=String(iso||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso;}
+function toggleVentasDet(tid){
+  var panel=document.getElementById('ventasdet-'+tid);if(!panel)return;
+  if(panel.classList.contains('open')){panel.classList.remove('open');return;}
+  panel.classList.add('open');
+  var filas=VENTAS_DET[tid]||[];
+  var body=document.getElementById('ventasdet-body-'+tid),foot=document.getElementById('ventasdet-tfoot-'+tid);
+  if(!filas.length){body.innerHTML='<tr><td colspan="10" style="color:#999;text-align:center;padding:16px">Sin facturas en los arqueos de '+mesLabel(mesSel)+'.</td></tr>';foot.innerHTML='';return;}
+  body.innerHTML=filas.map(function(v){
+    return '<tr><td>'+fmtFecha(v.fecha)+'</td><td>'+esc(v.factura)+'</td><td>'+esc(v.cliente)+'</td><td style="white-space:normal;min-width:160px">'+esc(v.articulo)+'</td><td>'+fmt(v.total)+'</td><td>'+fmt(v.pagoDia)+'</td><td>'+esc(v.tipo)+'</td><td>'+(v.plazo?v.plazo+' cuotas':'—')+'</td><td>'+(v.cuota?fmt(v.cuota):'—')+'</td><td>'+(v.asesor?esc(v.asesor):'<span style="color:#b06a00">Sin registrar</span>')+'</td></tr>';
+  }).join('');
+  var tot=filas.reduce(function(s,v){return s+v.total;},0),tPago=filas.reduce(function(s,v){return s+v.pagoDia;},0);
+  foot.innerHTML='<tr style="font-weight:800;background:#f5f6f8"><td colspan="4">TOTAL ('+filas.length+' facturas)</td><td>'+fmt(tot)+'</td><td>'+fmt(tPago)+'</td><td colspan="4"></td></tr>';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function descargarVentasDetExcel(tid,nombreTienda){
+  var filas=VENTAS_DET[tid]||[];
+  if(!filas.length){alert('No hay facturas para descargar.');return;}
+  var aoa=[['Fecha','Factura','Cliente','Producto','Valor','Pagó ese día','Tipo','Plazo (cuotas)','Cuota','Asesor (Mi Meta)']];
+  filas.forEach(function(v){aoa.push([fmtFecha(v.fecha),v.factura,v.cliente,v.articulo,v.total,v.pagoDia,v.tipo,v.plazo||'',v.cuota||'',v.asesor||'Sin registrar']);});
+  var ws=XLSX.utils.aoa_to_sheet(aoa),wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Ventas');
+  XLSX.writeFile(wb,'Ventas_'+nombreTienda.replace(/\s+/g,'_')+'_'+mesSel+'.xlsx');
 }
 
 // ══ Fetch: Inventario (cierre_inventario, siempre mes actual) — productos sin movimiento ══
@@ -479,6 +552,7 @@ async function cargarTodo(){
     var invSinMov= mesSel===MES_ACTUAL ? await fetchInventarioSinMovimiento(arq) : {};
     var crm=await fetchActividadCRM(mesSel);
     var ventasVend=await fetchVentasPorVendedor(mesSel);
+    VENTAS_DET=await fetchDetalleVentas(mesSel);
     renderEquipos(arq,proyectado,mora,invSinMov,crm,ventasVend);
     document.getElementById('statusLine').textContent='Datos de '+mesLabel(mesSel)+(mesSel!==MES_ACTUAL?' · Inventario y mora siempre reflejan hoy, no el mes histórico':' · Mora en vivo, a la fecha de hoy');
   }catch(err){
@@ -558,8 +632,12 @@ function renderEquipos(arq,proyectado,mora,invSinMov,crm,ventasVend){
     var faltanColor=faltanLlamadas>0?'bad':'good';
     html+='<div class="stat"><div class="l">Llamadas totales (CRM)</div><div class="v info">'+g.llamadasTotalMes+'</div><div class="s">'+g.clientesContactados+' clientes contactados · '+nVendMeta+' vendedor(es) · meta 8/día'+compartidaTxt+'</div>'
       +'<div class="s" style="margin-top:4px"><span class="'+faltanColor+'" style="font-weight:700">'+(faltanLlamadas>0?'Faltan '+faltanLlamadas:'✓ Meta al día')+'</span> de '+metaEsperada+' esperadas a día '+diasT+'</div></div>';
-    html+='<div class="stat" style="opacity:0"></div>';
+    var vd=VENTAS_DET[t.id]||[];
+    var vdSin=vd.filter(function(v){return !v.asesor;}).length;
+    html+='<button type="button" class="statbtn" onclick="toggleVentasDet(\''+t.id+'\')"><div class="l">Detalle de ventas</div><div class="v info">'+vd.length+' facturas</div><div class="s">factura, producto, tipo, plazo y asesor · '+(vdSin?vdSin+' sin asesor en Mi Meta · ':'')+'ver detalle ▾</div></button>';
     html+='</div>';
+    html+='<div class="moralist" id="ventasdet-'+t.id+'"><div class="moralist-wrap"><div class="moralist-scroll"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Cliente</th><th>Producto</th><th>Valor</th><th>Pagó ese día</th><th>Tipo</th><th>Plazo</th><th>Cuota</th><th>Asesor (Mi Meta)</th></tr></thead><tbody id="ventasdet-body-'+t.id+'"></tbody><tfoot id="ventasdet-tfoot-'+t.id+'"></tfoot></table></div></div>'
+      +'<div class="moralist-foot">Facturas de los arqueos · plazo y cuota de Cobranza (por nombre y fecha) · <button type="button" class="xlsbtn" onclick="descargarVentasDetExcel(\''+t.id+'\',\''+t.nombre.replace(/'/g,"")+'\')">⬇ Descargar Excel</button></div></div>';
 
     var vv=(ventasVend[t.ventas]||[]);
     var vvKey='ventasvend-'+t.id;
