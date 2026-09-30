@@ -100,6 +100,8 @@ table.t td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
 .st span{display:flex;align-items:center;justify-content:center;width:24px;height:24px;margin:0 auto 3px;border-radius:50%;background:#eef2f7;color:#6b7280;font-size:12px;font-weight:800}
 .st.ok{color:#1a7a3c}.st.ok span{background:#1a7a3c;color:#fff}.st.on{color:#1a55a0}.st.on span{background:#1a55a0;color:#fff}.st.bad{color:#b3261e}.st.bad span{background:#b3261e}
 .sigue{background:#eef4fb;border-radius:8px;padding:9px 11px;font-size:13px;color:#1a3d6e;margin-bottom:6px}
+.sec-h{font-size:14px;font-weight:800;margin:14px 0 4px;display:flex;align-items:center;gap:8px}.sec-h.bad{color:#b3261e;margin-top:4px}
+.sec-h .n{min-width:20px;padding:0 6px;border-radius:10px;background:#E53E3E;color:#fff;font-size:12px;line-height:20px;text-align:center}.sec-h .n.gris{background:#6b7280}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1d23;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:99;display:none}
 </style>
 </head>
@@ -278,8 +280,7 @@ function pintarLista(){
   }).map(function(r){var a=alertas(r);return{r:r,a:a,p:a.length?Math.min.apply(null,a.map(function(x){return x.p;})):9,d:diasAbierto(r)};});
   l.sort(function(x,y){return x.p-y.p||y.d-x.d;});
   var el=document.getElementById('lista');
-  if(!l.length){el.innerHTML='<div class="muted">No hay reclamos con este filtro.</div>';return;}
-  el.innerHTML=l.map(function(x){
+  var fila=function(x){
     var r=x.r;
     return '<div class="rec" onclick="abrir('+r.id+')"><div class="sem '+semaforo(r)+'"></div><div>'
       +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span>'+demoPill(r)+'</div>'
@@ -287,7 +288,14 @@ function pintarLista(){
       +(r.fecha_visita&&r.estado==='visita_agendada'?' · 🗓️ visita '+fFecha(r.fecha_visita):'')+'</div>'
       +x.a.filter(function(a){return a.p<=2;}).map(function(a){return '<div class="al">⚠️ '+esc(a.t)+'</div>';}).join('')
       +'</div><div class="days">'+x.d+'<small>'+(x.d===1?'día':'días')+'</small></div></div>';
-  }).join('');
+  };
+  var sin=l.filter(function(x){return x.r.estado==='ingresado';}).sort(function(x,y){return x.r.created_at.localeCompare(y.r.created_at);});
+  var con=l.filter(function(x){return x.r.estado!=='ingresado';});
+  el.innerHTML='<div class="sec-h bad">📨 Por enviar al proveedor <span class="n">'+sin.length+'</span></div>'
+    +'<div class="muted" style="margin-bottom:8px">Reclamos que ingresó el vendedor y todavía no tienen ticket. Abre cada uno, mándalo al proveedor, sube la evidencia y genera el ticket.</div>'
+    +(sin.length?sin.map(fila).join(''):'<div class="muted" style="margin-bottom:8px">✅ No hay reclamos pendientes de enviar.</div>')
+    +'<div class="sec-h">🎫 Tickets en seguimiento <span class="n gris">'+con.length+'</span></div>'
+    +(con.length?con.map(fila).join(''):'<div class="muted">No hay tickets con este filtro.</div>');
 }
 
 // ══ Mis reclamos (pantalla del vendedor: solo consulta) ══
@@ -507,15 +515,15 @@ function acciones(r,g){
   var id=r.id,h='';
   var abierto=ABIERTOS.indexOf(r.estado)>=0;
   if(g&&r.estado==='ingresado'){
-    h+='<div class="act"><h3>📧 Reportar al proveedor por correo</h3><div class="muted"><b>Paso 1:</b> envía el correo (ya va redactado con todos los datos y los enlaces a las fotos). <b>Paso 2:</b> confirma para generar el ticket del cliente.</div>'
+    h+='<div class="act"><h3>📧 Reportar al proveedor por correo</h3><div class="muted"><b>Paso 1:</b> envía el correo (ya va redactado con todos los datos y los enlaces a las fotos). <b>Paso 2:</b> sube la evidencia del reclamo puesto (captura del correo enviado o del chat). <b>Paso 3:</b> genera el ticket del cliente.</div>'
       +'<label>Correo de reclamos de '+esc(r.proveedor)+' <span class="req">*</span></label><input id="a-mail" type="email" value="'+esc(PROV_MAIL[r.proveedor]||'')+'" placeholder="servicio@proveedor.com">'
       +'<div class="muted" style="margin-top:4px">'+(PROV_MAIL[r.proveedor]?'Guardado para este proveedor. Si cambia, escríbelo y se actualiza.':'Se guarda para la próxima vez con este proveedor.')+'</div>'
       +'<div class="row" style="margin-top:10px"><button class="btn" onclick="enviarCorreo('+id+',\'gmail\')">✉️ Abrir en Gmail</button><button class="btn sec" onclick="enviarCorreo('+id+',\'app\')">Abrir en app de correo</button><button class="btn sec" onclick="copiarCorreo('+id+')">📋 Copiar texto</button></div>'
       +'<div id="a-mailok" class="muted" style="margin-top:6px"></div>'
       +'<label>N° de caso / referencia que dé el proveedor</label><input id="a-caso">'
-      +'<label>Captura del correo enviado (opcional)</label><input type="file" id="a-evid" accept="image/*,application/pdf" multiple>'
+      +'<label>Evidencia del reclamo puesto <span class="req">*</span></label><input type="file" id="a-evid" accept="image/*,application/pdf" multiple>'
       +'<label>Nota</label><input id="a-nota">'
-      +'<div class="err" id="a-err"></div><button class="btn ok" onclick="accReportar('+id+',this)">Ya lo envié: generar ticket</button></div>';
+      +'<div class="err" id="a-err"></div><button class="btn ok" onclick="accReportar('+id+',this)">Subir evidencia y generar ticket</button></div>';
   }
   if(g&&(r.estado==='reportado'||r.estado==='visita_agendada')){
     h+='<div class="act"><h3>🗓️ '+(r.estado==='visita_agendada'?'Cambiar fecha de visita':'Agendar visita del técnico')+'</h3><div class="muted">Fecha que dio el proveedor. Un día antes y el mismo día el sistema pide llamar al cliente para que esté pendiente.</div>'
@@ -582,7 +590,7 @@ function enviarCorreo(id,modo){
   var url=modo==='gmail'?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(m)+'&su='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(c.cuerpo)
     :'mailto:'+m+'?subject='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(c.cuerpo);
   window.open(url,'_blank');MAILED[id]=m;guardarCorreoProv(r.proveedor,m);
-  document.getElementById('a-mailok').innerHTML='✅ Correo abierto para <b>'+esc(m)+'</b>. Envíalo y luego presiona <b>"Ya lo envié"</b>.';
+  document.getElementById('a-mailok').innerHTML='✅ Correo abierto para <b>'+esc(m)+'</b>. Envíalo y luego sube la captura como evidencia.';
 }
 function copiarCorreo(id){
   var r=RECS.find(function(x){return x.id===id;}),c=correoTexto(r),m=val('a-mail');
@@ -593,7 +601,7 @@ function copiarCorreo(id){
 async function accReportar(id,btn){
   var f=document.getElementById('a-evid').files,err=document.getElementById('a-err');
   var m=MAILED[id]||val('a-mail');
-  if(!MAILED[id]&&!f.length){err.textContent='Primero abre el correo con uno de los botones y envíalo (o sube la captura del correo enviado).';return;}
+  if(!f.length){err.textContent='Sube la evidencia del reclamo puesto (captura del correo enviado o del chat con el proveedor).';return;}
   btn.disabled=true;btn.textContent='Guardando…';
   try{
     var ev=f.length?await subirArchivos(f,'evidencia/'+id):[];
@@ -603,7 +611,7 @@ async function accReportar(id,btn){
     await evento(id,'reportado',null,'Reportado por correo a '+d.proveedor+(m?' ('+m+')':'')+'. Ticket '+d.ticket+(val('a-nota')?' — '+val('a-nota'):''),{ticket:d.ticket,correo:m||null});
     await trasAccion(id,'✅ Ticket '+d.ticket+' generado');
     avisoTicket(d);
-  }catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Ya lo envié: generar ticket';}
+  }catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Subir evidencia y generar ticket';}
 }
 function avisoTicket(r){
   var msg='Hola '+r.cliente_nombre.split(' ')[0]+', le saluda La Roca. Su reclamo de '+(r.producto||'su producto')+' quedó registrado con el ticket '+r.ticket+' y ya fue reportado al proveedor '+r.proveedor+'. Le avisaremos la fecha de visita del técnico. Por favor esté pendiente de su teléfono.';
@@ -805,10 +813,10 @@ function tutoPasos(){
   var p=[
     {i:'🛠️',t:'Bienvenido a Reclamos SAC',b:'Aquí se registra cada reclamo de un cliente sobre un producto (moto, electrodoméstico, mueble…) y se le da seguimiento con el proveedor hasta que quede resuelto.<br><br>Cada reclamo tiene un <b>ticket</b> (SAC-2026-0001) que se le manda al cliente.'},
     {i:'➕',t:'1. El vendedor ingresa el reclamo',b:'En la pestaña <b>Nuevo reclamo</b>:<ul><li>Elige la <b>sucursal</b> y el <b>proveedor</b>.</li><li>Busca al <b>cliente</b> por su nombre (sale de Cobranza). Si es de contado, lo escribe.</li><li>El <b>teléfono</b> es obligatorio: el técnico llama antes de llegar.</li><li>Describe lo que presenta y toma <b>fotos</b> del problema.</li></ul>Queda como <span class="pill ingresado">Ingresado · por reportar</span>.'},
-    {i:'📧',t:'2. El administrador lo manda por correo',b:'Al administrador le aparece la alerta en el menú de CaliFon y en la Agenda.<ul><li>Abre el reclamo y presiona <b>Abrir en Gmail</b>: el correo ya va redactado con todos los datos y las fotos.</li><li>El correo de cada proveedor se guarda la primera vez.</li><li>Lo envía y presiona <b>Ya lo envié</b>: se genera el <b>ticket</b> y sale el botón para mandárselo al cliente por WhatsApp.</li></ul>'},
+    {i:'📧',t:'2. El administrador lo manda por correo',b:'Al administrador le aparece la alerta en el menú de CaliFon y en la Agenda.<ul><li>Abre el reclamo y presiona <b>Abrir en Gmail</b>: el correo ya va redactado con todos los datos y las fotos.</li><li>El correo de cada proveedor se guarda la primera vez.</li><li>Lo envía, sube la <b>evidencia</b> (captura del correo enviado) y se genera el <b>ticket</b> y sale el botón para mandárselo al cliente por WhatsApp.</li></ul>'},
     {i:'🗓️',t:'3. Visita del técnico',b:'Cuando el proveedor da la fecha, se anota en <b>Agendar visita</b>.<ul><li>Un día antes y el mismo día sale la alerta <b>"llamar al cliente para que esté pendiente"</b>.</li><li>Se registra la llamada. Si el cliente no contesta, el técnico no llega.</li><li>Después se anota si la visita se hizo. Si falló, el reclamo vuelve a pedir nueva fecha.</li></ul>'},
     {i:'✅',t:'4. Resolver y cerrar',b:'Si quedó pendiente (repuesto, cambio, taller) queda <span class="pill en_proceso">En proceso</span> con la fecha que prometió el proveedor.<br><br>Cuando se resuelve, se <b>llama al cliente</b> para confirmar que quedó bien y se <b>cierra</b> anotando si quedó satisfecho.'},
-    {i:'📋',t:'La Agenda y el semáforo',b:'La <b>Agenda</b> pone arriba lo urgente. El número de la derecha son los días desde que se reportó:<ul><li><span class="dot g"></span> hasta '+SLA_VERDE+' días</li><li><span class="dot y"></span> de '+(SLA_VERDE+1)+' a '+SLA_AMARILLO+' días</li><li><span class="dot r"></span> más de '+SLA_AMARILLO+' días: hay que presionar al proveedor</li></ul>Abre cualquier reclamo para ver su historial completo, llamar o escribirle al cliente.'},
+    {i:'📋',t:'La Agenda y el semáforo',b:'La <b>Agenda</b> empieza con <b>Por enviar al proveedor</b> (lo que todavía no tiene ticket) y abajo los <b>Tickets en seguimiento</b>, con lo urgente primero. El número de la derecha son los días desde que se reportó:<ul><li><span class="dot g"></span> hasta '+SLA_VERDE+' días</li><li><span class="dot y"></span> de '+(SLA_VERDE+1)+' a '+SLA_AMARILLO+' días</li><li><span class="dot r"></span> más de '+SLA_AMARILLO+' días: hay que presionar al proveedor</li></ul>Abre cualquier reclamo para ver su historial completo, llamar o escribirle al cliente.'},
     {i:'📊',t:'Indicadores',b:'Muestra cuánto tarda cada proveedor en visitar y resolver, cuántas visitas fallan, cuántos reclamos rechaza y qué tan satisfechos quedan los clientes. También muestra qué tan rápido reporta cada sucursal.<br><br>Con eso se le exige al proveedor y se le puede decir al cliente cuánto se tarda. Se puede <b>descargar en Excel</b>.'}
   ];
   if(!admin){p.splice(2,5,
