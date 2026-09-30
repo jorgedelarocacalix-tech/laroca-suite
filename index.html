@@ -75,6 +75,7 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
 .card-rrhh::before{background:#D4AF37}
 .card-eqp::before{background:#5BC0EA}
 .card-erp::before{background:#F59E0B}
+.card-clon::before{background:#C6285A}
 .card-cot::before{background:#F97316}
 .card-sac::before{background:#14B8A6}
 
@@ -353,6 +354,14 @@ body{min-height:100vh;display:flex;flex-direction:column;align-items:center;just
     <span class="app-btn btn-erp">Abrir ERP →</span>
   </a>
 
+  <a data-app="clon" class="app-card card-clon" href="clon/">
+    <span class="app-arrow">↗</span>
+    <div class="app-ic">🧾</div>
+    <div class="app-name">Sistema propio (clon)</div>
+    <div class="app-desc">Facturas, créditos con mora, abonos e inventario de las 5 tiendas. Se actualiza solo con Cobranza y Arqueos.</div>
+    <span class="app-btn btn-clon">Abrir sistema →</span>
+  </a>
+
   <a data-sac="1" class="app-card card-sac" href="sac/">
     <span class="app-arrow">↗</span>
     <div class="app-ic">🛠️</div>
@@ -433,15 +442,16 @@ async function refreshSac(s){
   var sucs=Object.keys(SAC_ADMIN_SUC).filter(function(k){return todo||SAC_ADMIN_SUC[k].indexOf(s.codigo)>=0;});
   if(!sucs.length)return;
   try{
-    var r=await fetch(RRHH_URL+'/rest/v1/sac_reclamos?select=estado,fecha_visita&estado=in.(ingresado,visita_agendada)&sucursal=in.('+sucs.join(',')+')',{headers:{apikey:RRHH_KEY,Authorization:'Bearer '+RRHH_KEY}});
+    var r=await fetch(RRHH_URL+'/rest/v1/sac_reclamos?select=estado,fecha_visita,reportado_at&estado=in.(ingresado,reportado,visita_agendada,en_proceso)&sucursal=in.('+sucs.join(',')+')',{headers:{apikey:RRHH_KEY,Authorization:'Bearer '+RRHH_KEY}});
     if(!r.ok)return;
     var d=await r.json(),hoy=new Date();hoy.setMinutes(hoy.getMinutes()-hoy.getTimezoneOffset());
     var h=hoy.toISOString().slice(0,10);hoy.setDate(hoy.getDate()+1);var m=hoy.toISOString().slice(0,10);
     var ing=d.filter(function(x){return x.estado==='ingresado';}).length;
     var vis=d.filter(function(x){return x.estado==='visita_agendada'&&x.fecha_visita&&x.fecha_visita<=m;}).length;
-    var l=[];if(ing)l.push(ing+' por reportar al proveedor');if(vis)l.push(vis+' visita'+(vis>1?'s':'')+' hoy/mañana: llamar al cliente');
+    var ss=d.filter(function(x){return x.estado!=='ingresado'&&x.reportado_at&&(Date.now()-new Date(x.reportado_at))/86400000>=8;}).length;
+    var l=[];if(ss)l.push(ss+' sin solución más de 7 días');if(ing)l.push(ing+' por reportar al proveedor');if(vis)l.push(vis+' visita'+(vis>1?'s':'')+' hoy/mañana: llamar al cliente');
     var c=document.querySelector('.app-card[data-sac]');if(!c)return;
-    c.setAttribute('data-app','sac');setBadge('sac',ing+vis,l.join(' · '));setTileLine('sac',l.join(' · '));c.removeAttribute('data-app');
+    c.setAttribute('data-app','sac');setBadge('sac',ing+vis+ss,l.join(' · '));setTileLine('sac',l.join(' · '));c.removeAttribute('data-app');
   }catch(e){}
 }
 async function refreshNotifs(){
