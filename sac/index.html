@@ -104,6 +104,34 @@ table.t td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
 .sec-h .n{min-width:20px;padding:0 6px;border-radius:10px;background:#E53E3E;color:#fff;font-size:12px;line-height:20px;text-align:center}.sec-h .n.gris{background:#6b7280}
 .fbox{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.fbox>div{background:#f4f7fb;border:1px solid #dbe4f0;border-radius:10px;padding:9px 11px}.fbox small{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;font-weight:700}.fbox b{display:block;font-size:15px;margin-top:2px}.fbox span{font-size:12px;color:#6b7280}
 @media(max-width:640px){.fbox{grid-template-columns:1fr}}
+.modal.doc{max-width:980px;padding:0;overflow:hidden}
+.doc-top{display:flex;gap:14px;align-items:flex-start;padding:16px 18px 12px;background:linear-gradient(180deg,#f4f7fb,#fff);border-bottom:1px solid #e3e6eb}
+.doc-top>div:first-child{flex:1;min-width:0}.doc-k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280}.doc-k b{color:#1a55a0}
+.doc-t{font-size:20px;font-weight:800;margin:2px 0 6px}.doc-p{display:flex;flex-wrap:wrap;gap:4px}
+.doc-d{text-align:center;min-width:74px}.doc-d small{font-size:10px;color:#6b7280;display:block;line-height:1.2;margin-top:3px}
+.sem-big{width:52px;height:52px;margin:0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff}
+.sem-big.g{background:#2E9E5B}.sem-big.y{background:#E0A800}.sem-big.r{background:#D93A3A}.sem-big.n{background:#9aa3af}
+.warn-eq{margin:10px 18px 0;background:#fff4e0;border:1px solid #f2c879;color:#7a4b00;border-radius:8px;padding:8px 11px;font-size:13px;cursor:pointer}
+.al-b{margin:8px 18px 0;background:#fdecec;color:#a3241b;border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600}
+.doc .steps,.doc .sigue{margin-left:18px;margin-right:18px}
+.hdr{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;padding:12px 18px 4px}
+.fld{display:grid;grid-template-columns:128px 1fr;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dashed #edf0f4}
+.fld label{margin:0;font-size:11px;text-transform:none;letter-spacing:0;color:#6b7280;font-weight:600}
+.fv{font-size:13px;min-height:22px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.fld.full{grid-template-columns:1fr;grid-column:1/-1}.fld.full .fv{background:#f8f9fb;border:1px solid #e6e9ee;border-radius:8px;padding:8px 10px}
+.grid-f{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+select.inl{width:auto;padding:3px 8px;font-size:13px}
+.tag{font-size:10px;font-weight:700;background:#eef2f7;color:#475569;padding:1px 6px;border-radius:6px}
+.pill.prio-alta{background:#fde8e8;color:#b3261e}.pill.prio-media{background:#eef2f7;color:#475569}.pill.prio-baja{background:#eef7f1;color:#2f6b45}
+.dtabs{display:flex;gap:2px;padding:10px 18px 0;border-bottom:1px solid #e3e6eb;overflow-x:auto;background:#fff}
+.dt{border:none;background:none;font-family:inherit;font-size:13px;font-weight:700;color:#6b7280;padding:9px 12px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+.dt.on{color:#1a55a0;border-bottom-color:#1a55a0}.dt span{background:#eef2f7;color:#475569;border-radius:9px;padding:0 6px;font-size:11px;margin-left:3px}
+.dpane{padding:12px 18px 20px;min-height:260px}
+.sec-t{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#1a55a0;font-weight:800;margin:14px 0 6px;padding-bottom:4px;border-bottom:2px solid #e6eef9}
+.dpane>.sec-t:first-child{margin-top:4px}
+details.act summary{cursor:pointer;font-size:13px}
+tr.cur td{background:#f4f7fb}
+@media(max-width:700px){.hdr,.grid-f{grid-template-columns:1fr}.fld{grid-template-columns:110px 1fr}.doc-t{font-size:17px}.ov{padding:0}.modal.doc{border-radius:0;min-height:100vh}}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1d23;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:99;display:none}
 </style>
 </head>
@@ -279,16 +307,16 @@ function pintarLista(){
     if(FIL.suc&&r.sucursal!==FIL.suc)return false;
     if(FIL.estado==='abiertos'&&ABIERTOS.indexOf(r.estado)<0)return false;
     if(FIL.estado!=='abiertos'&&FIL.estado!=='todos'&&r.estado!==FIL.estado)return false;
-    if(q&&[r.cliente_nombre,r.ticket,r.proveedor,r.producto,r.telefono].join(' ').toLowerCase().indexOf(q)<0)return false;
+    if(q&&[r.cliente_nombre,r.ticket,r.proveedor,r.producto,r.telefono,r.serie,r.proveedor_caso].join(' ').toLowerCase().indexOf(q)<0)return false;
     if(FIL.alertas&&!alertas(r).length)return false;
     return true;
   }).map(function(r){var a=alertas(r);return{r:r,a:a,p:a.length?Math.min.apply(null,a.map(function(x){return x.p;})):9,d:diasAbierto(r)};});
-  l.sort(function(x,y){return x.p-y.p||y.d-x.d;});
+  var PR={Alta:0,Media:1,Baja:2};l.sort(function(x,y){return x.p-y.p||(PR[x.r.prioridad]||1)-(PR[y.r.prioridad]||1)||y.d-x.d;});
   var el=document.getElementById('lista');
   var fila=function(x){
     var r=x.r;
     return '<div class="rec" onclick="abrir('+r.id+')"><div class="sem '+semaforo(r)+'"></div><div>'
-      +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span>'+demoPill(r)+'</div>'
+      +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span>'+(r.prioridad&&r.prioridad!=='Media'?prioPill(r.prioridad):'')+demoPill(r)+'</div>'
       +'<div class="s">'+(r.ticket?'<b>'+esc(r.ticket)+'</b> · ':'')+esc(SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal)+' · '+esc(r.proveedor)+(r.producto?' · '+esc(r.producto):'')
       +(r.fecha_visita&&r.estado==='visita_agendada'?' · 🗓️ visita '+fFecha(r.fecha_visita):'')+'</div>'
       +(r.reportado_at?'<div class="s">📅 Reclamo puesto el <b>'+fFecha(fechaLocal(r.reportado_at))+'</b>'+(r.proveedor_caso?' · caso proveedor '+esc(r.proveedor_caso):'')+'</div>':'')
@@ -340,7 +368,7 @@ function pintarMis(){
   if(!l.length){el.innerHTML='<div class="muted">Todavía no hay reclamos. Ingresa uno en <b>Nuevo reclamo</b>.</div>';return;}
   el.innerHTML=l.map(function(r){
     return '<div class="rec" onclick="abrir('+r.id+')"><div class="sem '+semaforo(r)+'"></div><div>'
-      +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span>'+demoPill(r)+'</div>'
+      +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span>'+(r.prioridad&&r.prioridad!=='Media'?prioPill(r.prioridad):'')+demoPill(r)+'</div>'
       +'<div class="s">'+(r.ticket?'<b>'+esc(r.ticket)+'</b> · ':'')+esc(r.proveedor)+(r.producto?' · '+esc(r.producto):'')+'</div>'
       +'<div class="s" style="color:#1a55a0">👉 '+esc(queSigue(r))+'</div>'
       +'</div><div class="days">'+diasAbierto(r)+'<small>'+(diasAbierto(r)===1?'día':'días')+'</small></div></div>';
@@ -368,9 +396,10 @@ function renderNuevo(){
     +'<label>Dirección para la visita del técnico <span class="req">*</span></label><input id="n-dir" placeholder="Barrio / colonia, referencias para llegar">'
     +'<div class="grid2">'
     +'<div><label>Producto <span class="req">*</span></label><input id="n-prod" placeholder="Ej. Moto Italika DM150, refrigeradora…"></div>'
-    +'<div><label>Serie / chasis / motor</label><input id="n-serie"></div>'
+    +'<div><label>Serie / chasis / motor</label><input id="n-serie" onblur="avisoSerie()"><div id="n-serie-av" class="muted" style="color:#b06a00;font-weight:600"></div></div>'
     +'<div><label>N° de factura</label><input id="n-fact"></div>'
     +'<div><label>Tipo de reclamo</label><select id="n-tipo">'+TIPOS.map(function(t){return '<option>'+t+'</option>';}).join('')+'</select></div>'
+    +'<div><label>¿Cómo llegó el reclamo?</label><select id="n-origen">'+['En tienda','Llamada telefónica','WhatsApp','Visita al cliente'].map(function(t){return '<option>'+t+'</option>';}).join('')+'</select></div>'
     +'</div>'
     +'<label>¿Qué presenta el cliente? <span class="req">*</span></label><textarea id="n-desc" placeholder="Describe la falla o el problema tal como lo cuenta el cliente"></textarea>'
     +'<label>Fotos del reclamo <span class="req">*</span></label><input type="file" id="n-fotos" accept="image/*" multiple onchange="agregarFotos(this)">'
@@ -379,6 +408,11 @@ function renderNuevo(){
     +'<div class="row" style="margin-top:10px"><button class="btn" id="n-btn" onclick="guardarNuevo()">Guardar reclamo</button></div>'
     +'</div>';
   document.getElementById('view').innerHTML=h;
+}
+function avisoSerie(){
+  var k=serieKey(val('n-serie')),el=document.getElementById('n-serie-av');if(!el)return;
+  var l=k.length>=4?RECS.filter(function(x){return serieKey(x.serie)===k;}):[];
+  el.textContent=l.length?'🔁 Esta serie ya tiene '+l.length+' reclamo'+(l.length>1?'s':'')+' ('+l.map(function(x){return x.ticket||'sin ticket';}).join(', ')+'). Igual puedes ingresarlo.':'';
 }
 async function cargarClientes(){
   var s=document.getElementById('n-suc').value,inp=document.getElementById('n-cli');
@@ -455,7 +489,7 @@ async function guardarNuevo(){
     var row={estado:'ingresado',sucursal:suc,cartera_id:NV.cli.cobranza?SUCS[suc].cartera:null,cliente_nombre:NV.cli.nombre,
       telefono:tel,telefono2:document.getElementById('n-tel2').value.trim()||null,direccion:document.getElementById('n-dir').value.trim()||null,
       proveedor:prov,producto:document.getElementById('n-prod').value.trim()||null,serie:document.getElementById('n-serie').value.trim()||null,
-      factura:document.getElementById('n-fact').value.trim()||null,tipo:document.getElementById('n-tipo').value,descripcion:desc,fotos:fotos,
+      factura:document.getElementById('n-fact').value.trim()||null,tipo:document.getElementById('n-tipo').value,origen:document.getElementById('n-origen').value,descripcion:desc,fotos:fotos,
       creado_por:YO.nombre,creado_por_codigo:YO.codigo};
     var r=await sb.from('sac_reclamos').insert(row).select('id').single();
     if(r.error)throw new Error(r.error.message);
@@ -482,48 +516,128 @@ function thumbs(arr){
     return /^image\//.test(f.tipo)||/\.(jpe?g|png|webp|gif)$/i.test(f.url)?'<a href="'+esc(f.url)+'" target="_blank"><img src="'+esc(f.url)+'"></a>':'<a href="'+esc(f.url)+'" target="_blank" style="padding-top:26px">📄 '+esc((f.nombre||'archivo').slice(0,12))+'</a>';
   }).join('')+'</div>';
 }
-function abrir(id){
+var DTAB='gen',DID=null;
+var RESP={R1:'Ana',R2:'Ana',R3:'Milagro',R4:'Sayda',R5:'Sayda'};
+var PRIOS=['Alta','Media','Baja'];
+function serieKey(x){return String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function mismoEquipo(r){
+  var k=serieKey(r.serie);
+  return RECS.filter(function(x){
+    if(x.id===r.id)return false;
+    if(k.length>=4)return serieKey(x.serie)===k;
+    return x.cliente_nombre===r.cliente_nombre&&x.producto&&x.producto===r.producto;
+  }).sort(function(a,b){return b.created_at.localeCompare(a.created_at);});
+}
+function campo(l,v,full){return '<div class="fld'+(full?' full':'')+'"><label>'+l+'</label><div class="fv">'+(v==null||v===''?'<span class="muted">—</span>':v)+'</div></div>';}
+function prioPill(p){p=p||'Media';return '<span class="pill prio-'+p.toLowerCase()+'">'+(p==='Alta'?'▲ ':p==='Baja'?'▼ ':'')+'Prioridad '+p.toLowerCase()+'</span>';}
+function abrir(id,tab){
   var r=RECS.find(function(x){return x.id===id;});if(!r)return;
-  var evs=EVS[id]||[],g=puedeGestionar(r),al=alertas(r);
-  var wa=telLimpio(r.telefono);
-  var h='<div class="ov" id="ov" onclick="if(event.target.id===\'ov\')cerrarModal()"><div class="modal">'
-    +'<div class="mh"><div><div style="font-size:18px;font-weight:800">'+esc(r.cliente_nombre)+'</div>'
-    +'<div class="muted">'+(r.ticket?'<b style="color:#1a55a0">'+esc(r.ticket)+'</b> · ':'Sin ticket (falta reportar) · ')+'<span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado])+'</span>'+demoPill(r)+' '+diasAbierto(r)+' días</div></div>'
+  if(DID!==id){DTAB='gen';DID=id;}
+  if(tab)DTAB=tab;
+  var evs=EVS[id]||[],g=puedeGestionar(r),al=alertas(r),eq=mismoEquipo(r);
+  var wa=telLimpio(r.telefono),suc=SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal;
+  var ACT_T=['llamada','visita_agendada','visita_realizada','visita_fallida','comentario','fecha_estimada'];
+  var acts=evs.filter(function(e){return ACT_T.indexOf(e.tipo)>=0;});
+  var adj=(r.fotos||[]).length+(ADMINV?(r.evidencia||[]).length:0);
+  var prioCampo=g?'<select class="inl" onchange="accPrioridad('+id+',this.value)">'+PRIOS.map(function(p){return '<option'+((r.prioridad||'Media')===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select>':esc(r.prioridad||'Media');
+  var h='<div class="ov" id="ov" onclick="if(event.target.id===\'ov\')cerrarModal()"><div class="modal doc">'
+    +'<div class="doc-top"><div><div class="doc-k">Reclamo de servicio'+(r.ticket?' · <b>'+esc(r.ticket)+'</b>':' · sin ticket')+'</div>'
+    +'<div class="doc-t">'+esc(r.cliente_nombre)+'</div>'
+    +'<div class="doc-p"><span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado])+'</span>'+prioPill(r.prioridad)+demoPill(r)+'</div></div>'
+    +'<div class="doc-d"><div class="sem-big '+semaforo(r)+'">'+diasAbierto(r)+'</div><small>'+(r.reportado_at?'días desde el reclamo':'días desde ingreso')+'</small></div>'
     +'<button class="x" onclick="cerrarModal()">×</button></div>'
-    +(ADMINV?al.map(function(a){return '<div class="al" style="color:#b3261e;font-weight:600;font-size:13px">⚠️ '+esc(a.t)+'</div>';}).join(''):pasos(r))
-    +(r.reportado_at?'<div class="fbox"><div><small>Reclamo puesto al proveedor</small><b>'+fFecha(fechaLocal(r.reportado_at))+'</b><span>'+haceDias(r.reportado_at)+'</span></div>'
-      +'<div><small>Ticket La Roca (del sistema)</small><b>'+esc(r.ticket||'—')+'</b></div>'
-      +'<div><small>N° de caso del proveedor</small><b>'+(r.proveedor_caso?esc(r.proveedor_caso):'<span style="font-weight:500;color:#6b7280">No dio número</span>')+'</b></div></div>':'')
-    +'<div class="kv">'
-    +'<b>Teléfono</b><span>'+esc(r.telefono)+' <a href="tel:'+esc(r.telefono)+'">📞</a> <a href="https://wa.me/'+wa+'" target="_blank">WhatsApp</a>'+(r.telefono2?' · otro: '+esc(r.telefono2):'')+'</span>'
-    +(r.direccion?'<b>Dirección</b><span>'+esc(r.direccion)+'</span>':'')
-    +'<b>Sucursal</b><span>'+esc(SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal)+(r.cartera_id?' · cliente de Cobranza':' · cliente de contado')+'</span>'
-    +'<b>Proveedor</b><span>'+esc(r.proveedor)+'</span>'
-    +'<b>Producto</b><span>'+esc(r.producto||'—')+(r.serie?' · serie '+esc(r.serie):'')+(r.factura?' · factura '+esc(r.factura):'')+'</span>'
-    +'<b>Tipo</b><span>'+esc(r.tipo||'—')+'</span>'
-    +'<b>Presenta</b><span>'+esc(r.descripcion)+'</span>'
-    +(r.fecha_visita?'<b>Visita técnico</b><span>'+fFecha(r.fecha_visita)+(r.hora_visita?' · '+esc(r.hora_visita):'')+(r.tecnico?' · '+esc(r.tecnico):'')+'</span>':'')
-    +(r.fecha_resolucion_est?'<b>Resolución estimada</b><span>'+fFecha(r.fecha_resolucion_est)+'</span>':'')
-    +(r.solucion?'<b>Solución</b><span>'+esc(r.solucion)+'</span>':'')
-    +'<b>Ingresado por</b><span>'+esc(r.creado_por||'—')+' · '+fFechaHora(r.created_at)+'</span>'
-    +(r.reportado_at?'<b>Reclamo puesto por</b><span>'+esc(r.reportado_por||'—')+' · '+fFecha(fechaLocal(r.reportado_at))+'</span>':'')
-    +'</div>'
-    +'<div class="muted" style="margin-top:6px">Fotos del reclamo</div>'+thumbs(r.fotos)
-    +(ADMINV&&r.evidencia&&r.evidencia.length?'<div class="muted" style="margin-top:8px">Evidencia enviada al proveedor</div>'+thumbs(r.evidencia):'')
-    +acciones(r,g)
-    +'<h3 style="font-size:13px;margin-top:16px">Historial</h3><div class="tl">'
-    +evs.slice().reverse().map(function(e){
-      return '<div class="e"><div>'+(EV_ICON[e.tipo]||'•')+' '+(e.resultado?'<b>'+esc(e.resultado)+'</b>'+(e.nota?' — ':''):'')+esc(e.nota||'')+'</div><div class="w">'+esc(e.autor||'')+' · '+fFechaHora(e.created_at)+'</div></div>';
-    }).join('')+'</div>'
+    +(eq.length?'<div class="warn-eq" onclick="abrir('+id+',\'eq\')">🔁 Este equipo ya tuvo <b>'+eq.length+' reclamo'+(eq.length>1?'s':'')+'</b> antes. Ver tarjeta de equipo →</div>':'')
+    +(ADMINV?al.filter(function(a){return a.p<=2;}).map(function(a){return '<div class="al-b">⚠️ '+esc(a.t)+'</div>';}).join(''):pasos(r))
+    +'<div class="hdr"><div class="hcol">'
+      +campo('Cliente',esc(r.cliente_nombre)+(r.cartera_id?' <span class="tag">Cobranza</span>':' <span class="tag">Contado</span>'))
+      +campo('Teléfono',esc(r.telefono)+' <a href="tel:'+esc(r.telefono)+'">📞 Llamar</a> · <a href="https://wa.me/'+wa+'" target="_blank">WhatsApp</a>')
+      +campo('Otro teléfono',esc(r.telefono2||''))
+      +campo('Dirección',esc(r.direccion||''))
+      +campo('Sucursal',esc(suc))
+    +'</div><div class="hcol">'
+      +campo('Ticket La Roca',r.ticket?'<b>'+esc(r.ticket)+'</b>':'<span class="muted">Se genera al reportar</span>')
+      +campo('Caso del proveedor',r.proveedor_caso?esc(r.proveedor_caso):(r.reportado_at?'<span class="muted">No dio número</span>':''))
+      +campo('Reclamo puesto',r.reportado_at?'<b>'+fFecha(fechaLocal(r.reportado_at))+'</b> <span class="muted">('+haceDias(r.reportado_at)+')</span>':'<span class="muted">Pendiente</span>')
+      +campo('Prioridad',prioCampo)
+      +campo('Origen',esc(r.origen||''))
+      +campo('Responsable',esc(RESP[r.sucursal]||'—'))
+    +'</div></div>'
+    +'<div class="dtabs">'+[['gen','General'],['act','Actividades',acts.length],['sol','Solución'],['eq','Tarjeta de equipo',eq.length],['his','Historial',evs.length],['adj','Adjuntos',adj]].map(function(t){
+      return '<button class="dt'+(DTAB===t[0]?' on':'')+'" onclick="abrir('+id+',\''+t[0]+'\')">'+t[1]+(t[2]?' <span>'+t[2]+'</span>':'')+'</button>';}).join('')+'</div>'
+    +'<div class="dpane">'+panel(r,g,DTAB,evs,acts,eq)+'</div>'
     +'</div></div>';
+  var sc=document.getElementById('ov');var top=sc?sc.scrollTop:0;
   cerrarModal();document.body.insertAdjacentHTML('beforeend',h);
+  if(tab&&top)document.getElementById('ov').scrollTop=top;
+}
+function panel(r,g,t,evs,acts,eq){
+  var id=r.id,h='';
+  if(t==='gen'){
+    h+='<div class="sec-t">Artículo</div><div class="grid-f">'
+      +campo('Proveedor',esc(r.proveedor))+campo('Producto',esc(r.producto||''))+campo('Serie / chasis / motor',esc(r.serie||''))+campo('N° de factura',esc(r.factura||''))
+      +campo('Tipo de reclamo',esc(r.tipo||''))+campo('Ingresado por',esc(r.creado_por||'')+' · '+fFechaHora(r.created_at))
+      +campo('Lo que presenta el cliente',esc(r.descripcion),true)+'</div>';
+    if(r.fecha_visita)h+='<div class="sec-t">Visita del técnico</div><div class="grid-f">'+campo('Fecha',fFecha(r.fecha_visita)+(r.hora_visita?' · '+esc(r.hora_visita):''))+campo('Técnico',esc(r.tecnico||''))+'</div>';
+    var ac=acciones(r,g,'gen');
+    if(ac)h+='<div class="sec-t">Siguiente paso</div>'+ac;
+    else if(!ADMINV)h+='<div class="muted" style="margin-top:12px">El administrador de la sucursal da el seguimiento. Aquí ves en qué va.</div>';
+  }
+  if(t==='act'){
+    h+=acciones(r,g,'act');
+    h+='<div class="sec-t">Actividades registradas</div>'+(acts.length?'<div class="tscroll"><table class="t"><thead><tr><th>Fecha</th><th>Actividad</th><th>Resultado</th><th>Detalle</th><th>Usuario</th></tr></thead><tbody>'
+      +acts.slice().reverse().map(function(e){
+        var nom={llamada:'📞 Llamada'+(e.datos&&e.datos.motivo?' · '+e.datos.motivo:''),visita_agendada:'🗓️ Visita agendada',visita_realizada:'🔧 Visita realizada',visita_fallida:'❌ Visita fallida',comentario:'💬 Comentario',fecha_estimada:'📅 Fecha estimada'}[e.tipo]||e.tipo;
+        return '<tr><td style="white-space:nowrap">'+fFechaHora(e.created_at)+'</td><td>'+nom+'</td><td>'+esc(e.resultado||'')+'</td><td>'+esc(e.nota||'')+'</td><td>'+esc(e.autor||'')+'</td></tr>';}).join('')
+      +'</tbody></table></div>':'<div class="muted">Todavía no hay llamadas, visitas ni comentarios.</div>');
+  }
+  if(t==='sol'){
+    var vr=evs.filter(function(e){return e.tipo==='visita_realizada';}).pop();
+    var rech=evs.filter(function(e){return e.tipo==='rechazado';}).pop();
+    var ag=evs.find(function(e){return e.tipo==='visita_agendada';});
+    var dVis=r.reportado_at&&ag&&ag.datos&&ag.datos.fecha?Math.round(Math.max(0,difDias(r.reportado_at,ag.datos.fecha+'T12:00:00'))*10)/10:null;
+    var fin=r.resuelto_at||r.cerrado_at,dRes=r.reportado_at&&fin?Math.round(Math.max(0,difDias(r.reportado_at,fin))*10)/10:null;
+    h+='<div class="sec-t">Resolución</div><div class="grid-f">'
+      +campo('Diagnóstico del técnico',vr?esc(vr.nota||'')+(vr.resultado?' <span class="tag">'+esc(vr.resultado)+'</span>':''):'',true)
+      +campo('Solución',esc(r.solucion||''))+campo('Resolución estimada',r.fecha_resolucion_est?fFecha(r.fecha_resolucion_est):'')
+      +campo('Resuelto',r.resuelto_at?fFecha(fechaLocal(r.resuelto_at)):'')+campo('Cerrado',r.cerrado_at?fFecha(fechaLocal(r.cerrado_at)):'')
+      +campo('Satisfacción del cliente',esc(r.satisfaccion||''))+campo('Rechazo del proveedor',rech?esc(rech.nota||''):'')
+      +'</div><div class="sec-t">Tiempos</div><div class="kpis">'
+      +'<div class="kpi"><div class="l">Días reclamo → visita</div><div class="v">'+nf(dVis)+'</div></div>'
+      +'<div class="kpi"><div class="l">Días reclamo → resuelto</div><div class="v">'+nf(dRes)+'</div></div>'
+      +'<div class="kpi"><div class="l">Días abierto</div><div class="v">'+diasAbierto(r)+'</div></div></div>'
+      +acciones(r,g,'sol');
+  }
+  if(t==='eq'){
+    h+='<div class="sec-t">Tarjeta de equipo</div><div class="grid-f">'+campo('Producto',esc(r.producto||''))+campo('Serie / chasis / motor',esc(r.serie||''))
+      +campo('Cliente',esc(r.cliente_nombre))+campo('Proveedor',esc(r.proveedor))+campo('N° de factura',esc(r.factura||''))+campo('Reclamos de este equipo','<b>'+(eq.length+1)+'</b>')+'</div>'
+      +'<div class="sec-t">Reclamos del mismo equipo</div>'
+      +'<div class="tscroll"><table class="t"><thead><tr><th>Ticket</th><th>Ingresado</th><th>Tipo</th><th>Presenta</th><th>Estado</th><th>Solución</th></tr></thead><tbody>'
+      +[r].concat(eq).map(function(x){return '<tr'+(x.id===r.id?' class="cur"':' style="cursor:pointer" onclick="abrir('+x.id+')"')+'><td><b>'+esc(x.ticket||'—')+'</b>'+(x.id===r.id?' <span class="muted">(este)</span>':'')+'</td><td>'+fFecha(fechaLocal(x.created_at))+'</td><td>'+esc(x.tipo||'')+'</td><td>'+esc(x.descripcion)+'</td><td><span class="pill '+x.estado+'">'+esc(ESTADOS[x.estado])+'</span></td><td>'+esc(x.solucion||'')+'</td></tr>';}).join('')
+      +'</tbody></table></div>'
+      +(eq.length?'':'<div class="muted" style="margin-top:8px">Es el primer reclamo de este equipo.'+(serieKey(r.serie).length<4?' (Sin número de serie: se busca por cliente y producto.)':'')+'</div>');
+  }
+  if(t==='his'){
+    h+='<div class="tl">'+evs.slice().reverse().map(function(e){
+      return '<div class="e"><div>'+(EV_ICON[e.tipo]||'•')+' '+(e.resultado?'<b>'+esc(e.resultado)+'</b>'+(e.nota?' — ':''):'')+esc(e.nota||'')+'</div><div class="w">'+esc(e.autor||'')+' · '+fFechaHora(e.created_at)+'</div></div>';
+    }).join('')+'</div>';
+  }
+  if(t==='adj'){
+    h+='<div class="sec-t">Fotos del reclamo</div>'+thumbs(r.fotos)
+      +(ADMINV?'<div class="sec-t">Evidencia del reclamo puesto al proveedor</div>'+((r.evidencia||[]).length?thumbs(r.evidencia):'<div class="muted">Todavía no se ha subido.</div>'):'');
+  }
+  return h;
+}
+async function accPrioridad(id,p){
+  var r=RECS.find(function(x){return x.id===id;});var ant=r.prioridad||'Media';if(p===ant)return;
+  await actualizar(id,{prioridad:p});await evento(id,'comentario',null,'Prioridad cambiada: '+ant+' → '+p);
+  trasAccion(id,'Prioridad: '+p);
 }
 function cerrarModal(){var o=document.getElementById('ov');if(o)o.remove();}
 
-function acciones(r,g){
+function acciones(r,g,tab){
   var id=r.id,h='';
   var abierto=ABIERTOS.indexOf(r.estado)>=0;
-  if(g&&r.estado==='ingresado'){
+  if(tab==='gen'&&g&&r.estado==='ingresado'){
     h+='<div class="act"><h3>📧 Reportar al proveedor por correo</h3><div class="muted"><b>Paso 1:</b> envía el correo (ya va redactado con todos los datos y los enlaces a las fotos). <b>Paso 2:</b> sube la evidencia del reclamo puesto (captura del correo enviado o del chat). <b>Paso 3:</b> genera el ticket del cliente.</div>'
       +'<label>Correo de reclamos de '+esc(r.proveedor)+' <span class="req">*</span></label><input id="a-mail" type="email" value="'+esc(PROV_MAIL[r.proveedor]||'')+'" placeholder="servicio@proveedor.com">'
       +'<div class="muted" style="margin-top:4px">'+(PROV_MAIL[r.proveedor]?'Guardado para este proveedor. Si cambia, escríbelo y se actualiza.':'Se guarda para la próxima vez con este proveedor.')+'</div>'
@@ -536,20 +650,14 @@ function acciones(r,g){
       +'<label>Nota</label><input id="a-nota">'
       +'<div class="err" id="a-err"></div><button class="btn ok" onclick="accReportar('+id+',this)">Subir evidencia y generar ticket</button></div>';
   }
-  if(g&&r.reportado_at&&abierto){
-    h+='<div class="act"><h3>✏️ Fecha del reclamo y caso del proveedor</h3><div class="muted">Si el proveedor dio el número después o la fecha quedó mal, corrígelo aquí.</div>'
-      +'<div class="grid2"><div><label>Fecha en que se puso el reclamo</label><input type="date" id="a-frep2" max="'+hoyISO()+'" value="'+fechaLocal(r.reportado_at)+'"></div>'
-      +'<div><label>N° de caso del proveedor</label><input id="a-caso2" value="'+esc(r.proveedor_caso||'')+'"></div></div>'
-      +'<div class="row" style="margin-top:8px"><button class="btn sec sm" onclick="accDatosReclamo('+id+',this)">Guardar</button></div></div>';
-  }
-  if(g&&(r.estado==='reportado'||r.estado==='visita_agendada')){
+  if(tab==='gen'&&g&&(r.estado==='reportado'||r.estado==='visita_agendada')){
     h+='<div class="act"><h3>🗓️ '+(r.estado==='visita_agendada'?'Cambiar fecha de visita':'Agendar visita del técnico')+'</h3><div class="muted">Fecha que dio el proveedor. Un día antes y el mismo día el sistema pide llamar al cliente para que esté pendiente.</div>'
       +'<div class="grid2"><div><label>Fecha de visita <span class="req">*</span></label><input type="date" id="a-fv" min="'+hoyISO()+'" value="'+(r.fecha_visita||'')+'"></div>'
       +'<div><label>Hora / jornada</label><select id="a-hv"><option value="">—</option>'+['Mañana','Tarde','Todo el día'].map(function(x){return '<option'+(r.hora_visita===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div></div>'
       +'<label>Técnico (si el proveedor lo dijo)</label><input id="a-tec" value="'+esc(r.tecnico||'')+'">'
       +'<div class="err" id="a-err2"></div><button class="btn" onclick="accAgendar('+id+',this)">Guardar visita</button></div>';
   }
-  if(g&&r.estado==='visita_agendada'){
+  if(tab==='gen'&&g&&r.estado==='visita_agendada'){
     h+='<div class="act"><h3>🔧 Resultado de la visita</h3>'
       +'<label>¿Se hizo la visita? <span class="req">*</span></label><select id="a-vr" onchange="document.getElementById(\'a-vr-ok\').style.display=this.value===\'si\'?\'block\':\'none\';document.getElementById(\'a-vr-no\').style.display=this.value===\'no\'?\'block\':\'none\'"><option value="">—</option><option value="si">Sí, el técnico llegó</option><option value="no">No se hizo (visita fallida)</option></select>'
       +'<div id="a-vr-ok" style="display:none"><label>Comentario / diagnóstico del técnico <span class="req">*</span></label><textarea id="a-diag"></textarea>'
@@ -558,35 +666,41 @@ function acciones(r,g){
       +'<div id="a-vr-no" style="display:none"><label>Motivo <span class="req">*</span></label><select id="a-vf-mot"><option>El técnico llamó y el cliente no contestó</option><option>El cliente no estaba en casa</option><option>El técnico no llegó</option><option>Otro</option></select><label>Nota</label><input id="a-vf-nota"></div>'
       +'<div class="err" id="a-err3"></div><button class="btn" onclick="accVisita('+id+',this)">Guardar resultado</button></div>';
   }
-  if(g&&r.estado==='en_proceso'){
+  if(tab==='gen'&&g&&r.estado==='en_proceso'){
     h+='<div class="act"><h3>⏳ En proceso</h3>'
       +'<label>Nueva fecha estimada de resolución</label><div class="row"><input type="date" id="a-fest2" style="max-width:200px" value="'+(r.fecha_resolucion_est||'')+'"><button class="btn sec sm" onclick="accFechaEst('+id+')">Actualizar fecha</button></div>'
       +'<label>Marcar resuelto — solución</label><select id="a-sol">'+SOLUCIONES.map(function(s){return '<option>'+s+'</option>';}).join('')+'</select>'
       +'<label>Detalle</label><input id="a-sol-nota">'
       +'<div class="err" id="a-err4"></div><button class="btn ok" onclick="accResuelto('+id+',this)">Marcar resuelto</button></div>';
   }
-  if(g&&r.estado==='resuelto'){
+  if(tab==='gen'&&g&&r.estado==='resuelto'){
     h+='<div class="act"><h3>🔒 Cerrar con el cliente</h3><div class="muted">Llama al cliente para confirmar que quedó bien antes de cerrar.</div>'
       +'<label>¿El cliente quedó satisfecho?</label><select id="a-sat"><option>Satisfecho</option><option>Parcialmente</option><option>No satisfecho</option></select>'
       +'<label>Nota</label><input id="a-cierre-nota">'
       +'<div class="row" style="margin-top:8px"><button class="btn ok" onclick="accCerrar('+id+',this)">Cerrar reclamo</button><button class="btn sec" onclick="accReabrir('+id+',this)">No quedó bien: reabrir</button></div></div>';
   }
-  if(abierto&&!ADMINV){
+  if(tab==='gen'&&g&&r.reportado_at&&abierto){
+    h+='<details class="act"><summary><b>✏️ Corregir fecha del reclamo o caso del proveedor</b></summary><div class="muted">Si el proveedor dio el número después o la fecha quedó mal, corrígelo aquí.</div>'
+      +'<div class="grid2"><div><label>Fecha en que se puso el reclamo</label><input type="date" id="a-frep2" max="'+hoyISO()+'" value="'+fechaLocal(r.reportado_at)+'"></div>'
+      +'<div><label>N° de caso del proveedor</label><input id="a-caso2" value="'+esc(r.proveedor_caso||'')+'"></div></div>'
+      +'<div class="row" style="margin-top:8px"><button class="btn sec sm" onclick="accDatosReclamo('+id+',this)">Guardar</button></div></details>';
+  }
+  if(tab==='act'&&abierto&&!ADMINV){
     h+='<div class="act"><h3>💬 Agregar información</h3><div class="muted">Si el cliente llamó o hay algo nuevo, escríbelo aquí y le llega al administrador.</div><textarea id="a-com" style="min-height:60px"></textarea><div class="row" style="margin-top:8px"><button class="btn sec" onclick="accComentario('+id+',this)">Agregar</button></div></div>';
   }
-  if(abierto&&ADMINV){
+  if(tab==='act'&&abierto&&ADMINV){
     h+='<div class="act"><h3>📞 Registrar llamada al cliente</h3><div class="grid2">'
       +'<div><label>Motivo</label><select id="a-lm">'+['Confirmar visita','Seguimiento','Pedir datos','Confirmar solución'].map(function(x){return '<option'+(r.estado==='visita_agendada'&&x==='Confirmar visita'?' selected':r.estado==='resuelto'&&x==='Confirmar solución'?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
       +'<div><label>Resultado</label><select id="a-lr"><option>Contestó</option><option>No contestó</option><option>Apagado / fuera de servicio</option><option>Número equivocado</option></select></div></div>'
       +'<label>Nota</label><input id="a-ln"><div class="row" style="margin-top:8px"><button class="btn sec" onclick="accLlamada('+id+',this)">Guardar llamada</button></div></div>';
     h+='<div class="act"><h3>💬 Comentario</h3><textarea id="a-com" style="min-height:60px" placeholder="Lo que dijo el proveedor, avances, etc."></textarea><div class="row" style="margin-top:8px"><button class="btn sec" onclick="accComentario('+id+',this)">Agregar comentario</button></div></div>';
   }
-  if(g&&abierto&&r.estado!=='ingresado'){
+  if(tab==='sol'&&g&&abierto&&r.estado!=='ingresado'){
     h+='<div class="act"><h3>⛔ Proveedor rechazó el reclamo</h3><label>Motivo</label><input id="a-rech"><div class="row" style="margin-top:8px"><button class="btn bad sm" onclick="accRechazar('+id+',this)">Marcar rechazado</button></div></div>';
   }
   return h;
 }
-async function trasAccion(id,msg){toast(msg);await cargar();abrir(id);}
+async function trasAccion(id,msg){toast(msg);await cargar();abrir(id,DTAB);}
 function val(i){var e=document.getElementById(i);return e?e.value.trim():'';}
 
 function correoTexto(r){
@@ -824,7 +938,7 @@ function renderDatos(){
 function descargarCSV(){
   var l=filtradosDatos();
   var cols=[['Ticket','ticket'],['Estado',function(r){return ESTADOS[r.estado]||r.estado;}],['Sucursal',function(r){return SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal;}],['Proveedor','proveedor'],['Caso proveedor','proveedor_caso'],
-    ['Cliente','cliente_nombre'],['Teléfono','telefono'],['Producto','producto'],['Serie','serie'],['Tipo','tipo'],['Presenta','descripcion'],
+    ['Cliente','cliente_nombre'],['Teléfono','telefono'],['Producto','producto'],['Serie','serie'],['Tipo','tipo'],['Prioridad','prioridad'],['Origen','origen'],['Presenta','descripcion'],
     ['Ingresado',function(r){return r.created_at.slice(0,10);}],['Fecha reclamo al proveedor',function(r){return r.reportado_at?fechaLocal(r.reportado_at):'';}],['Fecha visita','fecha_visita'],
     ['Resuelto',function(r){return (r.resuelto_at||'').slice(0,10);}],['Cerrado',function(r){return (r.cerrado_at||'').slice(0,10);}],
     ['Horas para reportar',function(r){return r.reportado_at?Math.round(difDias(r.created_at,r.reportado_at)*24):'';}],
@@ -845,7 +959,7 @@ function tutoPasos(){
     {i:'📧',t:'2. El administrador lo manda por correo',b:'Al administrador le aparece la alerta en el menú de CaliFon y en la Agenda.<ul><li>Abre el reclamo y presiona <b>Abrir en Gmail</b>: el correo ya va redactado con todos los datos y las fotos.</li><li>El correo de cada proveedor se guarda la primera vez.</li><li>Lo envía, sube la <b>evidencia</b> (captura del correo enviado) y se genera el <b>ticket</b> y sale el botón para mandárselo al cliente por WhatsApp.</li></ul>'},
     {i:'🗓️',t:'3. Visita del técnico',b:'Cuando el proveedor da la fecha, se anota en <b>Agendar visita</b>.<ul><li>Un día antes y el mismo día sale la alerta <b>"llamar al cliente para que esté pendiente"</b>.</li><li>Se registra la llamada. Si el cliente no contesta, el técnico no llega.</li><li>Después se anota si la visita se hizo. Si falló, el reclamo vuelve a pedir nueva fecha.</li></ul>'},
     {i:'✅',t:'4. Resolver y cerrar',b:'Si quedó pendiente (repuesto, cambio, taller) queda <span class="pill en_proceso">En proceso</span> con la fecha que prometió el proveedor.<br><br>Cuando se resuelve, se <b>llama al cliente</b> para confirmar que quedó bien y se <b>cierra</b> anotando si quedó satisfecho.'},
-    {i:'📋',t:'La Agenda y el semáforo',b:'La <b>Agenda</b> empieza con <b>Por enviar al proveedor</b> (lo que todavía no tiene ticket) y abajo los <b>Tickets en seguimiento</b>, con lo urgente primero. El número de la derecha son los días desde que se reportó:<ul><li><span class="dot g"></span> hasta '+SLA_VERDE+' días</li><li><span class="dot y"></span> de '+(SLA_VERDE+1)+' a '+SLA_AMARILLO+' días</li><li><span class="dot r"></span> más de '+SLA_AMARILLO+' días: hay que presionar al proveedor</li></ul>Abre cualquier reclamo para ver su historial completo, llamar o escribirle al cliente.'},
+    {i:'📋',t:'La Agenda y el semáforo',b:'La <b>Agenda</b> empieza con <b>Por enviar al proveedor</b> (lo que todavía no tiene ticket) y abajo los <b>Tickets en seguimiento</b>, con lo urgente primero. El número de la derecha son los días desde que se reportó:<ul><li><span class="dot g"></span> hasta '+SLA_VERDE+' días</li><li><span class="dot y"></span> de '+(SLA_VERDE+1)+' a '+SLA_AMARILLO+' días</li><li><span class="dot r"></span> más de '+SLA_AMARILLO+' días: hay que presionar al proveedor</li></ul>Cada reclamo se abre como documento, parecido a SAP: arriba los datos principales y abajo las pestañas <b>General, Actividades, Solución, Tarjeta de equipo, Historial y Adjuntos</b>. Si el equipo ya tuvo reclamos antes, sale un aviso.'},
     {i:'📊',t:'Indicadores',b:'Muestra cuánto tarda cada proveedor en visitar y resolver, cuántas visitas fallan, cuántos reclamos rechaza y qué tan satisfechos quedan los clientes. También muestra qué tan rápido reporta cada sucursal.<br><br>Con eso se le exige al proveedor y se le puede decir al cliente cuánto se tarda. Se puede <b>descargar en Excel</b>.'}
   ];
   if(!admin){p.splice(2,5,
