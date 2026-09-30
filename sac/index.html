@@ -102,6 +102,8 @@ table.t td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
 .sigue{background:#eef4fb;border-radius:8px;padding:9px 11px;font-size:13px;color:#1a3d6e;margin-bottom:6px}
 .sec-h{font-size:14px;font-weight:800;margin:14px 0 4px;display:flex;align-items:center;gap:8px}.sec-h.bad{color:#b3261e;margin-top:4px}
 .sec-h .n{min-width:20px;padding:0 6px;border-radius:10px;background:#E53E3E;color:#fff;font-size:12px;line-height:20px;text-align:center}.sec-h .n.gris{background:#6b7280}
+.fbox{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.fbox>div{background:#f4f7fb;border:1px solid #dbe4f0;border-radius:10px;padding:9px 11px}.fbox small{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;font-weight:700}.fbox b{display:block;font-size:15px;margin-top:2px}.fbox span{font-size:12px;color:#6b7280}
+@media(max-width:640px){.fbox{grid-template-columns:1fr}}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1d23;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:99;display:none}
 </style>
 </head>
@@ -189,6 +191,9 @@ function semaforo(r){
   if(r.estado==='cerrado'||r.estado==='rechazado')return 'n';
   var d=diasAbierto(r);return d<=SLA_VERDE?'g':d<=SLA_AMARILLO?'y':'r';
 }
+function fechaLocal(iso){var d=new Date(iso);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10);}
+function haceDias(iso){var n=Math.round((new Date(hoyISO()+'T12:00:00')-new Date(fechaLocal(iso)+'T12:00:00'))/86400000);return n<=0?'hoy':n===1?'ayer':'hace '+n+' días';}
+function fechaReclamoISO(f){return f===hoyISO()?new Date().toISOString():new Date(f+'T12:00:00').toISOString();}
 function demoPill(r){return r.demo?' <span class="pill demo" title="Reclamo de demostración (ficticio)">DEMO</span>':'';}
 function telLimpio(t){var d=String(t||'').replace(/\D/g,'');if(d.length===8)d='504'+d;return d;}
 
@@ -286,6 +291,7 @@ function pintarLista(){
       +'<div class="t">'+esc(r.cliente_nombre)+' <span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado]||r.estado)+'</span>'+demoPill(r)+'</div>'
       +'<div class="s">'+(r.ticket?'<b>'+esc(r.ticket)+'</b> · ':'')+esc(SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal)+' · '+esc(r.proveedor)+(r.producto?' · '+esc(r.producto):'')
       +(r.fecha_visita&&r.estado==='visita_agendada'?' · 🗓️ visita '+fFecha(r.fecha_visita):'')+'</div>'
+      +(r.reportado_at?'<div class="s">📅 Reclamo puesto el <b>'+fFecha(fechaLocal(r.reportado_at))+'</b>'+(r.proveedor_caso?' · caso proveedor '+esc(r.proveedor_caso):'')+'</div>':'')
       +x.a.filter(function(a){return a.p<=2;}).map(function(a){return '<div class="al">⚠️ '+esc(a.t)+'</div>';}).join('')
       +'</div><div class="days">'+x.d+'<small>'+(x.d===1?'día':'días')+'</small></div></div>';
   };
@@ -485,11 +491,14 @@ function abrir(id){
     +'<div class="muted">'+(r.ticket?'<b style="color:#1a55a0">'+esc(r.ticket)+'</b> · ':'Sin ticket (falta reportar) · ')+'<span class="pill '+r.estado+'">'+esc(ESTADOS[r.estado])+'</span>'+demoPill(r)+' '+diasAbierto(r)+' días</div></div>'
     +'<button class="x" onclick="cerrarModal()">×</button></div>'
     +(ADMINV?al.map(function(a){return '<div class="al" style="color:#b3261e;font-weight:600;font-size:13px">⚠️ '+esc(a.t)+'</div>';}).join(''):pasos(r))
+    +(r.reportado_at?'<div class="fbox"><div><small>Reclamo puesto al proveedor</small><b>'+fFecha(fechaLocal(r.reportado_at))+'</b><span>'+haceDias(r.reportado_at)+'</span></div>'
+      +'<div><small>Ticket La Roca (del sistema)</small><b>'+esc(r.ticket||'—')+'</b></div>'
+      +'<div><small>N° de caso del proveedor</small><b>'+(r.proveedor_caso?esc(r.proveedor_caso):'<span style="font-weight:500;color:#6b7280">No dio número</span>')+'</b></div></div>':'')
     +'<div class="kv">'
     +'<b>Teléfono</b><span>'+esc(r.telefono)+' <a href="tel:'+esc(r.telefono)+'">📞</a> <a href="https://wa.me/'+wa+'" target="_blank">WhatsApp</a>'+(r.telefono2?' · otro: '+esc(r.telefono2):'')+'</span>'
     +(r.direccion?'<b>Dirección</b><span>'+esc(r.direccion)+'</span>':'')
     +'<b>Sucursal</b><span>'+esc(SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal)+(r.cartera_id?' · cliente de Cobranza':' · cliente de contado')+'</span>'
-    +'<b>Proveedor</b><span>'+esc(r.proveedor)+(r.proveedor_caso?' · caso del proveedor: '+esc(r.proveedor_caso):'')+'</span>'
+    +'<b>Proveedor</b><span>'+esc(r.proveedor)+'</span>'
     +'<b>Producto</b><span>'+esc(r.producto||'—')+(r.serie?' · serie '+esc(r.serie):'')+(r.factura?' · factura '+esc(r.factura):'')+'</span>'
     +'<b>Tipo</b><span>'+esc(r.tipo||'—')+'</span>'
     +'<b>Presenta</b><span>'+esc(r.descripcion)+'</span>'
@@ -497,7 +506,7 @@ function abrir(id){
     +(r.fecha_resolucion_est?'<b>Resolución estimada</b><span>'+fFecha(r.fecha_resolucion_est)+'</span>':'')
     +(r.solucion?'<b>Solución</b><span>'+esc(r.solucion)+'</span>':'')
     +'<b>Ingresado por</b><span>'+esc(r.creado_por||'—')+' · '+fFechaHora(r.created_at)+'</span>'
-    +(r.reportado_at?'<b>Reportado</b><span>'+esc(r.reportado_por||'—')+' · '+fFechaHora(r.reportado_at)+'</span>':'')
+    +(r.reportado_at?'<b>Reclamo puesto por</b><span>'+esc(r.reportado_por||'—')+' · '+fFecha(fechaLocal(r.reportado_at))+'</span>':'')
     +'</div>'
     +'<div class="muted" style="margin-top:6px">Fotos del reclamo</div>'+thumbs(r.fotos)
     +(ADMINV&&r.evidencia&&r.evidencia.length?'<div class="muted" style="margin-top:8px">Evidencia enviada al proveedor</div>'+thumbs(r.evidencia):'')
@@ -520,10 +529,18 @@ function acciones(r,g){
       +'<div class="muted" style="margin-top:4px">'+(PROV_MAIL[r.proveedor]?'Guardado para este proveedor. Si cambia, escríbelo y se actualiza.':'Se guarda para la próxima vez con este proveedor.')+'</div>'
       +'<div class="row" style="margin-top:10px"><button class="btn" onclick="enviarCorreo('+id+',\'gmail\')">✉️ Abrir en Gmail</button><button class="btn sec" onclick="enviarCorreo('+id+',\'app\')">Abrir en app de correo</button><button class="btn sec" onclick="copiarCorreo('+id+')">📋 Copiar texto</button></div>'
       +'<div id="a-mailok" class="muted" style="margin-top:6px"></div>'
-      +'<label>N° de caso / referencia que dé el proveedor</label><input id="a-caso">'
+      +'<div class="grid2"><div><label>Fecha en que se puso el reclamo <span class="req">*</span></label><input type="date" id="a-frep" max="'+hoyISO()+'" value="'+hoyISO()+'"></div>'
+      +'<div><label>N° de caso del proveedor (si lo dio)</label><input id="a-caso" placeholder="Déjalo vacío si no dan número"></div></div>'
+      +'<div class="muted" style="margin-top:4px">El ticket del cliente (SAC-'+hoyISO().slice(0,4)+'-0000) lo genera este sistema, aunque el proveedor no dé número. Los días del reclamo se cuentan desde la fecha en que se puso.</div>'
       +'<label>Evidencia del reclamo puesto <span class="req">*</span></label><input type="file" id="a-evid" accept="image/*,application/pdf" multiple>'
       +'<label>Nota</label><input id="a-nota">'
       +'<div class="err" id="a-err"></div><button class="btn ok" onclick="accReportar('+id+',this)">Subir evidencia y generar ticket</button></div>';
+  }
+  if(g&&r.reportado_at&&abierto){
+    h+='<div class="act"><h3>✏️ Fecha del reclamo y caso del proveedor</h3><div class="muted">Si el proveedor dio el número después o la fecha quedó mal, corrígelo aquí.</div>'
+      +'<div class="grid2"><div><label>Fecha en que se puso el reclamo</label><input type="date" id="a-frep2" max="'+hoyISO()+'" value="'+fechaLocal(r.reportado_at)+'"></div>'
+      +'<div><label>N° de caso del proveedor</label><input id="a-caso2" value="'+esc(r.proveedor_caso||'')+'"></div></div>'
+      +'<div class="row" style="margin-top:8px"><button class="btn sec sm" onclick="accDatosReclamo('+id+',this)">Guardar</button></div></div>';
   }
   if(g&&(r.estado==='reportado'||r.estado==='visita_agendada')){
     h+='<div class="act"><h3>🗓️ '+(r.estado==='visita_agendada'?'Cambiar fecha de visita':'Agendar visita del técnico')+'</h3><div class="muted">Fecha que dio el proveedor. Un día antes y el mismo día el sistema pide llamar al cliente para que esté pendiente.</div>'
@@ -601,17 +618,29 @@ function copiarCorreo(id){
 async function accReportar(id,btn){
   var f=document.getElementById('a-evid').files,err=document.getElementById('a-err');
   var m=MAILED[id]||val('a-mail');
+  var fr=val('a-frep');
+  if(!fr||fr>hoyISO()){err.textContent='Pon la fecha en que se puso el reclamo al proveedor (no puede ser futura).';return;}
   if(!f.length){err.textContent='Sube la evidencia del reclamo puesto (captura del correo enviado o del chat con el proveedor).';return;}
   btn.disabled=true;btn.textContent='Guardando…';
   try{
     var ev=f.length?await subirArchivos(f,'evidencia/'+id):[];
     var r=RECS.find(function(x){return x.id===id;});
     if(m)guardarCorreoProv(r.proveedor,m);
-    var d=await actualizar(id,{estado:'reportado',evidencia:(r.evidencia||[]).concat(ev),proveedor_caso:val('a-caso')||null,reportado_por:YO.nombre});
-    await evento(id,'reportado',null,'Reportado por correo a '+d.proveedor+(m?' ('+m+')':'')+'. Ticket '+d.ticket+(val('a-nota')?' — '+val('a-nota'):''),{ticket:d.ticket,correo:m||null});
+    var d=await actualizar(id,{estado:'reportado',evidencia:(r.evidencia||[]).concat(ev),proveedor_caso:val('a-caso')||null,reportado_por:YO.nombre,reportado_at:fechaReclamoISO(fr)});
+    await evento(id,'reportado',null,'Reclamo puesto a '+d.proveedor+' el '+fFecha(fr)+(m?' por correo ('+m+')':'')+'. Ticket La Roca '+d.ticket+(d.proveedor_caso?' · caso del proveedor '+d.proveedor_caso:' · el proveedor no dio número')+(val('a-nota')?' — '+val('a-nota'):''),{ticket:d.ticket,correo:m||null});
     await trasAccion(id,'✅ Ticket '+d.ticket+' generado');
     avisoTicket(d);
   }catch(e){err.textContent=e.message;btn.disabled=false;btn.textContent='Subir evidencia y generar ticket';}
+}
+async function accDatosReclamo(id,btn){
+  var r=RECS.find(function(x){return x.id===id;}),f=val('a-frep2'),c=val('a-caso2')||null,ant=fechaLocal(r.reportado_at);
+  if(!f||f>hoyISO()){toast('La fecha no puede estar vacía ni ser futura');return;}
+  if(f===ant&&c===(r.proveedor_caso||null)){toast('No hay cambios');return;}
+  btn.disabled=true;
+  var campos={proveedor_caso:c};if(f!==ant)campos.reportado_at=fechaReclamoISO(f);
+  await actualizar(id,campos);
+  await evento(id,'comentario',null,(f!==ant?'Fecha del reclamo corregida: '+fFecha(ant)+' → '+fFecha(f)+'. ':'')+(c!==(r.proveedor_caso||null)?'Caso del proveedor: '+(c||'sin número'):''));
+  trasAccion(id,'Datos del reclamo actualizados');
 }
 function avisoTicket(r){
   var msg='Hola '+r.cliente_nombre.split(' ')[0]+', le saluda La Roca. Su reclamo de '+(r.producto||'su producto')+' quedó registrado con el ticket '+r.ticket+' y ya fue reportado al proveedor '+r.proveedor+'. Le avisaremos la fecha de visita del técnico. Por favor esté pendiente de su teléfono.';
@@ -796,7 +825,7 @@ function descargarCSV(){
   var l=filtradosDatos();
   var cols=[['Ticket','ticket'],['Estado',function(r){return ESTADOS[r.estado]||r.estado;}],['Sucursal',function(r){return SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal;}],['Proveedor','proveedor'],['Caso proveedor','proveedor_caso'],
     ['Cliente','cliente_nombre'],['Teléfono','telefono'],['Producto','producto'],['Serie','serie'],['Tipo','tipo'],['Presenta','descripcion'],
-    ['Ingresado',function(r){return r.created_at.slice(0,10);}],['Reportado',function(r){return (r.reportado_at||'').slice(0,10);}],['Fecha visita','fecha_visita'],
+    ['Ingresado',function(r){return r.created_at.slice(0,10);}],['Fecha reclamo al proveedor',function(r){return r.reportado_at?fechaLocal(r.reportado_at):'';}],['Fecha visita','fecha_visita'],
     ['Resuelto',function(r){return (r.resuelto_at||'').slice(0,10);}],['Cerrado',function(r){return (r.cerrado_at||'').slice(0,10);}],
     ['Horas para reportar',function(r){return r.reportado_at?Math.round(difDias(r.created_at,r.reportado_at)*24):'';}],
     ['Días para resolver',function(r){var f=r.resuelto_at||r.cerrado_at;return r.reportado_at&&f?Math.round(difDias(r.reportado_at,f)*10)/10:'';}],
