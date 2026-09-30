@@ -436,7 +436,7 @@ var ARQ_URL='https://larocaarqueos-production.up.railway.app';
 var VALE_KEY='fd016a8791ef42ac2774f1a6bd6c03bd2dfda4fc608a611b';
 var ETIQ={'adelantos':'adelantos','vacaciones':'vacaciones','permisos':'permisos','prestamos':'préstamos','incapacidades':'incapacidades'};
 // Reclamos SAC: pendientes del administrador de cada sucursal (mismo mapa que sac/index.html)
-var SAC_ADMIN_SUC={R1:['v_ana'],R2:['v_ana'],R3:['v_mil'],R4:['v_say'],R5:['v_say']},SAC_TODO=['ADMIN','v_joh'];
+var SAC_ADMIN_SUC={R1:['v_ana'],R2:['v_ana'],R3:['v_gab'],R4:['v_kar','v_say'],R5:['v_kar','v_say']},SAC_TODO=['ADMIN','v_joh'];
 async function refreshSac(s){
   var acc=s.accesos_apps||{},todo=SAC_TODO.indexOf(s.codigo)>=0||acc.sac_todo===true;
   var sucs=Object.keys(SAC_ADMIN_SUC).filter(function(k){return todo||SAC_ADMIN_SUC[k].indexOf(s.codigo)>=0;});

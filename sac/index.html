@@ -168,7 +168,7 @@ var SUCS={
   R5:{nombre:'Su Moto Danlí',cartera:'SU_MOTO_DANLI'}
 };
 // Administrador de cada sucursal: recibe la alerta, sube la evidencia al proveedor y da seguimiento.
-var ADMIN_SUC={R1:['v_ana'],R2:['v_ana'],R3:['v_mil'],R4:['v_say'],R5:['v_say']};
+var ADMIN_SUC={R1:['v_ana'],R2:['v_ana'],R3:['v_gab'],R4:['v_kar','v_say'],R5:['v_kar','v_say']};
 // Ven y gestionan todas las sucursales (Jorge, Isis) + quien tenga accesos_apps.sac_todo
 var VER_TODO=['ADMIN','v_joh'];
 // Semáforo (días desde que se reportó al proveedor)
@@ -303,7 +303,7 @@ function render(){
 function irTab(t){TAB=t;render();}
 
 function renderAgenda(){
-  var sucOpts='<option value="">Todas las sucursales</option>'+MIS_SUCS.map(function(s){return '<option value="'+s+'"'+(FIL.suc===s?' selected':'')+'>'+esc(SUCS[s].nombre)+'</option>';}).join('');
+  var sucOpts='<option value="">'+(TODO?'Todas las sucursales':'Mis sucursales')+'</option>'+(TODO?MIS_SUCS:MIS_ADMIN).map(function(s){return '<option value="'+s+'"'+(FIL.suc===s?' selected':'')+'>'+esc(SUCS[s].nombre)+'</option>';}).join('');
   var estOpts=[['abiertos','Abiertos'],['todos','Todos']].concat(Object.keys(ESTADOS).map(function(k){return [k,ESTADOS[k]];}))
     .map(function(o){return '<option value="'+o[0]+'"'+(FIL.estado===o[0]?' selected':'')+'>'+esc(o[1])+'</option>';}).join('');
   var h='<div class="card"><div class="filters">'
@@ -318,7 +318,7 @@ function renderAgenda(){
 }
 function pintarBanner(){
   var el=document.getElementById('banner-ss');if(!el)return;
-  var l=RECS.filter(function(r){return (!FIL.suc||r.sucursal===FIL.suc)&&sinSolucion(r);}).map(sinSolucion);
+  var l=RECS.filter(function(r){return puedeGestionar(r)&&(!FIL.suc||r.sucursal===FIL.suc)&&sinSolucion(r);}).map(sinSolucion);
   if(!l.length){el.innerHTML='';return;}
   var n=[1,2,3].map(function(k){return l.filter(function(x){return x.nivel===k;}).length;});
   el.innerHTML='<div class="ss-ban'+(FSS?' on':'')+'" onclick="FSS=!FSS;pintarLista()"><div><b>🔴 '+l.length+' reclamo'+(l.length>1?'s':'')+' sin solución</b> con más de '+ESC_N[0]+' días desde que se puso el reclamo</div>'
@@ -329,6 +329,7 @@ function pintarLista(){
   pintarBanner();
   var q=FIL.q.trim().toLowerCase();
   var l=RECS.filter(function(r){
+    if(!puedeGestionar(r))return false;
     if(FIL.suc&&r.sucursal!==FIL.suc)return false;
     if(FIL.estado==='abiertos'&&ABIERTOS.indexOf(r.estado)<0)return false;
     if(FIL.estado!=='abiertos'&&FIL.estado!=='todos'&&r.estado!==FIL.estado)return false;
@@ -543,7 +544,7 @@ function thumbs(arr){
   }).join('')+'</div>';
 }
 var DTAB='gen',DID=null;
-var RESP={R1:'Ana',R2:'Ana',R3:'Milagro',R4:'Sayda',R5:'Sayda'};
+var RESP={R1:'Ana',R2:'Ana',R3:'Gabriela',R4:'Karla / Sayda',R5:'Karla / Sayda'};
 function serieKey(x){return String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
 function mismoEquipo(r){
   var k=serieKey(r.serie);
