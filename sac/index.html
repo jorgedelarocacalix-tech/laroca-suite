@@ -741,14 +741,20 @@ function enviarCorreo(id,modo){
   var r=RECS.find(function(x){return x.id===id;}),m=correoDestino();if(!m)return;
   var c=correoTexto(r);
   // Gmail no acepta adjuntos por enlace: se copia el cuerpo con las fotos y se pega con Ctrl+V en el correo
+  // El texto va en el enlace; las fotos se copian primero (antes de abrir Gmail, si no el navegador no deja copiar) y se pegan al final
   if(modo==='gmail'&&(r.fotos||[]).length&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){
-    var html=c.cuerpo.split('\n').filter(function(l){return !/^https?:\/\//.test(l);}).map(function(l){return esc(l);}).join('<br>')
-      .replace('Fotos del reclamo:','Fotos del reclamo:<br>'+r.fotos.map(function(f){return '<img src="'+esc(f.url)+'" width="480" style="max-width:100%;margin:4px 0"><br>';}).join(''));
-    navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([c.cuerpo],{type:'text/plain'})})]).then(function(){
-      toast('Correo con fotos copiado: pega con Ctrl+V en Gmail');
-    },function(){toast('No se pudo copiar con fotos; usa Copiar texto');});
-    window.open('https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(m)+'&su='+encodeURIComponent(c.asunto),'_blank');MAILED[id]=m;guardarCorreoProv(r.proveedor,m);
-    document.getElementById('a-mailok').innerHTML='✅ Gmail abierto para <b>'+esc(m)+'</b>. Haz clic en el cuerpo del correo y pega con <b>Ctrl+V</b> (⌘+V en Mac): entra el texto con las fotos. Envíalo y luego sube la captura como evidencia.';
+    var cuerpo=c.cuerpo.replace(/Fotos del reclamo:\n(https?:\/\/\S+\n)+/,'Fotos del reclamo: van abajo.\n'),ok=document.getElementById('a-mailok');
+    var html=r.fotos.map(function(f){return '<img src="'+esc(f.url)+'" width="480" style="max-width:100%;margin:4px 0"><br>';}).join('');
+    var gmail='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(m)+'&su='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(cuerpo);
+    MAILED[id]=m;guardarCorreoProv(r.proveedor,m);
+    Promise.race([navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([r.fotos.map(function(f){return f.url;}).join('\n')],{type:'text/plain'})})]),
+      new Promise(function(_,no){setTimeout(function(){no(new Error('tiempo'));},1500);})]).then(function(){
+      var w=window.open(gmail,'_blank');
+      ok.innerHTML='✅ Fotos copiadas. En Gmail haz clic al <b>final del correo</b> y pega con <b>Ctrl+V</b> (⌘+V en Mac). Envíalo y luego sube la captura como evidencia.'+(w?'':' <a href="'+gmail+'" target="_blank"><b>Abrir Gmail</b></a>');
+    },function(){
+      window.open(gmail.replace(encodeURIComponent(cuerpo),encodeURIComponent(c.cuerpo)),'_blank');
+      ok.innerHTML='⚠️ No se pudieron copiar las fotos; el correo va con los enlaces. Envíalo y luego sube la captura como evidencia.';
+    });
     return;
   }
   var url=modo==='gmail'?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(m)+'&su='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(c.cuerpo)
