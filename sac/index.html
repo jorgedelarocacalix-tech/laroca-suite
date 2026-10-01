@@ -561,6 +561,7 @@ function abrir(id,tab){
   if(DID!==id){DTAB='gen';DID=id;}
   if(tab)DTAB=tab;
   var evs=EVS[id]||[],g=puedeGestionar(r),al=alertas(r),eq=mismoEquipo(r);
+  if(g&&r.estado==='ingresado'&&(r.fotos||[]).length)fotosArchivos(r).catch(function(){delete FOTOS_F[r.id];});
   var wa=telLimpio(r.telefono),suc=SUCS[r.sucursal]?SUCS[r.sucursal].nombre:r.sucursal;
   var ACT_T=['llamada','visita_agendada','visita_realizada','visita_fallida','comentario','fecha_estimada'];
   var acts=evs.filter(function(e){return ACT_T.indexOf(e.tipo)>=0;});
@@ -661,6 +662,8 @@ function acciones(r,g,tab){
       +'<label>Correo de reclamos de '+esc(r.proveedor)+' <span class="req">*</span></label><input id="a-mail" type="email" value="'+esc(PROV_MAIL[r.proveedor]||'')+'" placeholder="servicio@proveedor.com">'
       +'<div class="muted" style="margin-top:4px">'+(PROV_MAIL[r.proveedor]?'Guardado para este proveedor. Si cambia, escríbelo y se actualiza.':'Se guarda para la próxima vez con este proveedor.')+'</div>'
       +'<div class="row" style="margin-top:10px"><button class="btn" onclick="enviarCorreo('+id+',\'gmail\')">✉️ Abrir en Gmail</button><button class="btn sec" onclick="enviarCorreo('+id+',\'app\')">Abrir en app de correo</button><button class="btn sec" onclick="copiarCorreo('+id+')">📋 Copiar texto</button></div>'
+      +((r.fotos||[]).length?'<div class="row" style="margin-top:8px">'+(navigator.canShare?'<button class="btn" onclick="compartirConFotos('+id+')">📎 Enviar con fotos adjuntas</button>':'')+'<button class="btn sec" onclick="descargarFotos('+id+')">⬇️ Descargar fotos ('+r.fotos.length+')</button></div>'
+        +'<div class="muted" style="margin-top:4px">Gmail no deja adjuntar desde un enlace. <b>En el celular</b> usa <b>Enviar con fotos adjuntas</b> y elige Gmail (el correo del proveedor queda copiado para pegarlo en <i>Para</i>). <b>En la computadora</b> descarga las fotos y arrástralas al correo.</div>':'')
       +'<div id="a-mailok" class="muted" style="margin-top:6px"></div>'
       +'<div class="grid2"><div><label>Fecha en que se puso el reclamo <span class="req">*</span></label><input type="date" id="a-frep" max="'+hoyISO()+'" value="'+hoyISO()+'"></div>'
       +'<div><label>N° de caso del proveedor (si lo dio)</label><input id="a-caso" placeholder="Déjalo vacío si no dan número"></div></div>'
@@ -741,6 +744,37 @@ function enviarCorreo(id,modo){
     :'mailto:'+m+'?subject='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(c.cuerpo);
   window.open(url,'_blank');MAILED[id]=m;guardarCorreoProv(r.proveedor,m);
   document.getElementById('a-mailok').innerHTML='✅ Correo abierto para <b>'+esc(m)+'</b>. Envíalo y luego sube la captura como evidencia.';
+}
+// Fotos reales del reclamo como File (para adjuntarlas). Se precargan al abrir el reclamo para que compartir no pierda el gesto del usuario.
+var FOTOS_F={};
+function fotosArchivos(r){
+  if(!FOTOS_F[r.id])FOTOS_F[r.id]=Promise.all((r.fotos||[]).map(function(f,i){
+    return fetch(f.url).then(function(x){return x.blob();}).then(function(b){
+      var ext=(b.type.split('/')[1]||'jpg').replace('jpeg','jpg');
+      return new File([b],(r.ticket||'reclamo-'+r.id)+'-foto'+(i+1)+'.'+ext,{type:b.type||'image/jpeg'});
+    });
+  }));
+  return FOTOS_F[r.id];
+}
+async function compartirConFotos(id){
+  var r=RECS.find(function(x){return x.id===id;}),m=correoDestino();if(!m)return;
+  var c=correoTexto(r);
+  try{await navigator.clipboard.writeText(m);}catch(e){}
+  try{
+    var files=await fotosArchivos(r);
+    if(!navigator.canShare({files:files})){toast('Este dispositivo no permite compartir fotos. Usa Descargar fotos.');return;}
+    await navigator.share({files:files,title:c.asunto,text:c.cuerpo.replace(/\nFotos del reclamo:[\s\S]*?\n\n/,'\nFotos: adjuntas.\n\n')});
+    MAILED[id]=m;guardarCorreoProv(r.proveedor,m);
+    document.getElementById('a-mailok').innerHTML='✅ Fotos compartidas. Envía el correo a <b>'+esc(m)+'</b> y luego sube la captura como evidencia.';
+  }catch(e){if(e&&e.name!=='AbortError')toast('No se pudo compartir: '+(e.message||e));}
+}
+async function descargarFotos(id){
+  var r=RECS.find(function(x){return x.id===id;});
+  try{
+    var files=await fotosArchivos(r);
+    files.forEach(function(f,i){setTimeout(function(){var a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();},i*300);});
+    toast(files.length+' foto(s) descargada(s). Arrástralas al correo.');
+  }catch(e){toast('No se pudieron descargar las fotos');}
 }
 function copiarCorreo(id){
   var r=RECS.find(function(x){return x.id===id;}),c=correoTexto(r),m=val('a-mail');
