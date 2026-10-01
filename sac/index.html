@@ -204,7 +204,7 @@ function puedeVer(r){return TODO||MIS_SUCS.indexOf(r.sucursal)>=0||r.creado_por_
 
 // ══ Estado ══
 var FSS=false;
-var RECS=[],EVS={},PROVS=[],PROV_MAIL={},MAILED={},TAB=ADMINV?'agenda':'nuevo',FIL={suc:'',estado:'abiertos',q:'',alertas:false};
+var RECS=[],EVS={},PROVS=[],PROV_MAIL={},PROV_CC={},MAILED={},TAB=ADMINV?'agenda':'nuevo',FIL={suc:'',estado:'abiertos',q:'',alertas:false};
 
 // ══ Utilidades ══
 function uniq(a){return a.filter(function(x,i){return a.indexOf(x)===i;});}
@@ -282,8 +282,8 @@ async function cargar(){
     (r2.data||[]).forEach(function(e){(EVS[e.reclamo_id]=EVS[e.reclamo_id]||[]).push(e);});
   }
   if(!PROVS.length){
-    var r3=await sb.from('ft_proveedores_catalogo').select('nombre,categoria,correo_reclamos').eq('activo',true).order('nombre');
-    PROVS=(r3.data||[]).map(function(p){if(p.correo_reclamos)PROV_MAIL[p.nombre]=p.correo_reclamos;return p.nombre;});
+    var r3=await sb.from('ft_proveedores_catalogo').select('nombre,categoria,correo_reclamos,correo_reclamos_cc').eq('activo',true).order('nombre');
+    PROVS=(r3.data||[]).map(function(p){if(p.correo_reclamos)PROV_MAIL[p.nombre]=p.correo_reclamos;if(p.correo_reclamos_cc)PROV_CC[p.nombre]=p.correo_reclamos_cc;return p.nombre;});
   }
   render();
 }
@@ -660,6 +660,7 @@ function acciones(r,g,tab){
   if(tab==='gen'&&g&&r.estado==='ingresado'){
     h+='<div class="act"><h3>📧 Reportar al proveedor por correo</h3><div class="muted"><b>Paso 1:</b> envía el correo (ya va redactado con todos los datos y los enlaces a las fotos). <b>Paso 2:</b> sube la evidencia del reclamo puesto (captura del correo enviado o del chat). <b>Paso 3:</b> genera el ticket del cliente.</div>'
       +'<label>Correo de reclamos de '+esc(r.proveedor)+' <span class="req">*</span></label><input id="a-mail" type="email" value="'+esc(PROV_MAIL[r.proveedor]||'')+'" placeholder="servicio@proveedor.com">'
+      +(function(){var cc=(PROV_CC[r.proveedor]||'').split(',');return '<div class="grid2"><div><label>CC 1 (opcional)</label><input id="a-cc1" type="email" value="'+esc(cc[0]||'')+'" placeholder="copia@proveedor.com"></div><div><label>CC 2 (opcional)</label><input id="a-cc2" type="email" value="'+esc(cc[1]||'')+'" placeholder="copia@proveedor.com"></div></div>';})()
       +'<div class="muted" style="margin-top:4px">'+(PROV_MAIL[r.proveedor]?'Guardado para este proveedor. Si cambia, escríbelo y se actualiza.':'Se guarda para la próxima vez con este proveedor.')+'</div>'
       +'<div class="row" style="margin-top:10px"><button class="btn" onclick="enviarCorreo('+id+',\'gmail\')">✉️ Abrir en Gmail</button><button class="btn sec" onclick="enviarCorreo('+id+',\'app\')">Abrir en app de correo</button><button class="btn sec" onclick="copiarCorreo('+id+')">📋 Copiar texto</button></div>'
       +((r.fotos||[]).length?'<div class="row" style="margin-top:8px">'+(navigator.canShare?'<button class="btn" onclick="compartirConFotos('+id+')">📎 Enviar con fotos adjuntas</button>':'')+'<button class="btn sec" onclick="descargarFotos('+id+')">⬇️ Descargar fotos ('+r.fotos.length+')</button></div>'
@@ -735,8 +736,12 @@ function correoTexto(r){
   L.push('Quedamos atentos al número de caso y a la fecha de visita del técnico. Por favor avisar al cliente antes de llegar.','','Saludos,',YO.nombre,'Corporación La Roca');
   return {asunto:asunto,cuerpo:L.join('\n')};
 }
-function correoDestino(){var m=val('a-mail');if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)){document.getElementById('a-err').textContent='Escribe el correo de reclamos del proveedor.';return null;}document.getElementById('a-err').textContent='';return m;}
-async function guardarCorreoProv(prov,m){if(PROV_MAIL[prov]===m)return;PROV_MAIL[prov]=m;try{await sb.from('ft_proveedores_catalogo').update({correo_reclamos:m}).eq('nombre',prov);}catch(e){}}
+var MAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+function correoDestino(){var m=val('a-mail'),e=document.getElementById('a-err');if(!MAIL_RE.test(m)){e.textContent='Escribe el correo de reclamos del proveedor.';return null;}
+  if(correosCC().some(function(c){return !MAIL_RE.test(c);})){e.textContent='Revisa los correos en CC.';return null;}e.textContent='';return m;}
+function correosCC(){return [val('a-cc1'),val('a-cc2')].filter(function(c){return c;});}
+function ccParam(sep){var cc=correosCC().join(',');return cc?sep+'cc='+encodeURIComponent(cc):'';}
+async function guardarCorreoProv(prov,m){var cc=correosCC().join(',');if(PROV_MAIL[prov]===m&&(PROV_CC[prov]||'')===cc)return;PROV_MAIL[prov]=m;PROV_CC[prov]=cc;try{await sb.from('ft_proveedores_catalogo').update({correo_reclamos:m,correo_reclamos_cc:cc||null}).eq('nombre',prov);}catch(e){}}
 function enviarCorreo(id,modo){
   var r=RECS.find(function(x){return x.id===id;}),m=correoDestino();if(!m)return;
   var c=correoTexto(r);
@@ -745,7 +750,7 @@ function enviarCorreo(id,modo){
   if(modo==='gmail'&&(r.fotos||[]).length&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){
     var cuerpo=c.cuerpo.replace(/Fotos del reclamo:\n(https?:\/\/\S+\n)+/,'Fotos del reclamo: van abajo.\n'),ok=document.getElementById('a-mailok');
     var html=r.fotos.map(function(f){return '<img src="'+esc(f.url)+'" width="480" style="max-width:100%;margin:4px 0"><br>';}).join('');
-    var gmail='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(m)+'&su='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(cuerpo);
+    var gmail='https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(m)+ccParam('&')+'&su='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(cuerpo);
     MAILED[id]=m;guardarCorreoProv(r.proveedor,m);
     Promise.race([navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([r.fotos.map(function(f){return f.url;}).join('\n')],{type:'text/plain'})})]),
       new Promise(function(_,no){setTimeout(function(){no(new Error('tiempo'));},1500);})]).then(function(){
@@ -757,10 +762,10 @@ function enviarCorreo(id,modo){
     });
     return;
   }
-  var url=modo==='gmail'?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(m)+'&su='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(c.cuerpo)
-    :'mailto:'+m+'?subject='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(c.cuerpo);
+  var url=modo==='gmail'?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(m)+ccParam('&')+'&su='+encodeURIComponent(c.asunto)+'&body='+encodeURIComponent(c.cuerpo)
+    :'mailto:'+m+'?subject='+encodeURIComponent(c.asunto)+ccParam('&')+'&body='+encodeURIComponent(c.cuerpo);
   window.open(url,'_blank');MAILED[id]=m;guardarCorreoProv(r.proveedor,m);
-  document.getElementById('a-mailok').innerHTML='✅ Correo abierto para <b>'+esc(m)+'</b>. Envíalo y luego sube la captura como evidencia.';
+  document.getElementById('a-mailok').innerHTML='✅ Correo abierto para <b>'+esc(m)+'</b>'+(correosCC().length?' con copia a <b>'+esc(correosCC().join(', '))+'</b>':'')+'. Envíalo y luego sube la captura como evidencia.';
 }
 // Fotos reales del reclamo como File (para adjuntarlas). Se precargan al abrir el reclamo para que compartir no pierda el gesto del usuario.
 var FOTOS_F={};
@@ -782,7 +787,7 @@ async function compartirConFotos(id){
     if(!navigator.canShare({files:files})){toast('Este dispositivo no permite compartir fotos. Usa Descargar fotos.');return;}
     await navigator.share({files:files,title:c.asunto,text:c.cuerpo.replace(/\nFotos del reclamo:[\s\S]*?\n\n/,'\nFotos: adjuntas.\n\n')});
     MAILED[id]=m;guardarCorreoProv(r.proveedor,m);
-    document.getElementById('a-mailok').innerHTML='✅ Fotos compartidas. Envía el correo a <b>'+esc(m)+'</b> y luego sube la captura como evidencia.';
+    document.getElementById('a-mailok').innerHTML='✅ Fotos compartidas. Envía el correo a <b>'+esc(m)+'</b>'+(correosCC().length?' con copia a <b>'+esc(correosCC().join(', '))+'</b>':'')+' y luego sube la captura como evidencia.';
   }catch(e){if(e&&e.name!=='AbortError')toast('No se pudo compartir: '+(e.message||e));}
 }
 async function descargarFotos(id){
@@ -795,7 +800,7 @@ async function descargarFotos(id){
 }
 function copiarCorreo(id){
   var r=RECS.find(function(x){return x.id===id;}),c=correoTexto(r),m=val('a-mail');
-  var t='Para: '+(m||'')+'\nAsunto: '+c.asunto+'\n\n'+c.cuerpo;
+  var t='Para: '+(m||'')+(correosCC().length?'\nCC: '+correosCC().join(', '):'')+'\nAsunto: '+c.asunto+'\n\n'+c.cuerpo;
   (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){toast('Texto del correo copiado');},function(){toast('No se pudo copiar');});
   if(m&&correoDestino()){MAILED[id]=m;guardarCorreoProv(r.proveedor,m);}
 }
