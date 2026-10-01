@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
-<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>La Roca — Análisis de Cierre Junio 2026</title>
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<title>La Roca — Análisis de Cierre</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js" onerror=""></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -135,7 +135,7 @@ tr.suc-r5 td:first-child{border-left:3px solid #E67E22}
     <p id="hdrSub">Corporación La Roca · Inversiones Calix · Honduras</p>
   </div>
   <div class="hdr-right">
-    <span style="font-size:11px;color:#aaa;background:#2C2C2A;padding:4px 10px;border-radius:6px">Cierre Junio 2026</span>
+    <span id="hdrMes" style="font-size:11px;color:#aaa;background:#2C2C2A;padding:4px 10px;border-radius:6px">Cargando…</span>
     <span id="sesionChip" style="font-size:11px;color:#ddd;background:#2C2C2A;padding:4px 10px;border-radius:6px"></span>
     <button class="ctl" id="btnCargar" onclick="cargarTodo()">↺ Cargar datos</button>
   </div>
@@ -163,78 +163,40 @@ tr.suc-r5 td:first-child{border-left:3px solid #E67E22}
 
   <!-- ══ VENTAS / VENDEDORES ══════════════════════════════════ -->
   <div class="panel" id="panel-ventas">
-    <!-- Month toggle -->
-    <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+    <!-- Month toggle (generado dinámicamente en JS) -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap" id="ventasMesButtons">
       <span style="font-size:11px;font-weight:700;color:var(--texto2);text-transform:uppercase;letter-spacing:.06em">Ver:</span>
-      <button class="mes-btn" onclick="ventasMes('jun',this)">📋 Junio 2026 (Cierre)</button>
-      <button class="mes-btn active" onclick="ventasMes('jul',this)">📈 Julio 2026 (Seguimiento)</button>
     </div>
 
-    <!-- JUNIO uploads + data -->
-    <div id="vent-jun" style="display:none">
-      <div class="stitle">Subir reportes de ventas Junio 2026 — una por sucursal</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:14px">
-        <label class="upload-zone" id="zoneV-R1" ondragover="dov(event,'zoneV-R1')" ondragleave="dol('zoneV-R1')" ondrop="dod(event,'fV-R1','zoneV-R1')" style="padding:10px">
-          <div style="font-weight:700;color:var(--azul)">R1</div><div style="font-size:11px;color:var(--texto2)">La Roca Comercial</div>
-          <div class="file-sel" id="fV-R1-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fV-R1" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R1','fV-R1-name','zoneV-R1');parseVentasSuc('R1')"/>
-        </label>
-        <label class="upload-zone" id="zoneV-R2" ondragover="dov(event,'zoneV-R2')" ondragleave="dol('zoneV-R2')" ondrop="dod(event,'fV-R2','zoneV-R2')" style="padding:10px">
-          <div style="font-weight:700;color:var(--azul)">R2</div><div style="font-size:11px;color:var(--texto2)">Roca 1 Inverca</div>
-          <div class="file-sel" id="fV-R2-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fV-R2" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R2','fV-R2-name','zoneV-R2');parseVentasSuc('R2')"/>
-        </label>
-        <label class="upload-zone" id="zoneV-R3" ondragover="dov(event,'zoneV-R3')" ondragleave="dol('zoneV-R3')" ondrop="dod(event,'fV-R3','zoneV-R3')" style="padding:10px">
-          <div style="font-weight:700;color:var(--azul)">R3</div><div style="font-size:11px;color:var(--texto2)">La Roca Motor 2</div>
-          <div class="file-sel" id="fV-R3-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fV-R3" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R3','fV-R3-name','zoneV-R3');parseVentasSuc('R3')"/>
-        </label>
-        <label class="upload-zone" id="zoneV-R4" ondragover="dov(event,'zoneV-R4')" ondragleave="dol('zoneV-R4')" ondrop="dod(event,'fV-R4','zoneV-R4')" style="padding:10px">
-          <div style="font-weight:700;color:var(--azul)">R4</div><div style="font-size:11px;color:var(--texto2)">Su Mueble Danlí</div>
-          <div class="file-sel" id="fV-R4-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fV-R4" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R4','fV-R4-name','zoneV-R4');parseVentasSuc('R4')"/>
-        </label>
-        <label class="upload-zone" id="zoneV-R5" ondragover="dov(event,'zoneV-R5')" ondragleave="dol('zoneV-R5')" ondrop="dod(event,'fV-R5','zoneV-R5')" style="padding:10px">
-          <div style="font-weight:700;color:var(--azul)">R5</div><div style="font-size:11px;color:var(--texto2)">Su Moto Danlí</div>
-          <div class="file-sel" id="fV-R5-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fV-R5" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R5','fV-R5-name','zoneV-R5');parseVentasSuc('R5')"/>
-        </label>
-      </div>
-      <div id="ventasBody"></div>
+    <div class="stitle" id="ventasUploadTitle">Subir reportes de ventas — una por sucursal</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:14px">
+      <label class="upload-zone" id="zoneV-R1" ondragover="dov(event,'zoneV-R1')" ondragleave="dol('zoneV-R1')" ondrop="dod(event,'fV-R1','zoneV-R1')" style="padding:10px">
+        <div style="font-weight:700;color:var(--azul)">R1</div><div style="font-size:11px;color:var(--texto2)">La Roca Comercial</div>
+        <div class="file-sel" id="fV-R1-name" style="font-size:10px;margin-top:4px"></div>
+        <input type="file" id="fV-R1" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R1','fV-R1-name','zoneV-R1');parseVentasSuc('R1')"/>
+      </label>
+      <label class="upload-zone" id="zoneV-R2" ondragover="dov(event,'zoneV-R2')" ondragleave="dol('zoneV-R2')" ondrop="dod(event,'fV-R2','zoneV-R2')" style="padding:10px">
+        <div style="font-weight:700;color:var(--azul)">R2</div><div style="font-size:11px;color:var(--texto2)">Roca 1 Inverca</div>
+        <div class="file-sel" id="fV-R2-name" style="font-size:10px;margin-top:4px"></div>
+        <input type="file" id="fV-R2" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R2','fV-R2-name','zoneV-R2');parseVentasSuc('R2')"/>
+      </label>
+      <label class="upload-zone" id="zoneV-R3" ondragover="dov(event,'zoneV-R3')" ondragleave="dol('zoneV-R3')" ondrop="dod(event,'fV-R3','zoneV-R3')" style="padding:10px">
+        <div style="font-weight:700;color:var(--azul)">R3</div><div style="font-size:11px;color:var(--texto2)">La Roca Motor 2</div>
+        <div class="file-sel" id="fV-R3-name" style="font-size:10px;margin-top:4px"></div>
+        <input type="file" id="fV-R3" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R3','fV-R3-name','zoneV-R3');parseVentasSuc('R3')"/>
+      </label>
+      <label class="upload-zone" id="zoneV-R4" ondragover="dov(event,'zoneV-R4')" ondragleave="dol('zoneV-R4')" ondrop="dod(event,'fV-R4','zoneV-R4')" style="padding:10px">
+        <div style="font-weight:700;color:var(--azul)">R4</div><div style="font-size:11px;color:var(--texto2)">Su Mueble Danlí</div>
+        <div class="file-sel" id="fV-R4-name" style="font-size:10px;margin-top:4px"></div>
+        <input type="file" id="fV-R4" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R4','fV-R4-name','zoneV-R4');parseVentasSuc('R4')"/>
+      </label>
+      <label class="upload-zone" id="zoneV-R5" ondragover="dov(event,'zoneV-R5')" ondragleave="dol('zoneV-R5')" ondrop="dod(event,'fV-R5','zoneV-R5')" style="padding:10px">
+        <div style="font-weight:700;color:var(--azul)">R5</div><div style="font-size:11px;color:var(--texto2)">Su Moto Danlí</div>
+        <div class="file-sel" id="fV-R5-name" style="font-size:10px;margin-top:4px"></div>
+        <input type="file" id="fV-R5" accept=".xlsx,.xls,.csv" onchange="fileChg('fV-R5','fV-R5-name','zoneV-R5');parseVentasSuc('R5')"/>
+      </label>
     </div>
-
-    <!-- JULIO uploads + data -->
-    <div id="vent-jul">
-      <div class="stitle">Subir reportes de ventas Julio 2026 — una por sucursal (se guarda, no re-subir cada día)</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:14px">
-        <label class="upload-zone" id="zoneVJ-R1" ondragover="dov(event,'zoneVJ-R1')" ondragleave="dol('zoneVJ-R1')" ondrop="dod(event,'fVJ-R1','zoneVJ-R1')" style="padding:10px">
-          <div style="font-weight:700;color:var(--verde)">R1</div><div style="font-size:11px;color:var(--texto2)">La Roca Comercial</div>
-          <div class="file-sel" id="fVJ-R1-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fVJ-R1" accept=".xlsx,.xls,.csv" onchange="fileChg('fVJ-R1','fVJ-R1-name','zoneVJ-R1');parseVentasSucJul('R1')"/>
-        </label>
-        <label class="upload-zone" id="zoneVJ-R2" ondragover="dov(event,'zoneVJ-R2')" ondragleave="dol('zoneVJ-R2')" ondrop="dod(event,'fVJ-R2','zoneVJ-R2')" style="padding:10px">
-          <div style="font-weight:700;color:var(--verde)">R2</div><div style="font-size:11px;color:var(--texto2)">Roca 1 Inverca</div>
-          <div class="file-sel" id="fVJ-R2-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fVJ-R2" accept=".xlsx,.xls,.csv" onchange="fileChg('fVJ-R2','fVJ-R2-name','zoneVJ-R2');parseVentasSucJul('R2')"/>
-        </label>
-        <label class="upload-zone" id="zoneVJ-R3" ondragover="dov(event,'zoneVJ-R3')" ondragleave="dol('zoneVJ-R3')" ondrop="dod(event,'fVJ-R3','zoneVJ-R3')" style="padding:10px">
-          <div style="font-weight:700;color:var(--verde)">R3</div><div style="font-size:11px;color:var(--texto2)">La Roca Motor 2</div>
-          <div class="file-sel" id="fVJ-R3-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fVJ-R3" accept=".xlsx,.xls,.csv" onchange="fileChg('fVJ-R3','fVJ-R3-name','zoneVJ-R3');parseVentasSucJul('R3')"/>
-        </label>
-        <label class="upload-zone" id="zoneVJ-R4" ondragover="dov(event,'zoneVJ-R4')" ondragleave="dol('zoneVJ-R4')" ondrop="dod(event,'fVJ-R4','zoneVJ-R4')" style="padding:10px">
-          <div style="font-weight:700;color:var(--verde)">R4</div><div style="font-size:11px;color:var(--texto2)">Su Mueble Danlí</div>
-          <div class="file-sel" id="fVJ-R4-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fVJ-R4" accept=".xlsx,.xls,.csv" onchange="fileChg('fVJ-R4','fVJ-R4-name','zoneVJ-R4');parseVentasSucJul('R4')"/>
-        </label>
-        <label class="upload-zone" id="zoneVJ-R5" ondragover="dov(event,'zoneVJ-R5')" ondragleave="dol('zoneVJ-R5')" ondrop="dod(event,'fVJ-R5','zoneVJ-R5')" style="padding:10px">
-          <div style="font-weight:700;color:var(--verde)">R5</div><div style="font-size:11px;color:var(--texto2)">Su Moto Danlí</div>
-          <div class="file-sel" id="fVJ-R5-name" style="font-size:10px;margin-top:4px"></div>
-          <input type="file" id="fVJ-R5" accept=".xlsx,.xls,.csv" onchange="fileChg('fVJ-R5','fVJ-R5-name','zoneVJ-R5');parseVentasSucJul('R5')"/>
-        </label>
-      </div>
-      <div id="ventasJulBody"><div class="loading-state">Sube el Excel de ventas julio de cada sucursal, o carga datos para autodetectar.</div></div>
-    </div>
+    <div id="ventasBody"><div class="loading-state">Cargando…</div></div>
   </div>
 
   <!-- ══ INVENTARIO ══════════════════════════════════════════ -->
@@ -277,7 +239,21 @@ tr.suc-r5 td:first-child{border-left:3px solid #E67E22}
 
   <!-- ══ PROYECCIÓN ══════════════════════════════════════════ -->
   <div class="panel" id="panel-proyeccion">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button onclick="exportarProyeccion()" style="padding:7px 16px;background:var(--verde);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">⬇ Descargar proyección (Excel)</button>
+    </div>
     <div id="proyBody"><div class="loading-state">Cargando proyección…</div></div>
+
+    <div class="stitle" style="margin-top:24px">Mi Proyección (Excel propio, separado de Cobranza)</div>
+    <div class="abox info" style="margin-bottom:10px">Este Excel lo llenan los empleados aparte y no se compara ni se mezcla con la proyección de Cobranza — queda guardado como su propia sección.</div>
+    <label class="upload-zone" id="zoneProy" ondragover="dov(event,'zoneProy')" ondragleave="dol('zoneProy')" ondrop="dod(event,'fProy','zoneProy')" style="max-width:320px">
+      <div class="upload-ico">📊</div>
+      <div class="upload-lbl">Subir / reemplazar Mi Proyección</div>
+      <div class="upload-hint">Columnas: Cliente, Sucursal (opcional), Día proyectado, Monto proyectado</div>
+      <div class="file-sel" id="fProy-name"></div>
+      <input type="file" id="fProy" accept=".xlsx,.xls,.csv" onchange="fileChg('fProy','fProy-name','zoneProy');parseProyeccionManual()"/>
+    </label>
+    <div id="proyManualBody"></div>
   </div>
 
 </div><!-- /content -->
@@ -344,11 +320,12 @@ function mostrarLogin(){
     document.getElementById('gate').remove();
     SUCORDER = SESION.sucursales;
     pintarSesion();
-    cargarTodo();
+    cargarTodo().then(aplicarParamsURL);
   };
   document.getElementById('g-btn').onclick=doIt;
   document.getElementById('g-pin').addEventListener('keydown',e=>{if(e.key==='Enter')doIt();});
 }
+
 
 // ── Helpers ──────────────────────────────────────────────────
 const fmt  = n => n==null?'—':'L '+Number(n).toLocaleString('es-HN',{minimumFractionDigits:0,maximumFractionDigits:0});
@@ -409,11 +386,27 @@ const CARTERA_TO_SUC = {
   SU_MUEBLE:'R4'
 };
 
+// ── Utilidades de mes (dinámico — nunca hardcodear el mes) ────
+const MES_NOMBRES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function mesKeyOf(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function mesLabel(key){ const [y,m]=key.split('-').map(Number); return `${MES_NOMBRES[m-1]} ${y}`; }
+function prevMesKey(key){ const [y,m]=key.split('-').map(Number); const d=new Date(y,m-2,1); return mesKeyOf(d); }
+function rangoDelMes(key){
+  const [y,m]=key.split('-').map(Number);
+  const desde = `${key}-01`;
+  const ultimoDia = new Date(y,m,0).getDate();
+  const hasta = `${key}-${String(ultimoDia).padStart(2,'0')}`;
+  return {desde,hasta,ultimoDia};
+}
+const MES_ACTUAL = mesKeyOf(new Date());
+
 // ── State ────────────────────────────────────────────────────
-let arqueos = [];
-let arqueosJulio = [];
+let arqueosPorMes = {};   // {'2026-06':[...], '2026-07':[...], ...}
+let mesesConDatos = [];   // ['2026-06','2026-07','2026-08'] orden cronológico
 let carteras = [];
 let proyeccion = [];
+let proyeccionMesKey = MES_ACTUAL;
+let resumenVista = MES_ACTUAL;   // mes_key seleccionado, o 'GENERAL'
 let xlsVentas = null;
 let xlsInv = null;
 
@@ -421,8 +414,25 @@ let xlsInv = null;
 function showTab(id, el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
-  el.classList.add('on');
+  if(!el) el = Array.from(document.querySelectorAll('.tab')).find(t=>t.getAttribute('onclick').includes(`'${id}'`));
+  if(el) el.classList.add('on');
   document.getElementById('panel-'+id).classList.add('on');
+}
+
+// ── Deep link desde otras apps (ej. Analisis por Equipo): ?tab=ventas&suc=R1&mes=2026-08 ──
+function aplicarParamsURL(){
+  const params = new URLSearchParams(location.search);
+  const tab = params.get('tab');
+  const mes = params.get('mes');
+  const suc = params.get('suc');
+  if(mes) selectVentasMes(mes);
+  if(tab) showTab(tab);
+  if(suc){
+    setTimeout(()=>{
+      const target = document.getElementById('suc-'+suc);
+      if(target) target.scrollIntoView({behavior:'smooth',block:'start'});
+    }, 300);
+  }
 }
 
 // ── Load all ─────────────────────────────────────────────────
@@ -430,51 +440,49 @@ async function cargarTodo(){
   const btn = document.getElementById('btnCargar');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
-    await Promise.all([fetchArqueos(), fetchArqueosJulio(), fetchCarteras(), fetchProyeccion(), loadFromSupabase()]);
+    await Promise.all([fetchArqueosDesde('2026-06-01'), fetchCarteras(), fetchProyeccion(MES_ACTUAL), fetchProyeccionManual(MES_ACTUAL), loadFromSupabase()]);
+    resumenVista = MES_ACTUAL;
     renderResumen();
     renderCXC();
     renderProyeccion();
+    renderProyeccionManual();
+    renderVentasMesBtns();
+    renderVentasAll();
   } catch(e){ alert('Error cargando datos: '+e.message); }
   btn.disabled = false; btn.innerHTML = '↺ Cargar datos';
 }
 
-// ── Fetch arqueos — solo Junio 2026, última versión por día ──
-async function fetchArqueos(){
-  const { data, error } = await sb
-    .from('arqueos')
-    .select('id,sucursal,fecha,cobrado,gastos,depositado,diferencia,estado,analisis_json,alertas,version')
-    .gte('fecha','2026-06-01')
-    .lte('fecha','2026-06-30')
-    .order('fecha',{ascending:false})
-    .order('version',{ascending:false});
-  if(error) throw error;
-
-  // Dedup: quedarse solo con la versión más reciente por sucursal+fecha
+// Dedup: quedarse solo con la versión más reciente por sucursal+fecha
+function dedupArqueos(rows){
   const seen = new Map();
-  for(const a of (data||[])){
+  for(const a of (rows||[])){
     const key = `${a.sucursal}_${a.fecha}`;
     if(!seen.has(key)) seen.set(key, a);
   }
-  arqueos = [...seen.values()];
+  return [...seen.values()];
 }
 
-// ── Fetch arqueos Julio 2026 — seguimiento diario ────────────
-async function fetchArqueosJulio(){
+// ── Fetch arqueos — desde una fecha hasta hoy, agrupados por mes ──
+async function fetchArqueosDesde(fechaInicio){
   const hoy = new Date().toISOString().slice(0,10);
   const { data, error } = await sb
     .from('arqueos')
-    .select('id,sucursal,fecha,cobrado,gastos,depositado,analisis_json,version')
-    .gte('fecha','2026-07-01')
+    .select('id,sucursal,fecha,cobrado,gastos,depositado,diferencia,estado,analisis_json,alertas,version')
+    .gte('fecha', fechaInicio)
     .lte('fecha', hoy)
     .order('fecha',{ascending:false})
     .order('version',{ascending:false});
   if(error) throw error;
-  const seen = new Map();
-  for(const a of (data||[])){
-    const key = `${a.sucursal}_${a.fecha}`;
-    if(!seen.has(key)) seen.set(key, a);
+
+  const porMes = {};
+  for(const a of dedupArqueos(data)){
+    const mk = a.fecha.slice(0,7);
+    if(!porMes[mk]) porMes[mk] = [];
+    porMes[mk].push(a);
   }
-  arqueosJulio = [...seen.values()];
+  arqueosPorMes = porMes;
+  mesesConDatos = Object.keys(porMes).sort();
+  if(!mesesConDatos.includes(MES_ACTUAL)) mesesConDatos.push(MES_ACTUAL);
 }
 
 // ── Fetch carteras — estado actual ───────────────────────────
@@ -484,70 +492,100 @@ async function fetchCarteras(){
   carteras = data || [];
 }
 
-// ── Fetch cierre_proyeccion — solo Julio 2026 ────────────────
-async function fetchProyeccion(){
+// ── Fetch cierre_proyeccion — para un mes_key dado ───────────
+async function fetchProyeccion(mesKey){
   const { data, error } = await sb
     .from('cierre_proyeccion')
     .select('cartera_id,mes_key,datos,cerrado_por,cerrado_at')
-    .eq('mes_key','2026-07');
+    .eq('mes_key', mesKey);
   if(error) throw error;
   proyeccion = data || [];
+  proyeccionMesKey = mesKey;
+}
+
+// ── Carteras que faltan por cerrar un mes en Cobranza ────────
+function carterasFaltantes(mesKey, proyList){
+  const cerradas = new Set((proyList||[]).map(p=>p.cartera_id));
+  return Object.keys(CARTERA_TO_SUC).filter(id=>!cerradas.has(id));
+}
+function avisoCarterasFaltantes(mesKey, proyList){
+  const faltan = carterasFaltantes(mesKey, proyList);
+  let h = '';
+  if(faltan.length){
+    const nombres = faltan.map(id=>`${CARTERA_TO_SUC[id]} ${CARTERA_NAMES[id]||id}`).join(', ');
+    h += `<div class="abox warning">⚠ Falta cerrar el mes de <b>${mesLabel(mesKey)}</b> en la app de Cobranza para: ${nombres}. La proyección de estas sucursales no se refleja aquí hasta que se cierren allá.</div>`;
+  }
+  // Carteras cerradas pero sin día/monto de cobro proyectado por cliente
+  const sinDatos = (proyList||[]).filter(item=>{
+    const datos = item.datos||[];
+    return datos.length && datos.every(c=>!Number(c.montoAsesor||0));
+  });
+  if(sinDatos.length){
+    const nombres2 = sinDatos.map(item=>`${CARTERA_TO_SUC[item.cartera_id]||''} ${CARTERA_NAMES[item.cartera_id]||item.cartera_id}`).join(', ');
+    h += `<div class="abox warning">⚠ ${nombres2} ${sinDatos.length>1?'están cerradas':'está cerrada'} para <b>${mesLabel(mesKey)}</b> pero ningún cliente tiene día/monto de cobro proyectado — a los asesores les falta llenar esa proyección en Cobranza antes de que "Cobros CXC" y "Acumulado a la fecha" muestren números reales (por ahora suman L0 / "—", no porque falte cobrar, sino porque falta el dato).</div>`;
+  }
+  return h;
 }
 
 // ── Resumen — Junio 2026 ─────────────────────────────────────
-function renderResumen(){
-  const el = document.getElementById('resumenBody');
-
-  if(!arqueos.length){ el.innerHTML='<div class="loading-state">Sin datos. Haz clic en "Cargar datos".</div>'; return; }
-
-  // Aggregate by sucursal — misma lógica que resumen-mes del arqueos backend
-  function aggBySuc(list){
-    const r = {};
-    for(const a of list){
-      const s = a.sucursal;
-      if(!r[s]) r[s]={cobrado:0,gastos:0,depositado:0,ventas_erp:0,dias:0,
-        cob_abono:0,cob_prima:0,cob_contado:0,pos:0,diferencia:0};
-      r[s].cobrado    += Number(a.cobrado||0);
-      r[s].gastos     += Number(a.gastos||0);
-      r[s].depositado += Number(a.depositado||0);
-      r[s].diferencia += Number(a.diferencia||0);
-      r[s].dias++;
-      const aj = a.analisis_json || {};
-      // Ventas ERP = suma total_erp
-      for(const v of (aj.ventas||[])) r[s].ventas_erp += Number(v.total_erp||0);
-      // Cobros por tipo (ABONO / PRIMA / CONTADO)
-      for(const c of (aj.cobros||[])){
-        const m = Number(c.monto||0);
-        const t = (c.tipo||'').toUpperCase();
-        if(t==='ABONO')        r[s].cob_abono   += m;
-        else if(t==='PRIMA')   r[s].cob_prima   += m;
-        else if(t==='CONTADO') r[s].cob_contado += m;
-      }
-      // POS = depósitos donde banco contiene 'POS' o tipo = 'POS' (misma lógica que backend)
-      for(const d of (aj.depositos||[])){
-        if((d.banco||'').toUpperCase().includes('POS') || (d.tipo||'').toUpperCase()==='POS')
-          r[s].pos += Number(d.monto||0);
-      }
+// Aggregate arqueos by sucursal — misma lógica que resumen-mes del arqueos backend
+function aggBySuc(list){
+  const r = {};
+  for(const a of list){
+    const s = a.sucursal;
+    if(!r[s]) r[s]={cobrado:0,gastos:0,depositado:0,ventas_erp:0,dias:0,
+      cob_abono:0,cob_prima:0,cob_contado:0,pos:0,diferencia:0};
+    r[s].cobrado    += Number(a.cobrado||0);
+    r[s].gastos     += Number(a.gastos||0);
+    r[s].depositado += Number(a.depositado||0);
+    r[s].diferencia += Number(a.diferencia||0);
+    r[s].dias++;
+    const aj = a.analisis_json || {};
+    for(const v of (aj.ventas||[])) r[s].ventas_erp += Number(v.total_erp||0);
+    for(const c of (aj.cobros||[])){
+      const m = Number(c.monto||0);
+      const t = (c.tipo||'').toUpperCase();
+      if(t==='ABONO')        r[s].cob_abono   += m;
+      else if(t==='PRIMA')   r[s].cob_prima   += m;
+      else if(t==='CONTADO') r[s].cob_contado += m;
     }
-    return r;
+    for(const d of (aj.depositos||[])){
+      if((d.banco||'').toUpperCase().includes('POS') || (d.tipo||'').toUpperCase()==='POS')
+        r[s].pos += Number(d.monto||0);
+    }
   }
+  return r;
+}
+function sumAg(ag,campo){ return Object.values(ag).reduce((s,v)=>s+v[campo],0); }
 
-  const ag     = aggBySuc(arqueos);
-  const totCob = Object.values(ag).reduce((s,v)=>s+v.cobrado,0);
-  const totGas = Object.values(ag).reduce((s,v)=>s+v.gastos,0);
-  const totDep = Object.values(ag).reduce((s,v)=>s+v.depositado,0);
-  const totVen = Object.values(ag).reduce((s,v)=>s+v.ventas_erp,0);
-  const totAbo = Object.values(ag).reduce((s,v)=>s+v.cob_abono,0);
-  const totPri = Object.values(ag).reduce((s,v)=>s+v.cob_prima,0);
-  const totCon = Object.values(ag).reduce((s,v)=>s+v.cob_contado,0);
-  const totPos = Object.values(ag).reduce((s,v)=>s+v.pos,0);
+function selectResumenVista(key){ resumenVista = key; renderResumen(); }
 
-  // C−G=D usa la diferencia ya guardada en Supabase por el sistema de arqueos (no recalculada)
-  function chkCGD(d){ const dif=Math.abs(d.diferencia); return dif<5?'<span style="color:var(--verde)">✅</span>':`<span style="color:var(--rojo)">❌ ${fmt(dif)}</span>`; }
-  function chkAPC(d){ const suma=d.cob_abono+d.cob_prima+d.cob_contado; const dif=Math.abs(suma-d.cobrado); return dif<5?'<span style="color:var(--verde)">✅</span>':`<span style="color:var(--ambar)">⚠ ${fmt(dif)}</span>`; }
+function renderResumenFiltro(){
+  const btns = mesesConDatos.map(mk=>{
+    const activo = mk===resumenVista ? 'active' : '';
+    const tag = mk===MES_ACTUAL ? '🔴 ' : '';
+    return `<button class="mes-btn ${activo}" onclick="selectResumenVista('${mk}')">${tag}${mesLabel(mk)}</button>`;
+  }).join('');
+  const genActivo = resumenVista==='GENERAL' ? 'active' : '';
+  return `<div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:700;color:var(--texto2);text-transform:uppercase;letter-spacing:.06em">Ver:</span>
+    ${btns}
+    <button class="mes-btn ${genActivo}" onclick="selectResumenVista('GENERAL')">📊 General (todos los meses)</button>
+  </div>`;
+}
+
+// C−G=D usa la diferencia ya guardada en Supabase por el sistema de arqueos (no recalculada)
+function chkCGD(d){ const dif=Math.abs(d.diferencia); return dif<5?'<span style="color:var(--verde)">✅</span>':`<span style="color:var(--rojo)">❌ ${fmt(dif)}</span>`; }
+function chkAPC(d){ const suma=d.cob_abono+d.cob_prima+d.cob_contado; const dif=Math.abs(suma-d.cobrado); return dif<5?'<span style="color:var(--verde)">✅</span>':`<span style="color:var(--ambar)">⚠ ${fmt(dif)}</span>`; }
+
+function bloqueMes(mesKey, arqList){
+  const ag = aggBySuc(arqList);
+  const totCob=sumAg(ag,'cobrado'), totGas=sumAg(ag,'gastos'), totDep=sumAg(ag,'depositado'),
+        totVen=sumAg(ag,'ventas_erp'), totAbo=sumAg(ag,'cob_abono'), totPri=sumAg(ag,'cob_prima'),
+        totCon=sumAg(ag,'cob_contado'), totPos=sumAg(ag,'pos');
 
   let html = `<div class="kpis">
-    <div class="kpi"><div class="kpi-l">Total Cobrado</div><div class="kpi-v cb">${fmt(totCob)}</div><div class="kpi-s">${arqueos.length} días · Jun 2026</div></div>
+    <div class="kpi"><div class="kpi-l">Total Cobrado</div><div class="kpi-v cb">${fmt(totCob)}</div><div class="kpi-s">${arqList.length} días · ${mesLabel(mesKey)}</div></div>
     <div class="kpi"><div class="kpi-l">Abonos crédito</div><div class="kpi-v cm">${fmt(totAbo)}</div><div class="kpi-s">${pct(totAbo,totCob)}%</div></div>
     <div class="kpi"><div class="kpi-l">Primas</div><div class="kpi-v cb">${fmt(totPri)}</div><div class="kpi-s">${pct(totPri,totCob)}%</div></div>
     <div class="kpi"><div class="kpi-l">Contado</div><div class="kpi-v cv">${fmt(totCon)}</div><div class="kpi-s">${pct(totCon,totCob)}%</div></div>
@@ -557,7 +595,7 @@ function renderResumen(){
     <div class="kpi"><div class="kpi-l">Ventas ERP</div><div class="kpi-v">${fmt(totVen)}</div></div>
   </div>`;
 
-  html += `<div class="stitle">Resumen por sucursal — Junio 2026</div>
+  html += `<div class="stitle">Resumen por sucursal — ${mesLabel(mesKey)}</div>
   <div class="tw"><table>
   <thead><tr>
     <th>Sucursal</th><th class="num">Días</th>
@@ -587,226 +625,366 @@ function renderResumen(){
     </tr>`;
   }
   html+=`<tr style="background:var(--gris);font-weight:700">
-    <td>TOTAL</td><td class="num">${arqueos.length}</td>
+    <td>TOTAL</td><td class="num">${arqList.length}</td>
     <td class="num cb">${fmt(totCob)}</td><td class="num cv">${fmt(totDep)}</td><td class="num cr">${fmt(totGas)}</td>
     <td class="num cm">${fmt(totAbo)}</td><td class="num cb">${fmt(totPri)}</td><td class="num cv">${fmt(totCon)}</td>
     <td class="num" style="color:var(--azul)">${fmt(totPos)}</td>
     <td class="num">${fmt(totVen)}</td><td></td><td></td>
   </tr></tbody></table></div>`;
 
-  // ── Seguimiento Julio 2026 ───────────────────────────────────
-  if(arqueosJulio.length){
-    const agJul = aggBySuc(arqueosJulio);
-    const hoy   = new Date();
-    const diaHoy = hoy.getDate();
-    const pctMes = diaHoy / 31;
+  html += bloquePendientes(mesKey, arqList);
+  return html;
+}
 
-    // Proyección cobros acumulada hasta hoy por sucursal
-    const proyBySuc = {};
+// Arqueos del mes que quedaron sin cerrar del todo: estado != OK y con
+// alertas CRITICA/ALERTA que nadie marcó como justificadas todavía.
+function pendientesDelMes(arqList){
+  const pend = [];
+  for(const a of arqList){
+    if(!a.estado || a.estado==='OK') continue;
+    const alertas = (a.alertas||[]).filter(al=>(al.nivel==='CRITICA'||al.nivel==='ALERTA') && al.justificado!==true);
+    if(!alertas.length) continue; // todo quedó justificado, no hay nada pendiente
+    pend.push({sucursal:a.sucursal, fecha:a.fecha, diferencia:Number(a.diferencia||0), estado:a.estado, alertas});
+  }
+  pend.sort((a,b)=> a.sucursal!==b.sucursal ? a.sucursal.localeCompare(b.sucursal) : a.fecha.localeCompare(b.fecha));
+  return pend;
+}
+
+function escHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function bloquePendientes(mesKey, arqList){
+  const pend = pendientesDelMes(arqList);
+  if(!pend.length) return '';
+  let h = `<div class="stitle">⚠ Pendientes de revisión — ${mesLabel(mesKey)} (${pend.length} día${pend.length>1?'s':''})</div>
+  <div class="abox warning" style="margin-bottom:10px">Estos arqueos del cuadre diario quedaron marcados por el sistema de Cobranza como no resueltos (estado ≠ OK) — antes de dar el mes por cerrado, alguien debe revisarlos y justificarlos allá.</div>
+  <div class="tw" style="margin-bottom:16px"><table>
+  <thead><tr><th>Sucursal</th><th>Fecha</th><th class="num">Diferencia</th><th>Estado</th><th>Qué falta revisar</th></tr></thead><tbody>`;
+  for(const p of pend){
+    const criticas = p.alertas.filter(a=>a.nivel==='CRITICA').length;
+    const top = p.alertas[0].mensaje||'';
+    h += `<tr>
+      <td><b>${p.sucursal}</b> <span style="color:var(--texto2);font-size:11px">${SNAMES[p.sucursal]||''}</span></td>
+      <td class="num">${p.fecha}</td>
+      <td class="num" style="color:${Math.abs(p.diferencia)>=5?'var(--rojo)':'var(--texto2)'}">${Math.abs(p.diferencia)>=5?fmt(p.diferencia):'—'}</td>
+      <td><span class="badge ${criticas?'br':'ba'}">${escHtml(p.estado)}</span></td>
+      <td style="font-size:11px;max-width:460px">${criticas?`<b style="color:var(--rojo)">${criticas} crítica${criticas>1?'s':''}</b> · `:''}${p.alertas.length} sin justificar — ${escHtml(top.slice(0,140))}${top.length>140?'…':''}</td>
+    </tr>`;
+  }
+  h += `</tbody></table></div>`;
+  return h;
+}
+
+function bloqueSeguimiento(mesKey, ag, agAnt){
+  const {ultimoDia} = rangoDelMes(mesKey);
+  const hoy = new Date();
+  const diaHoy = mesKey===MES_ACTUAL ? hoy.getDate() : ultimoDia;
+  const pctMes = diaHoy / ultimoDia;
+  let html = avisoCarterasFaltantes(proyeccionMesKey, proyeccion);
+
+  // Proyección cobros acumulada hasta hoy por sucursal
+  const proyBySuc = {};
+  for(const item of proyeccion){
+    const suc = CARTERA_TO_SUC[item.cartera_id];
+    if(!suc) continue;
+    if(!proyBySuc[suc]) proyBySuc[suc]=0;
+    for(const c of (item.datos||[])){
+      const dia = Number(c.diaAsesor||0);
+      if(dia>0 && dia<=diaHoy) proyBySuc[suc] += Number(c.montoAsesor||0);
+    }
+  }
+
+  // ── Ventas ──────────────────────────────────────────────
+  html += `<div class="stitle">Ventas ${mesLabel(mesKey)} — día ${diaHoy}/${ultimoDia}</div>
+  <div class="tw"><table>
+    <thead><tr>
+      <th>Sucursal</th>
+      <th class="num">Meta (+10% vs mes ant.)</th>
+      <th class="num">Vendido</th>
+      <th class="num">Falta</th>
+      <th class="num">Avance</th>
+    </tr></thead><tbody>`;
+
+  let tvMeta=0, tvVend=0;
+  for(const s of SUCORDER){
+    const ant = agAnt[s]; if(!ant) continue;
+    const act = ag[s];
+    const meta  = ant.ventas_erp * 1.10;
+    const vend  = act ? act.ventas_erp : 0;
+    const falta = meta - vend;
+    const pct1  = meta>0 ? Math.round(vend/meta*100) : 0;
+    const ritmo = pctMes>0 ? (vend/meta)/pctMes : 0;
+    let color = vend===0?'var(--texto2)':ritmo>=1.10?'var(--verde)':ritmo>=0.95?'var(--verde)':ritmo>=0.80?'var(--ambar)':'var(--rojo)';
+    let icon  = vend===0?'⏳':ritmo>=1.10?'🚀':ritmo>=0.95?'✅':ritmo>=0.80?'⚠️':'🚨';
+    tvMeta+=meta; tvVend+=vend;
+    html+=`<tr>
+      <td><b>${s}</b> <span style="color:var(--texto2);font-size:11px">${SNAMES[s]}</span></td>
+      <td class="num">${fmt(meta)}</td>
+      <td class="num" style="font-weight:700;color:var(--verde)">${fmt(vend)}</td>
+      <td class="num" style="color:${falta>0?'var(--rojo)':'var(--verde)'}">${falta>0?fmt(falta):'✅ completado'}</td>
+      <td class="num" style="color:${color};font-weight:700">${icon} ${pct1}%</td>
+    </tr>`;
+  }
+  const tPctV = tvMeta>0?Math.round(tvVend/tvMeta*100):0;
+  html+=`<tr style="background:var(--gris);font-weight:700">
+    <td>TOTAL</td><td class="num">${fmt(tvMeta)}</td>
+    <td class="num" style="color:var(--verde)">${fmt(tvVend)}</td>
+    <td class="num" style="color:${tvMeta-tvVend>0?'var(--rojo)':'var(--verde)'}">${tvMeta-tvVend>0?fmt(tvMeta-tvVend):'✅'}</td>
+    <td class="num">${tPctV}%</td>
+  </tr></tbody></table></div>`;
+
+  // ── Cobros CXC ──────────────────────────────────────────
+  if(proyeccion.length){
+    const proyMesBySuc = {};
     for(const item of proyeccion){
-      const suc = CARTERA_TO_SUC[item.cartera_id];
-      if(!suc) continue;
-      if(!proyBySuc[suc]) proyBySuc[suc]=0;
-      for(const c of (item.datos||[])){
-        const dia = Number(c.diaAsesor||0);
-        if(dia>0 && dia<=diaHoy) proyBySuc[suc] += Number(c.montoAsesor||0);
-      }
+      const suc = CARTERA_TO_SUC[item.cartera_id]; if(!suc) continue;
+      if(!proyMesBySuc[suc]) proyMesBySuc[suc]=0;
+      for(const c of (item.datos||[])) proyMesBySuc[suc] += Number(c.montoAsesor||0);
     }
 
-    // ── Ventas ──────────────────────────────────────────────
-    html += `<div class="stitle">Ventas julio — día ${diaHoy}/31</div>
+    html += `<div class="stitle" style="margin-top:16px">Cobros CXC ${mesLabel(mesKey)} — proyectado vs real al día ${diaHoy}</div>
     <div class="tw"><table>
       <thead><tr>
         <th>Sucursal</th>
-        <th class="num">Meta julio</th>
-        <th class="num">Vendido</th>
-        <th class="num">Falta</th>
+        <th class="num">Proy. mes completo</th>
+        <th class="num">Proy. al día ${diaHoy}</th>
+        <th class="num">Cobrado (abonos)</th>
         <th class="num">Avance</th>
       </tr></thead><tbody>`;
 
-    let tvMeta=0, tvVend=0;
+    let tcProy=0, tcMes=0, tcReal=0;
     for(const s of SUCORDER){
-      const jun = ag[s]; if(!jun) continue;
-      const jul = agJul[s];
-      const meta  = jun.ventas_erp * 1.10;
-      const vend  = jul ? jul.ventas_erp : 0;
-      const falta = meta - vend;
-      const pct1  = meta>0 ? Math.round(vend/meta*100) : 0;
-      const ritmo = pctMes>0 ? (vend/meta)/pctMes : 0;
-      let color = vend===0?'var(--texto2)':ritmo>=1.10?'var(--verde)':ritmo>=0.95?'var(--verde)':ritmo>=0.80?'var(--ambar)':'var(--rojo)';
-      let icon  = vend===0?'⏳':ritmo>=1.10?'🚀':ritmo>=0.95?'✅':ritmo>=0.80?'⚠️':'🚨';
-      tvMeta+=meta; tvVend+=vend;
+      const ant = agAnt[s]; if(!ant) continue;
+      const act = ag[s];
+      const proy    = proyBySuc[s]||0;
+      const proyMes = proyMesBySuc[s]||0;
+      const real    = act ? act.cob_abono : 0;
+      const pctC    = proy>0 ? Math.round(real/proy*100) : 0;
+      let color = proy===0?'var(--texto2)':pctC>=95?'var(--verde)':pctC>=75?'var(--ambar)':'var(--rojo)';
+      let icon  = proy===0?'⏳':pctC>=95?'✅':pctC>=75?'⚠️':'🚨';
+      const nota = proy===0 && proyMes>0 ? `<span style="font-size:10px;color:var(--texto2)"> (cobra después del día ${diaHoy})</span>` : '';
+      tcProy+=proy; tcMes+=proyMes; tcReal+=real;
       html+=`<tr>
-        <td><b>${s}</b> <span style="color:var(--texto2);font-size:11px">${SNAMES[s]}</span></td>
-        <td class="num">${fmt(meta)}</td>
-        <td class="num" style="font-weight:700;color:var(--verde)">${fmt(vend)}</td>
-        <td class="num" style="color:${falta>0?'var(--rojo)':'var(--verde)'}">${falta>0?fmt(falta):'✅ completado'}</td>
-        <td class="num" style="color:${color};font-weight:700">${icon} ${pct1}%</td>
+        <td><b>${s}</b> <span style="color:var(--texto2);font-size:11px">${SNAMES[s]}</span>${nota}</td>
+        <td class="num" style="color:var(--texto2)">${proyMes>0?fmt(proyMes):'—'}</td>
+        <td class="num">${proy>0?fmt(proy):'—'}</td>
+        <td class="num" style="font-weight:700;color:var(--verde)">${fmt(real)}</td>
+        <td class="num" style="color:${color};font-weight:700">${icon} ${proy>0?pctC+'%':'—'}</td>
       </tr>`;
     }
-    const tPctV = tvMeta>0?Math.round(tvVend/tvMeta*100):0;
+    const tPctC = tcProy>0?Math.round(tcReal/tcProy*100):0;
     html+=`<tr style="background:var(--gris);font-weight:700">
-      <td>TOTAL</td><td class="num">${fmt(tvMeta)}</td>
-      <td class="num" style="color:var(--verde)">${fmt(tvVend)}</td>
-      <td class="num" style="color:${tvMeta-tvVend>0?'var(--rojo)':'var(--verde)'}">${tvMeta-tvVend>0?fmt(tvMeta-tvVend):'✅'}</td>
-      <td class="num">${tPctV}%</td>
+      <td>TOTAL</td>
+      <td class="num">${fmt(tcMes)}</td>
+      <td class="num">${fmt(tcProy)}</td>
+      <td class="num" style="color:var(--verde)">${fmt(tcReal)}</td>
+      <td class="num">${tPctC}%</td>
     </tr></tbody></table></div>`;
+  }
 
-    // ── Cobros CXC ──────────────────────────────────────────
-    if(proyeccion.length){
-      // También calcular proyección mes completo por sucursal
-      const proyMesBySuc = {};
-      for(const item of proyeccion){
-        const suc = CARTERA_TO_SUC[item.cartera_id]; if(!suc) continue;
-        if(!proyMesBySuc[suc]) proyMesBySuc[suc]=0;
-        for(const c of (item.datos||[])) proyMesBySuc[suc] += Number(c.montoAsesor||0);
+  // ── Monitor de cartera ──────────────────────────────────
+  if(proyeccion.length){
+    const TRAMOS = ['MES','60','90','120','150','VENCIDO','INACTIVO'];
+    const TRAMO_COLOR2 = {MES:'var(--verde)','60':'#C97A0A','90':'var(--ambar)',
+                          '120':'var(--rojo)','150':'var(--rojo)',VENCIDO:'#922B21',INACTIVO:'#555'};
+    const TRAMO_RIESGO = {MES:'Al corriente','60':'60 días','90':'90 días',
+                          '120':'120 días','150':'150 días',VENCIDO:'Vencido',INACTIVO:'Inactivo'};
+
+    const dataSuc = {};
+    for(const s of SUCORDER) dataSuc[s]={saldo:0,mora:0,saldoEsp:0,clientes:0,abonos:ag[s]?ag[s].cob_abono:0,tramos:{}};
+    SUCORDER.forEach(s=>TRAMOS.forEach(t=>{ dataSuc[s].tramos[t]={saldo:0,mora:0,clientes:0}; }));
+
+    for(const item of proyeccion){
+      const suc = CARTERA_TO_SUC[item.cartera_id];
+      if(!suc) continue;
+      for(const c of (item.datos||[])){
+        const t = TRAMOS.includes(String(c.mora||'').toUpperCase()) ? String(c.mora).toUpperCase() : 'MES';
+        const saldo = Number(c.saldo||0), mora = Number(c.moraVal||0), saldoE = Number(c.saldoEsperado||0);
+        dataSuc[suc].saldo    += saldo;
+        dataSuc[suc].mora     += mora;
+        dataSuc[suc].saldoEsp += saldoE;
+        dataSuc[suc].clientes++;
+        dataSuc[suc].tramos[t].saldo    += saldo;
+        dataSuc[suc].tramos[t].mora     += mora;
+        dataSuc[suc].tramos[t].clientes++;
       }
-
-      html += `<div class="stitle" style="margin-top:16px">Cobros CXC julio — proyectado vs real al día ${diaHoy}</div>
-      <div class="tw"><table>
-        <thead><tr>
-          <th>Sucursal</th>
-          <th class="num">Proy. mes completo</th>
-          <th class="num">Proy. al día ${diaHoy}</th>
-          <th class="num">Cobrado (abonos)</th>
-          <th class="num">Avance</th>
-        </tr></thead><tbody>`;
-
-      let tcProy=0, tcMes=0, tcReal=0;
-      for(const s of SUCORDER){
-        const jun = ag[s]; if(!jun) continue;
-        const jul = agJul[s];
-        const proy    = proyBySuc[s]||0;
-        const proyMes = proyMesBySuc[s]||0;
-        const real    = jul ? jul.cob_abono : 0;
-        const pctC    = proy>0 ? Math.round(real/proy*100) : 0;
-        let color = proy===0?'var(--texto2)':pctC>=95?'var(--verde)':pctC>=75?'var(--ambar)':'var(--rojo)';
-        let icon  = proy===0?'⏳':pctC>=95?'✅':pctC>=75?'⚠️':'🚨';
-        const nota = proy===0 && proyMes>0 ? `<span style="font-size:10px;color:var(--texto2)"> (cobra después del día ${diaHoy})</span>` : '';
-        tcProy+=proy; tcMes+=proyMes; tcReal+=real;
-        html+=`<tr>
-          <td><b>${s}</b> <span style="color:var(--texto2);font-size:11px">${SNAMES[s]}</span>${nota}</td>
-          <td class="num" style="color:var(--texto2)">${proyMes>0?fmt(proyMes):'—'}</td>
-          <td class="num">${proy>0?fmt(proy):'—'}</td>
-          <td class="num" style="font-weight:700;color:var(--verde)">${fmt(real)}</td>
-          <td class="num" style="color:${color};font-weight:700">${icon} ${proy>0?pctC+'%':'—'}</td>
-        </tr>`;
-      }
-      const tPctC = tcProy>0?Math.round(tcReal/tcProy*100):0;
-      html+=`<tr style="background:var(--gris);font-weight:700">
-        <td>TOTAL</td>
-        <td class="num">${fmt(tcMes)}</td>
-        <td class="num">${fmt(tcProy)}</td>
-        <td class="num" style="color:var(--verde)">${fmt(tcReal)}</td>
-        <td class="num">${tPctC}%</td>
-      </tr></tbody></table></div>`;
     }
 
-    // ── Monitor de cartera ──────────────────────────────────
-    if(proyeccion.length){
-      const TRAMOS = ['MES','60','90','120','150','VENCIDO','INACTIVO'];
-      const TRAMO_COLOR2 = {MES:'var(--verde)','60':'#C97A0A','90':'var(--ambar)',
-                            '120':'var(--rojo)','150':'var(--rojo)',VENCIDO:'#922B21',INACTIVO:'#555'};
-      const TRAMO_RIESGO = {MES:'Al corriente','60':'60 días','90':'90 días',
-                            '120':'120 días','150':'150 días',VENCIDO:'Vencido',INACTIVO:'Inactivo'};
+    const glob = {saldo:0,mora:0,saldoEsp:0,clientes:0,abonos:0,tramos:{}};
+    TRAMOS.forEach(t=>{ glob.tramos[t]={saldo:0,mora:0,clientes:0}; });
+    for(const s of SUCORDER){
+      const d = dataSuc[s];
+      glob.saldo+=d.saldo; glob.mora+=d.mora; glob.saldoEsp+=d.saldoEsp;
+      glob.clientes+=d.clientes; glob.abonos+=d.abonos;
+      TRAMOS.forEach(t=>{
+        glob.tramos[t].saldo    += d.tramos[t].saldo;
+        glob.tramos[t].mora     += d.tramos[t].mora;
+        glob.tramos[t].clientes += d.tramos[t].clientes;
+      });
+    }
 
-      // Calcular datos por sucursal
-      const dataSuc = {};
-      for(const s of SUCORDER) dataSuc[s]={saldo:0,mora:0,saldoEsp:0,clientes:0,abonos:agJul[s]?agJul[s].cob_abono:0,tramos:{}};
-      SUCORDER.forEach(s=>TRAMOS.forEach(t=>{ dataSuc[s].tramos[t]={saldo:0,mora:0,clientes:0}; }));
-
-      for(const item of proyeccion){
-        const suc = CARTERA_TO_SUC[item.cartera_id];
-        if(!suc || !dataSuc[suc]) continue;
-        for(const c of (item.datos||[])){
-          const t = TRAMOS.includes(String(c.mora||'').toUpperCase()) ? String(c.mora).toUpperCase() : 'MES';
-          const saldo = Number(c.saldo||0), mora = Number(c.moraVal||0), saldoE = Number(c.saldoEsperado||0);
-          dataSuc[suc].saldo    += saldo;
-          dataSuc[suc].mora     += mora;
-          dataSuc[suc].saldoEsp += saldoE;
-          dataSuc[suc].clientes++;
-          dataSuc[suc].tramos[t].saldo    += saldo;
-          dataSuc[suc].tramos[t].mora     += mora;
-          dataSuc[suc].tramos[t].clientes++;
-        }
-      }
-
-      // Totales globales
-      const glob = {saldo:0,mora:0,saldoEsp:0,clientes:0,abonos:0,tramos:{}};
-      TRAMOS.forEach(t=>{ glob.tramos[t]={saldo:0,mora:0,clientes:0}; });
-      for(const s of SUCORDER){
-        const d = dataSuc[s];
-        glob.saldo+=d.saldo; glob.mora+=d.mora; glob.saldoEsp+=d.saldoEsp;
-        glob.clientes+=d.clientes; glob.abonos+=d.abonos;
-        TRAMOS.forEach(t=>{
-          glob.tramos[t].saldo    += d.tramos[t].saldo;
-          glob.tramos[t].mora     += d.tramos[t].mora;
-          glob.tramos[t].clientes += d.tramos[t].clientes;
-        });
-      }
-
-      function kpisMonitor(d){
-        const pctM = d.saldo>0?d.mora/d.saldo*100:0;
-        const mc   = pctM<5?'var(--verde)':pctM<15?'var(--ambar)':'var(--rojo)';
-        const recEsp  = d.saldo - d.saldoEsp;
-        const pctRec  = recEsp>0?Math.round(d.abonos/recEsp*100):0;
-        const rcColor = pctRec>=75?'var(--verde)':'var(--rojo)';
-        return `<div class="kpis" style="margin-bottom:10px">
-          <div class="kpi"><div class="kpi-l">Saldo cartera</div><div class="kpi-v cb">${fmt(d.saldo)}</div><div class="kpi-s">${d.clientes} clientes</div></div>
-          <div class="kpi"><div class="kpi-l">Mora total</div><div class="kpi-v" style="color:${mc}">${fmt(d.mora)}</div><div class="kpi-s" style="color:${mc};font-weight:700">${pctM.toFixed(1)}% del saldo</div></div>
-          <div class="kpi"><div class="kpi-l">Recuperación proyectada julio</div><div class="kpi-v">${fmt(recEsp)}</div></div>
-          <div class="kpi"><div class="kpi-l">Cobrado real (abonos)</div><div class="kpi-v cv">${fmt(d.abonos)}</div><div class="kpi-s" style="color:${recEsp>0?rcColor:'var(--texto2)'};">${recEsp>0?pctRec+'% de lo proyectado':'—'}</div></div>
-        </div>`;
-      }
-
-      function tramosTable(d){
-        const mt = d.mora;
-        let rows='';
-        for(const t of TRAMOS){
-          const td=d.tramos[t]; if(!td.clientes) continue;
-          const pctT=mt>0?Math.round(td.mora/mt*100):0;
-          rows+=`<tr>
-            <td style="font-weight:700;color:${TRAMO_COLOR2[t]}">${TRAMO_RIESGO[t]}</td>
-            <td class="num">${td.clientes}</td>
-            <td class="num" style="font-weight:700;color:${TRAMO_COLOR2[t]}">${fmt(td.mora)}</td>
-            <td class="num">
-              <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
-                <div style="width:50px;height:5px;background:#eee;border-radius:3px">
-                  <div style="width:${pctT}%;height:100%;background:${TRAMO_COLOR2[t]};border-radius:3px"></div>
-                </div>${pctT}%
-              </div>
-            </td>
-          </tr>`;
-        }
-        return `<div class="tw" style="margin-bottom:12px"><table>
-          <thead><tr><th>Tramo</th><th class="num">Clientes</th><th class="num">Mora</th><th class="num">% mora</th></tr></thead>
-          <tbody>${rows}</tbody></table></div>`;
-      }
-
-      // Botones filtro
-      html += `<div class="stitle" style="margin-top:20px">Monitor de cartera — Julio 2026</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="monBtns">
-        <button class="mon-btn active" onclick="filterMon('ALL',this)">Todas</button>
-        ${SUCORDER.filter(s=>dataSuc[s].clientes>0).map(s=>`<button class="mon-btn" onclick="filterMon('${s}',this)">${s} — ${SNAMES[s]}</button>`).join('')}
+    function kpisMonitor(d){
+      const pctM = d.saldo>0?d.mora/d.saldo*100:0;
+      const mc   = pctM<5?'var(--verde)':pctM<15?'var(--ambar)':'var(--rojo)';
+      const recEsp  = d.saldo - d.saldoEsp;
+      const pctRec  = recEsp>0?Math.round(d.abonos/recEsp*100):0;
+      const rcColor = pctRec>=75?'var(--verde)':'var(--rojo)';
+      return `<div class="kpis" style="margin-bottom:10px">
+        <div class="kpi"><div class="kpi-l">Saldo cartera</div><div class="kpi-v cb">${fmt(d.saldo)}</div><div class="kpi-s">${d.clientes} clientes</div></div>
+        <div class="kpi"><div class="kpi-l">Mora total</div><div class="kpi-v" style="color:${mc}">${fmt(d.mora)}</div><div class="kpi-s" style="color:${mc};font-weight:700">${pctM.toFixed(1)}% del saldo</div></div>
+        <div class="kpi"><div class="kpi-l">Recuperación proyectada ${mesLabel(mesKey)}</div><div class="kpi-v">${fmt(recEsp)}</div></div>
+        <div class="kpi"><div class="kpi-l">Cobrado real (abonos)</div><div class="kpi-v cv">${fmt(d.abonos)}</div><div class="kpi-s" style="color:${recEsp>0?rcColor:'var(--texto2)'};">${recEsp>0?pctRec+'% de lo proyectado':'—'}</div></div>
       </div>`;
+    }
 
-      // Sección global
-      html += `<div id="mon-ALL">${kpisMonitor(glob)}${tramosTable(glob)}</div>`;
-
-      // Sección por sucursal
-      for(const s of SUCORDER){
-        const d = dataSuc[s]; if(!d.clientes) continue;
-        const pS=d.saldo>0?d.mora/d.saldo*100:0;
-        const sc=pS<5?'var(--verde)':pS<15?'var(--ambar)':'var(--rojo)';
-        const si=pS<5?'✅ Sana':pS<15?'⚠️ Vigilar':'🚨 Atención';
-        html+=`<div id="mon-${s}" style="display:none">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-            <span style="font-size:15px;font-weight:700">${s} — ${SNAMES[s]}</span>
-            <span style="color:${sc};font-weight:700">${si}</span>
-          </div>
-          ${kpisMonitor(d)}${tramosTable(d)}
-        </div>`;
+    function tramosTable(d){
+      const mt = d.mora;
+      let rows='';
+      for(const t of TRAMOS){
+        const td=d.tramos[t]; if(!td.clientes) continue;
+        const pctT=mt>0?Math.round(td.mora/mt*100):0;
+        rows+=`<tr>
+          <td style="font-weight:700;color:${TRAMO_COLOR2[t]}">${TRAMO_RIESGO[t]}</td>
+          <td class="num">${td.clientes}</td>
+          <td class="num" style="font-weight:700;color:${TRAMO_COLOR2[t]}">${fmt(td.mora)}</td>
+          <td class="num">
+            <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end">
+              <div style="width:50px;height:5px;background:#eee;border-radius:3px">
+                <div style="width:${pctT}%;height:100%;background:${TRAMO_COLOR2[t]};border-radius:3px"></div>
+              </div>${pctT}%
+            </div>
+          </td>
+        </tr>`;
       }
+      return `<div class="tw" style="margin-bottom:12px"><table>
+        <thead><tr><th>Tramo</th><th class="num">Clientes</th><th class="num">Mora</th><th class="num">% mora</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+    }
+
+    html += `<div class="stitle" style="margin-top:20px">Monitor de cartera — ${mesLabel(mesKey)}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="monBtns">
+      <button class="mon-btn active" onclick="filterMon('ALL',this)">Todas</button>
+      ${SUCORDER.filter(s=>dataSuc[s].clientes>0).map(s=>`<button class="mon-btn" onclick="filterMon('${s}',this)">${s} — ${SNAMES[s]}</button>`).join('')}
+    </div>`;
+
+    html += `<div id="mon-ALL">${kpisMonitor(glob)}${tramosTable(glob)}</div>`;
+
+    for(const s of SUCORDER){
+      const d = dataSuc[s]; if(!d.clientes) continue;
+      const pS=d.saldo>0?d.mora/d.saldo*100:0;
+      const sc=pS<5?'var(--verde)':pS<15?'var(--ambar)':'var(--rojo)';
+      const si=pS<5?'✅ Sana':pS<15?'⚠️ Vigilar':'🚨 Atención';
+      html+=`<div id="mon-${s}" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="font-size:15px;font-weight:700">${s} — ${SNAMES[s]}</span>
+          <span style="color:${sc};font-weight:700">${si}</span>
+        </div>
+        ${kpisMonitor(d)}${tramosTable(d)}
+      </div>`;
+    }
+  }
+  return html;
+}
+
+function bloqueAcumuladoActual(){
+  const {ultimoDia} = rangoDelMes(MES_ACTUAL);
+  const diaHoy = new Date().getDate();
+  const agActual = aggBySuc(arqueosPorMes[MES_ACTUAL] || []);
+  const agAnt    = aggBySuc(arqueosPorMes[prevMesKey(MES_ACTUAL)] || []);
+
+  // Proyección de cobro acumulada hasta hoy (todas las carteras cerradas para este mes)
+  let proyHoy=0, proyMesCompleto=0;
+  for(const item of proyeccion){
+    for(const c of (item.datos||[])){
+      const dia = Number(c.diaAsesor||0), m = Number(c.montoAsesor||0);
+      proyMesCompleto += m;
+      if(dia>0 && dia<=diaHoy) proyHoy += m;
+    }
+  }
+  const cobradoReal = sumAg(agActual,'cob_abono');
+  const pctProy = proyHoy>0 ? Math.round(cobradoReal/proyHoy*100) : null;
+  const colorProy = pctProy===null?'var(--texto2)':pctProy>=95?'var(--verde)':pctProy>=75?'var(--ambar)':'var(--rojo)';
+
+  const metaVentas = sumAg(agAnt,'ventas_erp') * 1.10;
+  const vendido = sumAg(agActual,'ventas_erp');
+  const pctVentas = metaVentas>0 ? Math.round(vendido/metaVentas*100) : null;
+  const colorVentas = pctVentas===null?'var(--texto2)':pctVentas>=95?'var(--verde)':pctVentas>=75?'var(--ambar)':'var(--rojo)';
+
+  let h = avisoCarterasFaltantes(proyeccionMesKey, proyeccion);
+  h += `<div class="stitle">Acumulado a la fecha — ${mesLabel(MES_ACTUAL)}, día ${diaHoy}/${ultimoDia}</div>
+  <div class="kpis" style="margin-bottom:18px">
+    <div class="kpi"><div class="kpi-l">Proyectado al día ${diaHoy}</div><div class="kpi-v" style="color:var(--texto2)">${proyHoy>0?fmt(proyHoy):'—'}</div><div class="kpi-s">${proyMesCompleto>0?'de '+fmt(proyMesCompleto)+' proyectado en el mes':'sin proyección cargada'}</div></div>
+    <div class="kpi"><div class="kpi-l">Cobrado real (abonos)</div><div class="kpi-v cv">${fmt(cobradoReal)}</div></div>
+    <div class="kpi"><div class="kpi-l">Avance vs proyección</div><div class="kpi-v" style="color:${colorProy}">${pctProy!=null?pctProy+'%':'—'}</div><div class="kpi-s">${pctProy!=null?(cobradoReal>=proyHoy?'✅ por encima de lo proyectado':'por debajo de lo proyectado'):''}</div></div>
+    <div class="kpi"><div class="kpi-l">Meta ventas (+10% vs mes ant.)</div><div class="kpi-v cb">${fmt(metaVentas)}</div></div>
+    <div class="kpi"><div class="kpi-l">Vendido</div><div class="kpi-v cv">${fmt(vendido)}</div></div>
+    <div class="kpi"><div class="kpi-l">Avance ventas</div><div class="kpi-v" style="color:${colorVentas}">${pctVentas!=null?pctVentas+'%':'—'}</div></div>
+  </div>`;
+  return h;
+}
+
+function bloqueGeneral(){
+  let h = bloqueAcumuladoActual();
+  h += `<div class="stitle">Todos los meses — totales por mes</div>
+  <div class="tw"><table>
+  <thead><tr>
+    <th>Mes</th><th class="num">Días</th><th class="num">Cobrado</th><th class="num">Depositado</th>
+    <th class="num">Gastos</th><th class="num">Abonos</th><th class="num">Primas</th><th class="num">Contado</th>
+    <th class="num">Ventas ERP</th>
+  </tr></thead><tbody>`;
+  let g = {dias:0,cobrado:0,depositado:0,gastos:0,cob_abono:0,cob_prima:0,cob_contado:0,ventas_erp:0};
+  for(const mk of mesesConDatos){
+    const list = arqueosPorMes[mk] || [];
+    const ag = aggBySuc(list);
+    const tot = {
+      dias: list.length,
+      cobrado: sumAg(ag,'cobrado'), depositado: sumAg(ag,'depositado'), gastos: sumAg(ag,'gastos'),
+      cob_abono: sumAg(ag,'cob_abono'), cob_prima: sumAg(ag,'cob_prima'), cob_contado: sumAg(ag,'cob_contado'),
+      ventas_erp: sumAg(ag,'ventas_erp'),
+    };
+    for(const k in g) g[k]+=tot[k];
+    const tag = mk===MES_ACTUAL ? ' <span style="color:var(--texto2);font-size:10px">(en curso)</span>' : '';
+    h+=`<tr>
+      <td><b>${mesLabel(mk)}</b>${tag}</td>
+      <td class="num">${tot.dias}</td>
+      <td class="num cb">${fmt(tot.cobrado)}</td>
+      <td class="num cv">${fmt(tot.depositado)}</td>
+      <td class="num cr">${fmt(tot.gastos)}</td>
+      <td class="num cm">${fmt(tot.cob_abono)}</td>
+      <td class="num cb">${fmt(tot.cob_prima)}</td>
+      <td class="num cv">${fmt(tot.cob_contado)}</td>
+      <td class="num">${fmt(tot.ventas_erp)}</td>
+    </tr>`;
+  }
+  h+=`<tr style="background:var(--gris);font-weight:700">
+    <td>TOTAL</td><td class="num">${g.dias}</td>
+    <td class="num cb">${fmt(g.cobrado)}</td><td class="num cv">${fmt(g.depositado)}</td>
+    <td class="num cr">${fmt(g.gastos)}</td><td class="num cm">${fmt(g.cob_abono)}</td>
+    <td class="num cb">${fmt(g.cob_prima)}</td><td class="num cv">${fmt(g.cob_contado)}</td>
+    <td class="num">${fmt(g.ventas_erp)}</td>
+  </tr></tbody></table></div>`;
+  return h;
+}
+
+function renderResumen(){
+  const el = document.getElementById('resumenBody');
+  if(!mesesConDatos.length){ el.innerHTML='<div class="loading-state">Sin datos. Haz clic en "Cargar datos".</div>'; return; }
+
+  const badge = document.getElementById('hdrMes');
+  if(badge) badge.textContent = resumenVista==='GENERAL' ? 'Todos los meses' : mesLabel(resumenVista)+(resumenVista===MES_ACTUAL?' · En curso':'');
+
+  let html = renderResumenFiltro();
+
+  if(resumenVista==='GENERAL'){
+    html += bloqueGeneral();
+  } else {
+    const arqList = arqueosPorMes[resumenVista] || [];
+    html += bloqueMes(resumenVista, arqList);
+    if(resumenVista===MES_ACTUAL){
+      const agActual = aggBySuc(arqList);
+      const agAnt    = aggBySuc(arqueosPorMes[prevMesKey(MES_ACTUAL)] || []);
+      html += bloqueSeguimiento(resumenVista, agActual, agAnt);
     }
   }
 
@@ -814,13 +992,14 @@ function renderResumen(){
 }
 
 function exportarResumen(){
-  if(!arqueos.length){ alert('Cargue los datos primero.'); return; }
+  if(!mesesConDatos.length){ alert('Cargue los datos primero.'); return; }
 
-  const ag     = aggBySuc(arqueos);
-  const agJul  = aggBySuc(arqueosJulio);
+  const mesKey = MES_ACTUAL;
+  const ag     = aggBySuc(arqueosPorMes[mesKey] || []);
+  const agAnt  = aggBySuc(arqueosPorMes[prevMesKey(mesKey)] || []);
+  const {ultimoDia} = rangoDelMes(mesKey);
   const hoy    = new Date();
   const diaHoy = hoy.getDate();
-  const pctMes = diaHoy / 31;
 
   // Proyección cobros al día
   const proyBySuc={}, proyMesBySuc={};
@@ -837,26 +1016,25 @@ function exportarResumen(){
 
   const wb = XLSX.utils.book_new();
 
-  // ── Hoja 1: Ventas julio ──
-  const hVentas=[['Sucursal','Meta Julio','Vendido Julio','Falta','Avance %']];
+  // ── Hoja 1: Ventas mes en curso ──
+  const hVentas=[['Sucursal','Meta '+mesLabel(mesKey),'Vendido','Falta','Avance %']];
   for(const s of SUCORDER){
-    const jun=ag[s]; if(!jun) continue;
-    const meta=jun.ventas_erp*1.10, vend=agJul[s]?agJul[s].ventas_erp:0;
+    const ant=agAnt[s]; if(!ant) continue;
+    const meta=ant.ventas_erp*1.10, vend=ag[s]?ag[s].ventas_erp:0;
     hVentas.push([SNAMES[s], Math.round(meta), Math.round(vend), Math.round(meta-vend), meta>0?+(vend/meta*100).toFixed(1):0]);
   }
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hVentas), 'Ventas Julio');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hVentas), 'Ventas '+mesLabel(mesKey));
 
   // ── Hoja 2: Cobros CXC ──
   const hCobros=[['Sucursal','Proy. Mes Completo','Proy. al Día '+diaHoy,'Cobrado (Abonos)','Avance %']];
   for(const s of SUCORDER){
-    const jun=ag[s]; if(!jun) continue;
-    const proy=proyBySuc[s]||0, mes=proyMesBySuc[s]||0, real=agJul[s]?agJul[s].cob_abono:0;
+    const ant=agAnt[s]; if(!ant) continue;
+    const proy=proyBySuc[s]||0, mes=proyMesBySuc[s]||0, real=ag[s]?ag[s].cob_abono:0;
     hCobros.push([SNAMES[s], Math.round(mes), Math.round(proy), Math.round(real), proy>0?+(real/proy*100).toFixed(1):0]);
   }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hCobros), 'Cobros CXC');
 
   // ── Hoja 3: Monitor cartera ──
-  const TRAMOS=['MES','60','90','120','150','VENCIDO','INACTIVO'];
   const hMonitor=[['Sucursal','Saldo Cartera','Mora Total','% Mora','Clientes Al Corriente','Clientes En Mora','Recuperación Proy.','Cobrado Real','% Recuperado']];
   for(const s of SUCORDER){
     const item=proyeccion.find(p=>CARTERA_TO_SUC[p.cartera_id]===s); if(!item) continue;
@@ -866,7 +1044,7 @@ function exportarResumen(){
       saldo+=Number(c.saldo||0); mora+=Number(c.moraVal||0); saldoEsp+=Number(c.saldoEsperado||0);
       if(t==='MES') corr++; else enMora++;
     }
-    const recEsp=saldo-saldoEsp, real=agJul[s]?agJul[s].cob_abono:0;
+    const recEsp=saldo-saldoEsp, real=ag[s]?ag[s].cob_abono:0;
     hMonitor.push([SNAMES[s], Math.round(saldo), Math.round(mora), saldo>0?+(mora/saldo*100).toFixed(1):0,
       corr, enMora, Math.round(recEsp), Math.round(real), recEsp>0?+(real/recEsp*100).toFixed(1):0]);
   }
@@ -892,49 +1070,52 @@ function diffChip(d){
 }
 
 // ── Ventas / Vendedores — 5 sucursales ──────────────────────
-const xlsVentasSuc    = {}; // junio {R1:rows, ...}
-const xlsVentasSucJul = {}; // julio {R1:rows, ...}
+const xlsVentasPorMes = {};   // {mesKey: {R1:rows, ...}}
 const xlsInvSuc       = {};
+let ventasMesSel = MES_ACTUAL;
 
-const MES_KEY     = '2026-06';
-const MES_KEY_JUL = '2026-07';
-
-function ventasMes(mes, btn){
-  document.querySelectorAll('.mes-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('vent-jun').style.display = mes==='jun' ? '' : 'none';
-  document.getElementById('vent-jul').style.display = mes==='jul' ? '' : 'none';
+function ventasMesesDisponibles(){
+  const set = new Set([...mesesConDatos, ...Object.keys(xlsVentasPorMes), MES_ACTUAL]);
+  return [...set].sort();
 }
 
-async function saveToSupabase(tabla, suc, rows){
+function renderVentasMesBtns(){
+  const el = document.getElementById('ventasMesButtons');
+  if(!el) return;
+  const btns = ventasMesesDisponibles().map(mk=>{
+    const activo = mk===ventasMesSel ? 'active' : '';
+    const tag = mk===MES_ACTUAL ? '🔴 ' : '';
+    return `<button class="mes-btn ${activo}" onclick="selectVentasMes('${mk}')">${tag}${mesLabel(mk)}</button>`;
+  }).join('');
+  el.innerHTML = `<span style="font-size:11px;font-weight:700;color:var(--texto2);text-transform:uppercase;letter-spacing:.06em">Ver:</span>${btns}`;
+}
+
+function selectVentasMes(mesKey){
+  ventasMesSel = mesKey;
+  document.getElementById('ventasUploadTitle').textContent = `Subir reportes de ventas ${mesLabel(mesKey)} — una por sucursal`;
+  renderVentasMesBtns();
+  renderVentasAll();
+}
+
+async function saveToSupabase(tabla, suc, rows, mesKey){
   const hi = detectHeaderRow(rows);
   const headers = rows[hi] || [];
   const dataRows = rows.slice(hi+1);
-  await sb.from(tabla).upsert({mes_key: MES_KEY, sucursal: suc, rows: dataRows, headers, updated_at: new Date().toISOString()},{onConflict:'mes_key,sucursal'});
+  await sb.from(tabla).upsert({mes_key: mesKey, sucursal: suc, rows: dataRows, headers, updated_at: new Date().toISOString()},{onConflict:'mes_key,sucursal'});
 }
 
 async function loadFromSupabase(){
-  const [rv, rvj, ri] = await Promise.all([
-    sb.from('cierre_ventas').select('sucursal,rows,headers,updated_at').eq('mes_key', MES_KEY),
-    sb.from('cierre_ventas').select('sucursal,rows,headers,updated_at').eq('mes_key', MES_KEY_JUL),
-    sb.from('cierre_inventario').select('sucursal,rows,headers,updated_at').eq('mes_key', MES_KEY),
+  const [rv, ri] = await Promise.all([
+    sb.from('cierre_ventas').select('mes_key,sucursal,rows,headers,updated_at'),
+    sb.from('cierre_inventario').select('sucursal,rows,headers,updated_at').eq('mes_key', MES_ACTUAL),
   ]);
-  let ventasLoaded=0, ventasJulLoaded=0, invLoaded=0;
+  let ventasLoaded=0, invLoaded=0;
   for(const d of (rv.data||[])){
     const rows = [d.headers, ...d.rows];
     rows._fromSupabase = true;
-    xlsVentasSuc[d.sucursal] = rows;
-    const lbl = document.getElementById('fV-'+d.sucursal+'-name');
-    if(lbl){ const dt=new Date(d.updated_at); lbl.textContent='✓ Guardado '+dt.toLocaleDateString('es-HN'); lbl.style.color='var(--verde)'; }
+    if(!xlsVentasPorMes[d.mes_key]) xlsVentasPorMes[d.mes_key] = {};
+    xlsVentasPorMes[d.mes_key][d.sucursal] = rows;
     ventasLoaded++;
-  }
-  for(const d of (rvj.data||[])){
-    const rows = [d.headers, ...d.rows];
-    rows._fromSupabase = true;
-    xlsVentasSucJul[d.sucursal] = rows;
-    const lbl = document.getElementById('fVJ-'+d.sucursal+'-name');
-    if(lbl){ const dt=new Date(d.updated_at); lbl.textContent='✓ Guardado '+dt.toLocaleDateString('es-HN'); lbl.style.color='var(--verde)'; }
-    ventasJulLoaded++;
   }
   for(const d of (ri.data||[])){
     const rows = [d.headers, ...d.rows];
@@ -943,9 +1124,20 @@ async function loadFromSupabase(){
     if(lbl){ const dt=new Date(d.updated_at); lbl.textContent='✓ Guardado '+dt.toLocaleDateString('es-HN'); lbl.style.color='var(--verde)'; }
     invLoaded++;
   }
+  renderVentasMesBtns();
+  updateVentasFileLabels();
   if(ventasLoaded) renderVentasAll();
-  if(ventasJulLoaded) renderVentasJulAll();
   if(invLoaded) renderInvAll();
+}
+
+function updateVentasFileLabels(){
+  const rows = xlsVentasPorMes[ventasMesSel] || {};
+  for(const suc of SUCORDER){
+    const lbl = document.getElementById('fV-'+suc+'-name');
+    if(!lbl) continue;
+    if(rows[suc] && rows[suc]._fromSupabase){ lbl.textContent='✓ Guardado'; lbl.style.color='var(--verde)'; }
+    else { lbl.textContent=''; lbl.style.color=''; }
+  }
 }
 
 function parseVentasSuc(suc){
@@ -956,8 +1148,9 @@ function parseVentasSuc(suc){
     try{
       const wb = XLSX.read(e.target.result,{type:'array'});
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
-      xlsVentasSuc[suc] = rows;
-      await saveToSupabase('cierre_ventas', suc, rows);
+      if(!xlsVentasPorMes[ventasMesSel]) xlsVentasPorMes[ventasMesSel] = {};
+      xlsVentasPorMes[ventasMesSel][suc] = rows;
+      await saveToSupabase('cierre_ventas', suc, rows, ventasMesSel);
       renderVentasAll();
     }catch(err){ document.getElementById('ventasBody').innerHTML=`<div class="abox critica">Error: ${err.message}</div>`; }
   };
@@ -973,205 +1166,11 @@ function parseInvSuc(suc){
       const wb = XLSX.read(e.target.result,{type:'array'});
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
       xlsInvSuc[suc] = rows;
-      await saveToSupabase('cierre_inventario', suc, rows);
+      await saveToSupabase('cierre_inventario', suc, rows, MES_ACTUAL);
       renderInvAll();
     }catch(err){ document.getElementById('invBody').innerHTML=`<div class="abox critica">Error: ${err.message}</div>`; }
   };
   reader.readAsArrayBuffer(file);
-}
-
-async function saveToSupabaseJul(suc, rows){
-  const hi = detectHeaderRow(rows);
-  const headers = rows[hi] || [];
-  const dataRows = rows.slice(hi+1);
-  await sb.from('cierre_ventas').upsert({mes_key: MES_KEY_JUL, sucursal: suc, rows: dataRows, headers, updated_at: new Date().toISOString()},{onConflict:'mes_key,sucursal'});
-}
-
-function parseVentasSucJul(suc){
-  const file = document.getElementById('fVJ-'+suc).files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = async e => {
-    try{
-      const wb = XLSX.read(e.target.result,{type:'array'});
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
-      xlsVentasSucJul[suc] = rows;
-      await saveToSupabaseJul(suc, rows);
-      renderVentasJulAll();
-    }catch(err){ document.getElementById('ventasJulBody').innerHTML=`<div class="abox critica">Error: ${err.message}</div>`; }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function renderVentasJulAll(){
-  const allRows = [];
-  for(const suc of SUCORDER){
-    const rows = xlsVentasSucJul[suc];
-    if(!rows||rows.length<2) continue;
-    const hi = (rows._fromSupabase) ? 0 : detectHeaderRow(rows);
-    const headers = rows[hi];
-    for(const r of rows.slice(hi+1)){
-      if(r.some(c=>String(c||'').trim())) allRows.push({suc, row:r, headers});
-    }
-  }
-  if(!allRows.length){
-    document.getElementById('ventasJulBody').innerHTML='<div class="loading-state">Sube los archivos de ventas julio de cada sucursal arriba.</div>';
-    return;
-  }
-  renderVentasJul(allRows);
-}
-
-function renderVentasJul(entries){
-  if(!entries||!entries.length){document.getElementById('ventasJulBody').innerHTML='<div class="abox warning">Sin datos julio.</div>';return;}
-
-  const hoy = new Date();
-  const diaHoy = hoy.getDate();
-  const pctMes = diaHoy / 31;
-
-  function getIdx(headers){
-    const h=headers.map(x=>String(x).toLowerCase().trim());
-    return {
-      iVend:  findCol(h,['vendedor','asesor','agente','representante','nombre vendedor']),
-      iProd:  findCol(h,['producto','artículo','articulo','descripción','descripcion','item','modelo','model']),
-      iMonto: findCol(h,['total venta','monto','sub total','subtotal','total','valor','importe','ventas','venta','precio total']),
-      iCant:  findCol(h,['cantidad','qty','cant','unidades']),
-    };
-  }
-  function normVend(v){ return v.toLowerCase().replace(/[\s\.\-_]/g,''); }
-
-  const dataRaw = entries.map(({suc,row,headers})=>{
-    const idx = getIdx(headers);
-    const vend = idx.iVend>=0 ? String(row[idx.iVend]||'').trim() : '';
-    if(!vend) return null;
-    return {
-      suc, vend,
-      prod:  idx.iProd>=0  ? String(row[idx.iProd]||'').trim() : '',
-      monto: idx.iMonto>=0 ? parseFloat(String(row[idx.iMonto]).replace(/[,L$\s]/g,''))||0 : 0,
-      cant:  idx.iCant>=0  ? parseFloat(String(row[idx.iCant]).replace(/[,\s]/g,''))||0 : 0,
-    };
-  }).filter(Boolean);
-
-  const bySuc = {};
-  let totalGlobal = 0;
-  for(const r of dataRaw){
-    if(!bySuc[r.suc]) bySuc[r.suc]={total:0,vends:{},normMap:{}};
-    const s = bySuc[r.suc];
-    const n = normVend(r.vend);
-    if(!s.normMap[n]) s.normMap[n] = r.vend;
-    const vdisp = s.normMap[n];
-    if(!s.vends[vdisp]) s.vends[vdisp]={total:0,items:0};
-    s.vends[vdisp].total += r.monto;
-    s.vends[vdisp].items++;
-    s.total += r.monto;
-    totalGlobal += r.monto;
-  }
-
-  // Totales por sucursal desde arqueos julio (para contrastar)
-  const agJulSuc = arqueosJulio.length ? (()=>{
-    const r={};
-    for(const a of arqueosJulio){
-      if(!r[a.sucursal]) r[a.sucursal]={ventas_erp:0};
-      const aj=a.analisis_json||{};
-      for(const v of (aj.ventas||[])) r[a.sucursal].ventas_erp += Number(v.total_erp||0);
-    }
-    return r;
-  })() : {};
-
-  // Metas globales julio
-  const metaGlobal = SUCORDER.reduce((s,suc)=>{
-    return s + (METAS_SUC[suc]||[]).reduce((a,m)=>a+(m.monto||0),0);
-  },0);
-
-  const sucLoaded = SUCORDER.filter(s=>bySuc[s]).length;
-  let h = `<div class="kpis">
-    <div class="kpi"><div class="kpi-l">ERP Julio (día ${diaHoy}/31)</div><div class="kpi-v cv">${fmt(totalGlobal)}</div><div class="kpi-s">${dataRaw.length} ventas · ${sucLoaded} sucursales</div></div>
-    <div class="kpi"><div class="kpi-l">Meta julio total</div><div class="kpi-v cb">${fmt(metaGlobal)}</div><div class="kpi-s">${metaGlobal>0?Math.round(totalGlobal/metaGlobal*100)+'% avance':'—'}</div></div>
-    <div class="kpi"><div class="kpi-l">Ritmo global</div><div class="kpi-v" style="color:${pctMes>0&&totalGlobal/metaGlobal/pctMes>=0.95?'var(--verde)':'var(--rojo)'}">
-      ${metaGlobal>0&&pctMes>0?Math.round(totalGlobal/metaGlobal/pctMes*100)+'%':'—'}</div><div class="kpi-s">vs esperado día ${diaHoy}</div></div>
-  </div>`;
-
-  for(const suc of SUCORDER){
-    const sd = bySuc[suc];
-    if(!sd) continue;
-    const vendList = Object.entries(sd.vends).sort((a,b)=>b[1].total-a[1].total);
-    const metaSucTotal = (METAS_SUC[suc]||[]).reduce((s,m)=>s+(m.monto||0),0);
-    const arqTotal = agJulSuc[suc]?.ventas_erp||0;
-    const pctSuc = metaSucTotal>0 ? Math.round(sd.total/metaSucTotal*100) : null;
-    const ritmoSuc = metaSucTotal>0&&pctMes>0 ? sd.total/metaSucTotal/pctMes : null;
-    const scColor = ritmoSuc===null?'var(--texto2)':ritmoSuc>=1.0?'var(--verde)':ritmoSuc>=0.80?'var(--ambar)':'var(--rojo)';
-    const scIcon = ritmoSuc===null?'—':ritmoSuc>=1.10?'🚀':ritmoSuc>=1.0?'✅':ritmoSuc>=0.80?'⚠️':'🚨';
-
-    h+=`<div class="stitle">${suc} — ${SNAMES[suc]} <span style="font-size:12px;color:var(--texto2);font-weight:400">Julio 2026 · día ${diaHoy}/31</span></div>`;
-    h+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-      <div class="kpi" style="flex:1;min-width:140px"><div class="kpi-l">ERP julio</div><div class="kpi-v cv">${fmt(sd.total)}</div></div>
-      <div class="kpi" style="flex:1;min-width:140px"><div class="kpi-l">Meta julio</div><div class="kpi-v cb">${metaSucTotal?fmt(metaSucTotal):'Sin meta'}</div></div>
-      ${pctSuc!=null?`<div class="kpi" style="flex:1;min-width:140px"><div class="kpi-l">Avance</div><div class="kpi-v" style="color:${scColor}">${scIcon} ${pctSuc}%</div><div class="kpi-s">ritmo ${ritmoSuc!=null?Math.round(ritmoSuc*100)+'%':'—'}</div></div>`:''}
-      ${arqTotal&&Math.abs(arqTotal-sd.total)>500?`<div class="kpi" style="flex:1;min-width:140px"><div class="kpi-l">Arqueos julio</div><div class="kpi-v">${fmt(arqTotal)}</div><div class="kpi-s" style="color:var(--ambar)">⚠ dif. vs Excel</div></div>`:''}
-    </div>`;
-
-    h+=`<div class="tw" style="margin-bottom:20px"><table>
-      <thead><tr>
-        <th>#</th><th>Vendedor</th>
-        <th class="num">ERP Julio</th>
-        <th class="num">Meta mensual</th>
-        <th class="num">% meta</th>
-        <th class="num">Falta</th>
-        <th>Avance</th>
-        <th class="num">Ritmo</th>
-      </tr></thead><tbody>`;
-
-    vendList.forEach(([v,d],i)=>{
-      const meta   = getMeta(suc, v);
-      const metaM  = meta && meta.monto > 0 ? meta.monto : null;
-      const pctM   = metaM ? Math.min(Math.round(d.total/metaM*100),999) : null;
-      const falta  = metaM ? metaM - d.total : null;
-      const ritmo  = metaM&&pctMes>0 ? d.total/metaM/pctMes : null;
-      let barColor, badge, ritmoBadge;
-      if(!metaM){
-        barColor='var(--azul)';
-        badge=`<span style="color:var(--texto2);font-size:11px">Sin meta L</span>`;
-        ritmoBadge='—';
-      } else if(pctM>=100){
-        barColor='var(--verde)';
-        badge=`<span style="color:var(--verde);font-weight:700">✅ ${pctM}%</span>`;
-        ritmoBadge=`<span style="color:${ritmo>=1.0?'var(--verde)':'var(--ambar)'}">
-          ${ritmo>=1.10?'🚀':ritmo>=1.0?'✅':ritmo>=0.80?'⚠️':'🚨'} ${Math.round(ritmo*100)}%</span>`;
-      } else if(pctM>=80){
-        barColor='var(--ambar)';
-        badge=`<span style="color:var(--ambar);font-weight:700">⚠️ ${pctM}%</span>`;
-        ritmoBadge=`<span style="color:${ritmo>=1.0?'var(--verde)':'var(--ambar)'}">
-          ${ritmo>=1.0?'✅':ritmo>=0.80?'⚠️':'🚨'} ${Math.round(ritmo*100)}%</span>`;
-      } else {
-        barColor='var(--rojo)';
-        badge=`<span style="color:var(--rojo);font-weight:700">🚨 ${pctM}%</span>`;
-        ritmoBadge=ritmo!=null?`<span style="color:var(--rojo)">🚨 ${Math.round(ritmo*100)}%</span>`:'—';
-      }
-      const barW = metaM ? Math.min(d.total/metaM*100,100) : 0;
-      const bar = `<div style="height:6px;background:#eee;border-radius:3px;margin-top:3px">
-        <div style="height:100%;border-radius:3px;background:${barColor};width:${barW}%"></div></div>`;
-      h+=`<tr>
-        <td style="color:var(--texto2);font-size:13px;font-weight:700">${i+1}</td>
-        <td><b>${v}</b>${bar}</td>
-        <td class="num cv" style="font-weight:700">${fmt(d.total)}</td>
-        <td class="num">${metaM?fmt(metaM):'—'}</td>
-        <td class="num">${badge}</td>
-        <td class="num" style="color:${falta!=null&&falta>0?'var(--rojo)':'var(--verde)'}">
-          ${falta!=null?(falta>0?fmt(falta):'✅ Cumplida'):'—'}</td>
-        <td class="num" style="color:var(--texto2);font-size:11px">${d.items} ventas</td>
-        <td class="num">${ritmoBadge}</td>
-      </tr>`;
-    });
-
-    h+=`<tr style="background:var(--gris);font-weight:700">
-      <td colspan="2">TOTAL ${suc}</td>
-      <td class="num cv">${fmt(sd.total)}</td>
-      <td class="num">${metaSucTotal?fmt(metaSucTotal):'—'}</td>
-      <td class="num">${pctSuc!=null?pctSuc+'%':'—'}</td>
-      <td colspan="3"></td>
-    </tr></tbody></table></div>`;
-  }
-
-  document.getElementById('ventasJulBody').innerHTML = h;
 }
 
 function parseVentas(){ /* legacy */ }
@@ -1195,9 +1194,11 @@ function detectHeaderRow(rows){
 }
 
 function renderVentasAll(){
+  updateVentasFileLabels();
+  const sucRows = xlsVentasPorMes[ventasMesSel] || {};
   const allRows = [];
   for(const suc of SUCORDER){
-    const rows = xlsVentasSuc[suc];
+    const rows = sucRows[suc];
     if(!rows||rows.length<2) continue;
     // Si viene de Supabase, rows[0] ya es el header real
     // Si viene de upload fresco, detectar header
@@ -1208,10 +1209,10 @@ function renderVentasAll(){
     }
   }
   if(!allRows.length){
-    document.getElementById('ventasBody').innerHTML='<div class="loading-state">Sube los archivos de ventas de cada sucursal arriba.</div>';
+    document.getElementById('ventasBody').innerHTML=`<div class="loading-state">Sube los archivos de ventas de ${mesLabel(ventasMesSel)} de cada sucursal arriba.</div>`;
     return;
   }
-  renderVentas(allRows);
+  renderVentasMes(ventasMesSel, allRows);
 }
 
 function renderInvAll(){
@@ -1232,11 +1233,15 @@ function renderInvAll(){
   renderInventario(allRows);
 }
 
-function renderVentas(entries){
+function renderVentasMes(mesKey, entries){
   // entries = [{suc, row, headers}, ...]
   if(!entries||!entries.length){document.getElementById('ventasBody').innerHTML='<div class="abox warning">Sin datos.</div>';return;}
 
-  // Índices por sucursal (cada archivo puede tener columnas distintas)
+  const esMesActual = mesKey===MES_ACTUAL;
+  const {ultimoDia} = rangoDelMes(mesKey);
+  const diaHoy = esMesActual ? new Date().getDate() : ultimoDia;
+  const pctMes = diaHoy / ultimoDia;
+
   function getIdx(headers){
     const h=headers.map(x=>String(x).toLowerCase().trim());
     return {
@@ -1246,35 +1251,28 @@ function renderVentas(entries){
       iCant:  findCol(h,['cantidad','qty','cant','unidades']),
     };
   }
+  // Normaliza nombre de vendedor: agrupa "Kmejia" con "K MEJIA", etc.
+  function normVend(v){ return v.toLowerCase().replace(/[\s\.\-_]/g,''); }
 
-  // Normaliza nombre de vendedor: quita espacios, puntos, mayúsculas
-  // para agrupar "Kmejia" con "K MEJIA", "SHERNANDEZ" con "S HERNANDEZ", etc.
-  function normVend(v){
-    return v.toLowerCase().replace(/[\s\.\-_]/g,'');
-  }
-
-  // Construir data normalizada — omite filas sin vendedor (totales/blancos)
   const dataRaw = entries.map(({suc,row,headers})=>{
     const idx = getIdx(headers);
     const vend = idx.iVend>=0 ? String(row[idx.iVend]||'').trim() : '';
-    if(!vend) return null; // saltar filas sin vendedor (totales, blancos)
+    if(!vend) return null;
     return {
-      suc,
-      vend,
+      suc, vend,
       prod:  idx.iProd>=0  ? String(row[idx.iProd]||'').trim() : '',
       monto: idx.iMonto>=0 ? parseFloat(String(row[idx.iMonto]).replace(/[,L$\s]/g,''))||0 : 0,
       cant:  idx.iCant>=0  ? parseFloat(String(row[idx.iCant]).replace(/[,\s]/g,''))||0 : 0,
     };
   }).filter(Boolean);
 
-  // Agrupar por sucursal → vendedor (normalizado dentro de esa sucursal)
   const bySuc = {};
   let totalGlobal = 0;
   for(const r of dataRaw){
     if(!bySuc[r.suc]) bySuc[r.suc]={total:0,vends:{},normMap:{}};
     const s = bySuc[r.suc];
     const n = normVend(r.vend);
-    if(!s.normMap[n]) s.normMap[n] = r.vend; // primer nombre encontrado
+    if(!s.normMap[n]) s.normMap[n] = r.vend;
     const vdisp = s.normMap[n];
     if(!s.vends[vdisp]) s.vends[vdisp]={total:0,items:0,productos:{}};
     s.vends[vdisp].total += r.monto;
@@ -1284,54 +1282,76 @@ function renderVentas(entries){
     totalGlobal += r.monto;
   }
 
-  const metaPct = 1.10;
-  const metaGlobal = totalGlobal * metaPct;
-  const totalVends = Object.values(bySuc).reduce((s,v)=>s+Object.keys(v.vends).length,0);
+  // Totales por sucursal desde arqueos del mes (para contrastar)
+  const agMesSuc = (()=>{
+    const r={};
+    for(const a of (arqueosPorMes[mesKey]||[])){
+      if(!r[a.sucursal]) r[a.sucursal]={ventas_erp:0};
+      const aj=a.analisis_json||{};
+      for(const v of (aj.ventas||[])) r[a.sucursal].ventas_erp += Number(v.total_erp||0);
+    }
+    return r;
+  })();
 
-  function badgeSuc(total,i,prom){
-    if(i===0) return '<span style="background:#1E7A50;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">⭐ TOP</span>';
-    if(total>=prom*0.9) return '<span style="background:#1A5CA8;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px">OK</span>';
-    return '<span style="background:#C0392B;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px">⬇ MEJORAR</span>';
-  }
+  const metaGlobal = SUCORDER.reduce((s,suc)=>s+(METAS_SUC[suc]||[]).reduce((a,m)=>a+(m.monto||0),0),0);
+  const sucLoaded = SUCORDER.filter(s=>bySuc[s]).length;
 
-  // KPIs globales
   let h = `<div class="kpis">
-    <div class="kpi"><div class="kpi-l">Total Junio 2026</div><div class="kpi-v cv">${fmt(totalGlobal)}</div><div class="kpi-s">${dataRaw.length} ventas · ${totalVends} vendedores</div></div>
-    <div class="kpi"><div class="kpi-l">Meta Julio (+10%)</div><div class="kpi-v cb">${fmt(metaGlobal)}</div><div class="kpi-s">+${fmt(metaGlobal-totalGlobal)} sobre junio</div></div>
-    <div class="kpi"><div class="kpi-l">Sucursales cargadas</div><div class="kpi-v">${Object.keys(bySuc).length}</div></div>
+    <div class="kpi"><div class="kpi-l">ERP ${mesLabel(mesKey)}${esMesActual?` (día ${diaHoy}/${ultimoDia})`:''}</div><div class="kpi-v cv">${fmt(totalGlobal)}</div><div class="kpi-s">${dataRaw.length} ventas · ${sucLoaded} sucursales</div></div>
+    <div class="kpi"><div class="kpi-l">Meta ${mesLabel(mesKey)} total</div><div class="kpi-v cb">${fmt(metaGlobal)}</div><div class="kpi-s">${metaGlobal>0?Math.round(totalGlobal/metaGlobal*100)+'% avance':'—'}</div></div>
+    ${esMesActual?`<div class="kpi"><div class="kpi-l">Ritmo global</div><div class="kpi-v" style="color:${pctMes>0&&metaGlobal>0&&totalGlobal/metaGlobal/pctMes>=0.95?'var(--verde)':'var(--rojo)'}">
+      ${metaGlobal>0&&pctMes>0?Math.round(totalGlobal/metaGlobal/pctMes*100)+'%':'—'}</div><div class="kpi-s">vs esperado día ${diaHoy}</div></div>`
+      :`<div class="kpi"><div class="kpi-l">Sucursales cargadas</div><div class="kpi-v">${sucLoaded}</div></div>`}
   </div>`;
 
-  // Ranking por sucursal — sección independiente para cada una
   for(const suc of SUCORDER){
     const sd = bySuc[suc];
     if(!sd) continue;
     const vendList = Object.entries(sd.vends).sort((a,b)=>b[1].total-a[1].total);
-    const prom = vendList.length ? sd.total/vendList.length : 0;
-    const top = vendList[0];
+    const metaSucTotal = (METAS_SUC[suc]||[]).reduce((s,m)=>s+(m.monto||0),0);
+    const arqTotal = agMesSuc[suc]?.ventas_erp||0;
+    const pctSuc = metaSucTotal>0 ? Math.round(sd.total/metaSucTotal*100) : null;
+    const ritmoSuc = esMesActual&&metaSucTotal>0&&pctMes>0 ? sd.total/metaSucTotal/pctMes : null;
+    const scColor = ritmoSuc===null?'var(--texto2)':ritmoSuc>=1.0?'var(--verde)':ritmoSuc>=0.80?'var(--ambar)':'var(--rojo)';
+    const scIcon = ritmoSuc===null?'—':ritmoSuc>=1.10?'🚀':ritmoSuc>=1.0?'✅':ritmoSuc>=0.80?'⚠️':'🚨';
 
-    h+=`<div class="stitle">${suc} — ${SNAMES[suc]} <span style="font-size:12px;color:var(--texto2);font-weight:400">Junio 2026 · Meta Julio +10%</span></div>`;
+    h+=`<div class="stitle" id="suc-${suc}">${suc} — ${SNAMES[suc]} <span style="font-size:12px;color:var(--texto2);font-weight:400">${mesLabel(mesKey)}${esMesActual?` · día ${diaHoy}/${ultimoDia}`:''}</span></div>`;
     h+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
-      <div class="kpi" style="flex:1;min-width:160px"><div class="kpi-l">Total sucursal</div><div class="kpi-v cv">${fmt(sd.total)}</div></div>
-      <div class="kpi" style="flex:1;min-width:160px"><div class="kpi-l">Meta julio</div><div class="kpi-v cb">${fmt(sd.total*metaPct)}</div></div>
-      ${top?`<div class="kpi" style="flex:1;min-width:160px"><div class="kpi-l">⭐ Top</div><div class="kpi-v cm" style="font-size:13px">${top[0]}</div><div class="kpi-s">${fmt(top[1].total)}</div></div>`:''}
+      <div class="kpi" style="flex:1;min-width:140px"><div class="kpi-l">ERP ${mesLabel(mesKey)}</div><div class="kpi-v cv">${fmt(sd.total)}</div></div>
+      <div class="kpi" style="flex:1;min-width:140px"><div class="kpi-l">Meta ${mesLabel(mesKey)}</div><div class="kpi-v cb">${metaSucTotal?fmt(metaSucTotal):'Sin meta'}</div></div>
+      ${pctSuc!=null?`<div class="kpi" style="flex:1;min-width:140px"><div class="kpi-l">Avance</div><div class="kpi-v" style="color:${scColor}">${scIcon} ${pctSuc}%</div>${ritmoSuc!=null?`<div class="kpi-s">ritmo ${Math.round(ritmoSuc*100)}%</div>`:''}</div>`:''}
+      ${arqTotal&&Math.abs(arqTotal-sd.total)>500?`<div class="kpi" style="flex:1;min-width:140px"><div class="kpi-l">Arqueos ${mesLabel(mesKey)}</div><div class="kpi-v">${fmt(arqTotal)}</div><div class="kpi-s" style="color:var(--ambar)">⚠ dif. vs Excel</div></div>`:''}
     </div>`;
 
     h+=`<div class="tw" style="margin-bottom:20px"><table>
-      <thead><tr><th>#</th><th>Vendedor</th><th class="num">Vendido junio</th><th class="num">Meta mensual</th><th class="num">% meta</th><th class="num">Falta</th><th>Avance</th></tr></thead><tbody>`;
+      <thead><tr>
+        <th>#</th><th>Vendedor</th>
+        <th class="num">Vendido</th>
+        <th class="num">Meta mensual</th>
+        <th class="num">% meta</th>
+        <th class="num">Falta</th>
+        <th>Avance</th>
+        ${esMesActual?'<th class="num">Ritmo</th>':''}
+      </tr></thead><tbody>`;
+
     vendList.forEach(([v,d],i)=>{
       const meta   = getMeta(suc, v);
       const metaM  = meta && meta.monto > 0 ? meta.monto : null;
-      const pctMeta= metaM ? Math.min(Math.round(d.total/metaM*100),999) : null;
+      const pctM   = metaM ? Math.min(Math.round(d.total/metaM*100),999) : null;
       const falta  = metaM ? metaM - d.total : null;
-      let barColor, badge;
+      const ritmo  = esMesActual&&metaM&&pctMes>0 ? d.total/metaM/pctMes : null;
+      let barColor, badge, ritmoBadge='—';
       if(!metaM){
         barColor='var(--azul)'; badge=`<span style="color:var(--texto2);font-size:11px">Sin meta L</span>`;
-      } else if(pctMeta>=100){
-        barColor='var(--verde)'; badge=`<span style="color:var(--verde);font-weight:700">✅ ${pctMeta}%</span>`;
-      } else if(pctMeta>=80){
-        barColor='var(--ambar)'; badge=`<span style="color:var(--ambar);font-weight:700">⚠️ ${pctMeta}%</span>`;
+      } else if(pctM>=100){
+        barColor='var(--verde)'; badge=`<span style="color:var(--verde);font-weight:700">✅ ${pctM}%</span>`;
+        if(ritmo!=null) ritmoBadge=`<span style="color:${ritmo>=1.0?'var(--verde)':'var(--ambar)'}">${ritmo>=1.10?'🚀':ritmo>=1.0?'✅':ritmo>=0.80?'⚠️':'🚨'} ${Math.round(ritmo*100)}%</span>`;
+      } else if(pctM>=80){
+        barColor='var(--ambar)'; badge=`<span style="color:var(--ambar);font-weight:700">⚠️ ${pctM}%</span>`;
+        if(ritmo!=null) ritmoBadge=`<span style="color:${ritmo>=1.0?'var(--verde)':'var(--ambar)'}">${ritmo>=1.0?'✅':ritmo>=0.80?'⚠️':'🚨'} ${Math.round(ritmo*100)}%</span>`;
       } else {
-        barColor='var(--rojo)'; badge=`<span style="color:var(--rojo);font-weight:700">🚨 ${pctMeta}%</span>`;
+        barColor='var(--rojo)'; badge=`<span style="color:var(--rojo);font-weight:700">🚨 ${pctM}%</span>`;
+        if(ritmo!=null) ritmoBadge=`<span style="color:var(--rojo)">🚨 ${Math.round(ritmo*100)}%</span>`;
       }
       const barW = metaM ? Math.min(d.total/metaM*100,100) : 0;
       const bar  = metaM
@@ -1347,15 +1367,17 @@ function renderVentas(entries){
         <td class="num cv" style="font-weight:700">${fmt(d.total)}</td>
         <td class="num">${metaM?fmt(metaM):'—'}</td>
         <td class="num">${badge}</td>
-        <td class="num" style="color:${falta>0?'var(--rojo)':'var(--verde)'}">${falta!=null?(falta>0?fmt(falta):'✅ Cumplida'):'—'}</td>
+        <td class="num" style="color:${falta!=null&&falta>0?'var(--rojo)':'var(--verde)'}">${falta!=null?(falta>0?fmt(falta):'✅ Cumplida'):'—'}</td>
         <td class="num" style="color:var(--texto2);font-size:11px">${d.items} ventas</td>
+        ${esMesActual?`<td class="num">${ritmoBadge}</td>`:''}
       </tr>`;
     });
     h+=`<tr style="background:var(--gris);font-weight:700">
       <td colspan="2">TOTAL ${suc}</td>
       <td class="num cv">${fmt(sd.total)}</td>
-      <td class="num">${fmt(METAS_SUC[suc]?METAS_SUC[suc].reduce((s,m)=>s+(m.monto||0),0):0)}</td>
-      <td colspan="3"></td>
+      <td class="num">${metaSucTotal?fmt(metaSucTotal):'—'}</td>
+      <td class="num">${pctSuc!=null?pctSuc+'%':'—'}</td>
+      <td colspan="${esMesActual?3:2}"></td>
     </tr></tbody></table></div>`;
   }
 
@@ -1368,7 +1390,7 @@ function renderVentas(entries){
   }
   const prodList=Object.entries(byProd).sort((a,b)=>b[1].total-a[1].total).slice(0,20);
   if(prodList.length){
-    h+=`<div class="stitle">Top 20 productos más vendidos — Junio 2026</div><div class="tw"><table>
+    h+=`<div class="stitle">Top 20 productos más vendidos — ${mesLabel(mesKey)}</div><div class="tw"><table>
       <thead><tr><th>#</th><th>Producto</th><th class="num">Total</th><th class="num">Cantidad</th><th class="num">Tickets</th><th class="num">Precio prom.</th></tr></thead><tbody>`;
     prodList.forEach(([p,d],i)=>{
       const precProm = d.cant>0 ? d.total/d.cant : 0;
@@ -1614,14 +1636,92 @@ function renderCXC(){
 }
 
 // ── Proyección — Julio 2026 ───────────────────────────────────
+// Resumen: cobrado real hasta hoy vs. proyectado (Cobranza), y lo que falta por cobrar en el mes
+function resumenCobradoVsProyectado(items){
+  const mesKey = proyeccionMesKey;
+  const {ultimoDia} = rangoDelMes(mesKey);
+  const diaHoy = mesKey===MES_ACTUAL ? new Date().getDate() : ultimoDia;
+  const ag = aggBySuc(arqueosPorMes[mesKey] || []);
+
+  // Proyección de "Mi Equipo" (Excel subido por las encargadas de crédito, vía Drive) — solo informativo, no se mezcla con la de Cobranza
+  const miEquipoPorSuc = {};
+  if(proyeccionManual && proyeccionManual.mes_key===mesKey){
+    for(const f of (proyeccionManual.filas||[])){
+      const s = f.sucursal;
+      miEquipoPorSuc[s] = (miEquipoPorSuc[s]||0) + Number(f.monto||0);
+    }
+  }
+  const hayMiEquipo = Object.keys(miEquipoPorSuc).length>0;
+
+  let tProyMes=0, tProyHoy=0, tCobrado=0, tMiEquipo=0;
+  const filas = [];
+  for(const item of items){
+    const suc = CARTERA_TO_SUC[item.cartera_id];
+    const datos = item.datos||[];
+    let proyMes=0, proyHoy=0;
+    for(const c of datos){
+      const m = Number(c.montoAsesor||0);
+      proyMes += m;
+      if(Number(c.diaAsesor||0)>0 && Number(c.diaAsesor)<=diaHoy) proyHoy += m;
+    }
+    const cobrado = suc && ag[suc] ? ag[suc].cob_abono : 0;
+    const falta = Math.max(0, proyMes - cobrado);
+    const miEquipo = suc ? (miEquipoPorSuc[suc]||0) : 0;
+    tProyMes+=proyMes; tProyHoy+=proyHoy; tCobrado+=cobrado; tMiEquipo+=miEquipo;
+    filas.push({nombre:CARTERA_NAMES[item.cartera_id]||item.cartera_id, suc, proyMes, proyHoy, cobrado, falta, miEquipo});
+  }
+  const tFalta = Math.max(0, tProyMes - tCobrado);
+  const pctVsHoy = tProyHoy>0 ? Math.round(tCobrado/tProyHoy*100) : null;
+  const color = pctVsHoy===null?'var(--texto2)':pctVsHoy>=95?'var(--verde)':pctVsHoy>=75?'var(--ambar)':'var(--rojo)';
+
+  let h = `<div class="stitle">Resumen — cobrado vs. proyectado (${mesLabel(mesKey)}, día ${diaHoy}/${ultimoDia})</div>
+  <div class="kpis" style="margin-bottom:14px">
+    <div class="kpi"><div class="kpi-l">Cobrado hasta hoy</div><div class="kpi-v cv">${fmt(tCobrado)}</div></div>
+    <div class="kpi"><div class="kpi-l">Debería llevar (proy. al día ${diaHoy})</div><div class="kpi-v" style="color:var(--texto2)">${tProyHoy>0?fmt(tProyHoy):'—'}</div></div>
+    <div class="kpi"><div class="kpi-l">Avance vs. lo que debía</div><div class="kpi-v" style="color:${color}">${pctVsHoy!=null?pctVsHoy+'%':'—'}</div></div>
+    <div class="kpi"><div class="kpi-l">Falta por cobrar hasta fin de mes</div><div class="kpi-v cr">${tProyMes>0?fmt(tFalta):'—'}</div><div class="kpi-s">de ${fmt(tProyMes)} proyectado en el mes</div></div>
+  </div>
+  <div class="tw" style="margin-bottom:16px"><table>
+  <thead><tr><th>Cartera</th><th class="num">Cobrado hasta hoy</th><th class="num">Debería (día ${diaHoy})</th><th class="num">Proy. mes completo (Cobranza)</th>${hayMiEquipo?'<th class="num">Proy. mes completo (Mi Equipo)</th><th class="num">Diferencia</th>':''}<th class="num">Falta por cobrar</th></tr></thead><tbody>`;
+  for(const f of filas){
+    const dif = f.proyMes - f.miEquipo;
+    const hayDif = f.proyMes>0 || f.miEquipo>0;
+    const difColor = Math.abs(dif)<1 ? 'var(--texto2)' : (dif>0 ? 'var(--rojo)' : 'var(--verde)');
+    h+=`<tr><td>${f.nombre}</td>
+      <td class="num cv">${fmt(f.cobrado)}</td>
+      <td class="num">${f.proyHoy>0?fmt(f.proyHoy):'—'}</td>
+      <td class="num" style="color:var(--texto2)">${f.proyMes>0?fmt(f.proyMes):'—'}</td>
+      ${hayMiEquipo?`<td class="num" style="color:var(--azul)">${f.miEquipo>0?fmt(f.miEquipo):'—'}</td>
+      <td class="num" style="color:${difColor};font-weight:600;cursor:pointer;text-decoration:underline dotted" title="Ver diferencias cliente por cliente" onclick="irAComparacion('${f.suc}')">${hayDif?(dif>0?'+':'')+fmt(dif):'—'}</td>`:''}
+      <td class="num cr">${f.proyMes>0?fmt(f.falta):'—'}</td>
+    </tr>`;
+  }
+  const tDif = tProyMes - tMiEquipo;
+  const tDifColor = Math.abs(tDif)<1 ? 'var(--texto2)' : (tDif>0 ? 'var(--rojo)' : 'var(--verde)');
+  h+=`<tr style="background:var(--gris);font-weight:700">
+    <td>TOTAL</td><td class="num cv">${fmt(tCobrado)}</td><td class="num">${tProyHoy>0?fmt(tProyHoy):'—'}</td>
+    <td class="num">${fmt(tProyMes)}</td>${hayMiEquipo?`<td class="num" style="color:var(--azul)">${fmt(tMiEquipo)}</td><td class="num" style="color:${tDifColor};cursor:pointer;text-decoration:underline dotted" title="Ver diferencias cliente por cliente" onclick="irAComparacion(null)">${(tDif>0?'+':'')+fmt(tDif)}</td>`:''}<td class="num cr">${fmt(tFalta)}</td>
+  </tr></tbody></table></div>
+  ${hayMiEquipo?`<div class="abox info" style="margin-bottom:16px;font-size:12px">📊 La columna <b>"Mi Equipo"</b> es la proyección subida en Excel por las encargadas de crédito (Drive) — es informativa, no reemplaza ni se mezcla con la proyección oficial de Cobranza. <b>Diferencia</b> = Cobranza − Mi Equipo (rojo = Cobranza proyecta más, verde = Mi Equipo proyecta más). Haz clic en un valor de Diferencia para ver el detalle cliente por cliente.</div>`:''}`;
+  return h;
+}
+
 function renderProyeccion(){
   const el=document.getElementById('proyBody');
-  if(!proyeccion.length){el.innerHTML='<div class="loading-state">Sin datos de proyección de julio. Haz clic en "Cargar datos".</div>';return;}
+  const aviso = avisoCarterasFaltantes(proyeccionMesKey, proyeccion);
+  if(!proyeccion.length){
+    el.innerHTML = aviso || `<div class="loading-state">Sin datos de proyección de ${mesLabel(proyeccionMesKey)}. Haz clic en "Cargar datos".</div>`;
+    return;
+  }
 
-  const items=proyeccion; // already filtered to 2026-07
+  const items=proyeccion; // ya filtrado a proyeccionMesKey
 
-  let h=`<div class="abox info" style="margin-bottom:14px">📈 Proyección de cobro <b>Julio 2026</b> — basada en snapshot de cierre de carteras.</div>`;
-  h+=`<div class="stitle">Proyección Julio 2026</div>`;
+  let h=aviso;
+  h+=`<div class="abox info" style="margin-bottom:14px">📈 Proyección de cobro <b>${mesLabel(proyeccionMesKey)}</b> — basada en snapshot de cierre de carteras.</div>`;
+
+  h+=resumenCobradoVsProyectado(items);
+
+  h+=`<div class="stitle">Proyección ${mesLabel(proyeccionMesKey)}</div>`;
 
   for(const item of items){
     const datos=item.datos||[];
@@ -1666,6 +1766,302 @@ function renderProyeccion(){
   el.innerHTML=h;
 }
 
+// ── Proyección: descargar el snapshot actual (por cliente) ────
+function exportarProyeccion(){
+  if(!proyeccion.length){ alert('No hay datos de proyección cargados.'); return; }
+  const wb = XLSX.utils.book_new();
+  const rows = [['Cartera','Cliente','Saldo','Cuota','Saldo Esperado','Tramo Mora','Mora Valor','Día Proyectado','Monto Proyectado','Proyección Llena','Cerrado Por','Cerrado En']];
+  for(const item of proyeccion){
+    const cartNombre = CARTERA_NAMES[item.cartera_id]||item.cartera_id;
+    for(const c of (item.datos||[])){
+      const llena = Number(c.montoAsesor||0)>0 || Number(c.diaAsesor||0)>0;
+      rows.push([
+        cartNombre, c.nombre||'', Math.round(Number(c.saldo||0)), Math.round(Number(c.cuota||0)),
+        Math.round(Number(c.saldoEsperado||0)), c.mora||'', Math.round(Number(c.moraVal||0)),
+        c.diaAsesor||'', c.montoAsesor||'', llena?'Sí':'No',
+        item.cerrado_por||'', item.cerrado_at?new Date(item.cerrado_at).toLocaleString('es-HN'):''
+      ]);
+    }
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Proyeccion');
+  XLSX.writeFile(wb, `Proyeccion_${proyeccionMesKey}.xlsx`);
+}
+
+// ── Mi Proyección: Excel propio de los empleados, separado de Cobranza ─
+let proyeccionManual = null; // {filas:[{nombre,sucursal,dia,monto}], subido_por, subido_at}
+
+async function fetchProyeccionManual(mesKey){
+  const { data, error } = await sb.from('proyeccion_manual').select('mes_key,filas,subido_por,subido_at').eq('mes_key', mesKey).maybeSingle();
+  if(error){ console.error('fetchProyeccionManual', error); proyeccionManual = null; return; }
+  proyeccionManual = data || null;
+}
+
+function parseDiaProyectado(raw){
+  const s = String(raw||'').trim();
+  if(!s) return null;
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-]\d{2,4}$/); // dd/mm/yyyy
+  if(m) return parseInt(m[1],10);
+  m = s.match(/^\d{4}-\d{2}-(\d{2})$/); // yyyy-mm-dd
+  if(m) return parseInt(m[1],10);
+  const n = parseInt(s.replace(/[^\d]/g,''),10);
+  return isNaN(n) ? null : n;
+}
+
+function parseProyeccionManual(){
+  const file = document.getElementById('fProy').files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try{
+      const wb = XLSX.read(e.target.result,{type:'array'});
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
+      const hi = detectHeaderRow(rows);
+      const headers = (rows[hi]||[]).map(x=>String(x).toLowerCase().trim());
+      const iNom   = findCol(headers,['cliente','nombre','asesor','deudor']);
+      const iSuc   = findCol(headers,['sucursal','cartera','tienda']);
+      const iDia   = findCol(headers,['día proyectado','dia proyectado','día','dia','fecha proyectada','fecha']);
+      const iMonto = findCol(headers,['monto proyectado','monto','proyección','proyeccion','valor']);
+      const iTramo = findCol(headers,['tramo']);
+      const iDiasMora = findCol(headers,['dias mora','días mora','dias de mora','días de mora']);
+      const iMoraVal = findCol(headers,['mora estimada','mora (l)']);
+      if(iNom<0){
+        document.getElementById('proyManualBody').innerHTML='<div class="abox critica">No se encontró una columna de cliente/nombre en el Excel.</div>';
+        return;
+      }
+      // Si el Excel no trae columna Sucursal, se infiere del nombre del archivo (ej. "R1.xlsx" → R1)
+      const sucInferida = (file.name.match(/R[1-5]/i)||[])[0] || '';
+      const filas = rows.slice(hi+1)
+        .filter(r=>String(r[iNom]||'').trim())
+        .map(r=>({
+          nombre: String(r[iNom]).trim(),
+          sucursal: (iSuc>=0 ? String(r[iSuc]||'').trim() : '') || sucInferida.toUpperCase(),
+          dia: iDia>=0 ? parseDiaProyectado(r[iDia]) : null,
+          monto: iMonto>=0 ? (parseFloat(String(r[iMonto]).replace(/[,L$\s]/g,''))||0) : 0,
+          tramo: iTramo>=0 ? String(r[iTramo]||'').trim() : '',
+          dias_mora: iDiasMora>=0 ? (parseInt(String(r[iDiasMora]).replace(/[^\d]/g,''),10)||0) : null,
+          mora_val: iMoraVal>=0 ? (parseFloat(String(r[iMoraVal]).replace(/[,L$\s]/g,''))||0) : null,
+        }));
+      if(!filas.length){
+        document.getElementById('proyManualBody').innerHTML='<div class="abox warning">El Excel no tiene filas con cliente.</div>';
+        return;
+      }
+      // Si el archivo trae sucursal(es) identificable(s), reemplaza solo esas — conserva lo ya subido de otras sucursales
+      const sucsNuevas = new Set(filas.map(f=>f.sucursal).filter(Boolean));
+      const previas = (proyeccionManual && proyeccionManual.filas) || [];
+      const conservadas = sucsNuevas.size ? previas.filter(f=>!sucsNuevas.has(f.sucursal)) : [];
+      const filasFinal = [...conservadas, ...filas];
+      const { error } = await sb.from('proyeccion_manual').upsert({
+        mes_key: MES_ACTUAL, filas: filasFinal, subido_por: 'Web', subido_at: new Date().toISOString(),
+      }, {onConflict:'mes_key'});
+      if(error){ document.getElementById('proyManualBody').innerHTML=`<div class="abox critica">Error guardando: ${error.message}</div>`; return; }
+      proyeccionManual = {mes_key:MES_ACTUAL, filas:filasFinal, subido_por:'Web', subido_at:new Date().toISOString()};
+      renderProyeccionManual();
+    }catch(err){
+      document.getElementById('proyManualBody').innerHTML=`<div class="abox critica">Error: ${err.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderProyeccionManual(){
+  const el = document.getElementById('proyManualBody');
+  if(!proyeccionManual || !(proyeccionManual.filas||[]).length){
+    el.innerHTML = '<div class="loading-state">Sin proyección propia subida todavía para '+mesLabel(MES_ACTUAL)+'.</div>';
+    return;
+  }
+  const filas = proyeccionManual.filas;
+  const total = filas.reduce((s,f)=>s+Number(f.monto||0),0);
+  const subidoDt = proyeccionManual.subido_at ? new Date(proyeccionManual.subido_at).toLocaleString('es-HN') : '';
+
+  // Por día del mes
+  const porDia = {};
+  for(const f of filas){
+    const d = f.dia || 0;
+    if(!porDia[d]) porDia[d] = {monto:0, clientes:0};
+    porDia[d].monto += Number(f.monto||0);
+    porDia[d].clientes++;
+  }
+  const dias = Object.keys(porDia).map(Number).sort((a,b)=>a-b);
+
+  let h = `<div class="stitle" style="margin-top:16px">Mi Proyección — ${mesLabel(MES_ACTUAL)}</div>
+  <div class="kpis" style="margin-bottom:12px">
+    <div class="kpi"><div class="kpi-l">Total proyectado</div><div class="kpi-v cv">${fmt(total)}</div><div class="kpi-s">${filas.length} clientes</div></div>
+    <div class="kpi"><div class="kpi-l">Subido</div><div class="kpi-v" style="font-size:13px">${subidoDt||'—'}</div></div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+    <button onclick="descargarProyeccionManual()" style="padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">⬇ Descargar Mi Proyección</button>
+  </div>
+  <div class="stitle">Por día del mes</div>
+  <div class="tw" style="margin-bottom:16px"><table>
+  <thead><tr><th class="num">Día</th><th class="num">Clientes</th><th class="num">Monto proyectado</th></tr></thead><tbody>`;
+  for(const d of dias){
+    h+=`<tr><td class="num">${d||'Sin día'}</td><td class="num">${porDia[d].clientes}</td><td class="num cv">${fmt(porDia[d].monto)}</td></tr>`;
+  }
+  h+=`<tr style="background:var(--gris);font-weight:700"><td class="num">TOTAL</td><td class="num">${filas.length}</td><td class="num cv">${fmt(total)}</td></tr>
+  </tbody></table></div>`;
+
+  const hayMora = filas.some(f=>f.tramo || f.dias_mora!=null || f.mora_val!=null);
+  h+=`<div class="stitle">Por cliente</div>
+  <div class="tw"><table>
+  <thead><tr><th>Cliente</th><th>Sucursal</th><th class="num">Día</th><th class="num">Monto</th>${hayMora?'<th>Mora</th>':''}</tr></thead><tbody>`;
+  for(const f of filas){
+    let moraTxt = '—';
+    if(f.tramo || f.dias_mora!=null || f.mora_val!=null){
+      const partes = [];
+      if(f.tramo) partes.push(escHtml(f.tramo));
+      if(f.dias_mora!=null && f.dias_mora>0) partes.push(f.dias_mora+' días');
+      if(f.mora_val!=null && f.mora_val>0) partes.push(fmt(f.mora_val));
+      moraTxt = partes.length ? partes.join(' · ') : 'AL DÍA';
+    }
+    const moraColor = f.tramo==='INACTIVO'||f.tramo==='VENCIDO' ? 'var(--rojo)' : (f.dias_mora>0||f.mora_val>0) ? 'var(--ambar)' : 'var(--verde)';
+    h+=`<tr><td>${escHtml(f.nombre)}</td><td style="font-size:11px;color:var(--texto2)">${escHtml(f.sucursal)||'—'}</td><td class="num">${f.dia??'—'}</td><td class="num cv">${fmt(f.monto)}</td>${hayMora?`<td style="font-size:11px;color:${moraColor};font-weight:600">${moraTxt}</td>`:''}</tr>`;
+  }
+  h+=`</tbody></table></div>`;
+
+  h += renderComparacionVsCobranza(filas);
+  el.innerHTML = h;
+}
+
+function normNombre(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+}
+
+// Compara "Mi Proyección" (Drive, hecha por encargadas de crédito) contra
+// cierre_proyeccion (Cobranza, snapshot del sistema) — solo para ver, nunca
+// se mezclan ni se sobreescriben entre sí.
+let comparacionFiltroEstado = 'todos'; // 'todos' | 'diferentes' | 'iguales'
+let comparacionFiltroSuc = null;       // 'R1'..'R5' o null (todas)
+
+function irAComparacion(suc){
+  comparacionFiltroSuc = suc;
+  comparacionFiltroEstado = 'diferentes';
+  renderProyeccionManual();
+  const el = document.getElementById('comparacionVsCobranza');
+  if(el) el.scrollIntoView({behavior:'auto', block:'start'});
+}
+function setComparacionFiltroEstado(estado){ comparacionFiltroEstado = estado; renderProyeccionManual(); }
+function limpiarFiltroSucComparacion(){ comparacionFiltroSuc = null; renderProyeccionManual(); }
+
+function renderComparacionVsCobranza(misFilas){
+  if(!proyeccion.length) return '';
+
+  const cobranzaPorNombre = new Map();
+  for(const item of proyeccion){
+    const cartNombre = CARTERA_TO_SUC[item.cartera_id] || (CARTERA_NAMES[item.cartera_id]||item.cartera_id);
+    for(const c of (item.datos||[])){
+      cobranzaPorNombre.set(normNombre(c.nombre), {
+        sucursal: cartNombre, nombre: c.nombre,
+        dia: c.diaAsesor||null, monto: Number(c.montoAsesor||0),
+      });
+    }
+  }
+
+  const filas = [];
+  const vistos = new Set();
+  for(const m of misFilas){
+    const key = normNombre(m.nombre);
+    const cob = cobranzaPorNombre.get(key);
+    vistos.add(key);
+    if(!cob){
+      filas.push({nombre:m.nombre, sucursal:m.sucursal, diaM:m.dia, diaC:null, montoM:m.monto, montoC:null, estado:'solo_mia'});
+      continue;
+    }
+    const igualDia   = (cob.dia||null)===(m.dia||null);
+    const igualMonto = Math.abs((cob.monto||0)-(m.monto||0))<1;
+    filas.push({
+      nombre:m.nombre, sucursal:m.sucursal, diaM:m.dia, diaC:cob.dia, montoM:m.monto, montoC:cob.monto,
+      estado: (igualDia && igualMonto) ? 'igual' : 'diferente',
+    });
+  }
+  for(const [key,cob] of cobranzaPorNombre){
+    if(vistos.has(key)) continue;
+    if(!cob.monto && !cob.dia) continue;
+    filas.push({nombre:cob.nombre, sucursal:cob.sucursal, diaM:null, diaC:cob.dia, montoM:null, montoC:cob.monto, estado:'solo_cobranza'});
+  }
+
+  if(!filas.length) return '';
+  filas.sort((a,b)=> a.sucursal===b.sucursal ? a.nombre.localeCompare(b.nombre) : (a.sucursal||'').localeCompare(b.sucursal||''));
+  comparacionVsCobranzaRows = filas; // export siempre trae todo, sin filtro de pantalla
+
+  const nIguales = filas.filter(f=>f.estado==='igual').length;
+  const nDif     = filas.filter(f=>f.estado==='diferente').length;
+  const nSoloMia = filas.filter(f=>f.estado==='solo_mia').length;
+  const nSoloCob = filas.filter(f=>f.estado==='solo_cobranza').length;
+  const ETIQ  = {igual:'✅ Igual', diferente:'⚠ Diferente', solo_mia:'📊 Solo en Mi Proyección', solo_cobranza:'📋 Solo en Cobranza'};
+  const COLOR = {igual:'var(--verde)', diferente:'var(--ambar)', solo_mia:'var(--azul)', solo_cobranza:'var(--rojo)'};
+
+  // Filtro de pantalla: sucursal (clic desde Resumen) + estado (Todos / Diferentes / Iguales)
+  const SUC_A_NOMBRE = {};
+  for(const [id,s] of Object.entries(CARTERA_TO_SUC)) SUC_A_NOMBRE[s] = CARTERA_NAMES[id]||id;
+  const filasSuc = comparacionFiltroSuc ? filas.filter(f=>f.sucursal===comparacionFiltroSuc) : filas;
+  const nTodosScope = filasSuc.length;
+  const nIgualesScope = filasSuc.filter(f=>f.estado==='igual').length;
+  const nDifScope = filasSuc.filter(f=>f.estado!=='igual').length;
+  const filasMostrar = filasSuc.filter(f=>{
+    if(comparacionFiltroEstado==='iguales') return f.estado==='igual';
+    if(comparacionFiltroEstado==='diferentes') return f.estado!=='igual';
+    return true;
+  });
+
+  const fbtn = (val,label,n)=>`<button class="mes-btn ${comparacionFiltroEstado===val?'active':''}" onclick="setComparacionFiltroEstado('${val}')">${label} (${n})</button>`;
+
+  let h = `<div id="comparacionVsCobranza" style="scroll-margin-top:16px">
+  <div class="stitle" style="margin-top:20px">Comparación — Mi Proyección vs. Cobranza</div>
+  <div class="kpis" style="margin-bottom:12px">
+    <div class="kpi"><div class="kpi-l">Coinciden</div><div class="kpi-v cv">${nIguales}</div></div>
+    <div class="kpi"><div class="kpi-l">Diferentes</div><div class="kpi-v ca">${nDif}</div></div>
+    <div class="kpi"><div class="kpi-l">Solo en Mi Proyección</div><div class="kpi-v cb">${nSoloMia}</div></div>
+    <div class="kpi"><div class="kpi-l">Solo en Cobranza</div><div class="kpi-v cr">${nSoloCob}</div></div>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:700;color:var(--texto2);text-transform:uppercase;letter-spacing:.06em">Ver:</span>
+    ${fbtn('todos','Todos',nTodosScope)}
+    ${fbtn('diferentes','Diferentes',nDifScope)}
+    ${fbtn('iguales','Iguales',nIgualesScope)}
+    ${comparacionFiltroSuc?`<span style="font-size:11px;background:var(--gris);padding:5px 10px;border-radius:8px;color:var(--texto2)">Filtrando: <b>${comparacionFiltroSuc} ${SUC_A_NOMBRE[comparacionFiltroSuc]||''}</b> <a href="javascript:void(0)" onclick="limpiarFiltroSucComparacion()" style="color:var(--rojo);font-weight:700;text-decoration:none">✕</a></span>`:''}
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+    <button onclick="descargarComparacionVsCobranza()" style="padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">⬇ Descargar comparación</button>
+  </div>
+  <div class="tw"><table>
+  <thead><tr><th>Cliente</th><th>Sucursal</th><th class="num">Día (Mi Proy.)</th><th class="num">Día (Cobranza)</th><th class="num">Monto (Mi Proy.)</th><th class="num">Monto (Cobranza)</th><th>Estado</th></tr></thead><tbody>`;
+  if(!filasMostrar.length){
+    h+=`<tr><td colspan="7" style="text-align:center;color:var(--texto2);padding:20px">Sin resultados para este filtro.</td></tr>`;
+  }
+  for(const f of filasMostrar){
+    h+=`<tr>
+      <td>${escHtml(f.nombre)}</td><td style="font-size:11px;color:var(--texto2)">${escHtml(f.sucursal)||'—'}</td>
+      <td class="num">${f.diaM??'—'}</td><td class="num">${f.diaC??'—'}</td>
+      <td class="num">${f.montoM!=null?fmt(f.montoM):'—'}</td><td class="num">${f.montoC!=null?fmt(f.montoC):'—'}</td>
+      <td style="color:${COLOR[f.estado]};font-weight:700;font-size:11px">${ETIQ[f.estado]}</td>
+    </tr>`;
+  }
+  h+=`</tbody></table></div></div>`;
+  return h;
+}
+
+let comparacionVsCobranzaRows = null;
+function descargarComparacionVsCobranza(){
+  if(!comparacionVsCobranzaRows || !comparacionVsCobranzaRows.length) return;
+  const wb = XLSX.utils.book_new();
+  const ETIQ = {igual:'Igual', diferente:'Diferente', solo_mia:'Solo en Mi Proyección', solo_cobranza:'Solo en Cobranza'};
+  const rows=[['Cliente','Sucursal','Día Mi Proyección','Día Cobranza','Monto Mi Proyección','Monto Cobranza','Estado']];
+  for(const f of comparacionVsCobranzaRows){
+    rows.push([f.nombre, f.sucursal||'', f.diaM||'', f.diaC||'', f.montoM||'', f.montoC||'', ETIQ[f.estado]]);
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Comparacion');
+  XLSX.writeFile(wb, `Comparacion_MiProyeccion_vs_Cobranza_${MES_ACTUAL}.xlsx`);
+}
+
+function descargarProyeccionManual(){
+  if(!proyeccionManual || !(proyeccionManual.filas||[]).length) return;
+  const wb = XLSX.utils.book_new();
+  const rows=[['Cliente','Sucursal','Día','Monto','Tramo','Días Mora','Mora (L)']];
+  for(const f of proyeccionManual.filas) rows.push([f.nombre, f.sucursal||'', f.dia||'', f.monto||0, f.tramo||'', f.dias_mora??'', f.mora_val??'']);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'MiProyeccion');
+  XLSX.writeFile(wb, `Mi_Proyeccion_${MES_ACTUAL}.xlsx`);
+}
+
 // ── Upload helpers ────────────────────────────────────────────
 function dov(e,id){e.preventDefault();document.getElementById(id).classList.add('over')}
 function dol(id){document.getElementById(id).classList.remove('over')}
@@ -1696,7 +2092,7 @@ function findCol(headers,candidates){
 window.onload = () => {
   if(SESION && Array.isArray(SESION.sucursales)){
     SUCORDER = SESION.sucursales.filter(s=>SUCS_TODAS.includes(s));
-    pintarSesion(); cargarTodo();
+    pintarSesion(); cargarTodo().then(aplicarParamsURL);
   } else mostrarLogin();
 };
 </script>
