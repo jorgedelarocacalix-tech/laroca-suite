@@ -25,13 +25,20 @@ self.addEventListener('push', function (e) {
 
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
-  var url = (e.notification.data && e.notification.data.url) || './';
+  var url = new URL((e.notification.data && e.notification.data.url) || './', self.registration.scope).href;
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientsArr) {
       for (var i = 0; i < clientsArr.length; i++) {
-        if (clientsArr[i].url.indexOf(url) !== -1 && 'focus' in clientsArr[i]) {
+        if (clientsArr[i].url === url && 'focus' in clientsArr[i]) {
           return clientsArr[i].focus();
         }
+      }
+      // Si CaliFon ya está abierta (iPhone la deja en segundo plano), openWindow solo la
+      // enfoca sin cambiar de página y el mensaje se pierde: navegar esa ventana al enlace.
+      var abierta = clientsArr.find(function (c) { return 'navigate' in c; });
+      if (abierta) {
+        return abierta.navigate(url).then(function (c) { return (c || abierta).focus(); })
+          .catch(function () { return self.clients.openWindow(url); });
       }
       if (self.clients.openWindow) return self.clients.openWindow(url);
     })
