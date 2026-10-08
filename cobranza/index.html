@@ -811,13 +811,69 @@ var GERENTE_SUCURSAL_EXENTO={'v_jor':1,'ADMIN':1,'v_mil':1,'v_eri':1}; // v_mil:
 // Recibos de arqueos del mes (sucursal::nombre_normalizado -> monto), para "rebajar" del Acordado/Incumplidas
 // a un cliente que ya vino a pagar en caja aunque el PDF de cartera todavia no lo refleje.
 var ARQUEO_MES={};
+var ARQUEO_FECHA={}; // sucursal::nombre_normalizado -> fecha (YYYY-MM-DD) del ultimo recibo del mes
 function normNombreArqueo(s){
   return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s*\(?\d+\)?\s*$/,'').trim();
 }
 function pagoArqueoMes(cartId,nombre){
+  return !!fechaArqueoMes(cartId,nombre);
+}
+function fechaArqueoMes(cartId,nombre){
   var suc=CARTERA_SUCURSAL[cartId];
-  if(!suc)return false;
-  return (ARQUEO_MES[suc+'::'+normNombreArqueo(nombre)]||0)>0;
+  if(!suc)return '';
+  var k=suc+'::'+normNombreArqueo(nombre);
+  return (ARQUEO_MES[k]||0)>0?(ARQUEO_FECHA[k]||''):'';
+}
+// Carga los abonos de caja del mes (arqueos OK o en REVISAR: el recibo es real aunque el cuadre no).
+// Un mismo arqueo puede estar subido dos veces (OK + REVISAR), por eso se deduplica por sucursal+recibo.
+async function loadArqueoMes(){
+  if(!supa)return;
+  var mes=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
+  var hoyStr=HOY.toISOString().split('T')[0];
+  var r=await _withTimeout(supa.from('arqueos').select('sucursal,fecha,analisis_json').gte('fecha',mes+'-01').lte('fecha',hoyStr).in('estado',['OK','REVISAR']),8000).catch(function(e){console.error('loadArqueoMes:',e);return null;});
+  if(!r||r.error)return;
+  var mes2={},fec={},vistos={};
+  (r.data||[]).forEach(function(row){
+    ((row.analisis_json&&row.analisis_json.cobros)||[]).forEach(function(c){
+      // Solo abonos a credito: PRIMA/CONTADO son compras nuevas, no el pago de la cuota.
+      if(c.tipo&&String(c.tipo).toUpperCase()!=='ABONO')return;
+      var rk=row.sucursal+'::'+(c.recibo||(row.fecha+'|'+c.cliente+'|'+c.monto));
+      if(vistos[rk])return;vistos[rk]=1;
+      var k=row.sucursal+'::'+normNombreArqueo(c.cliente);
+      mes2[k]=(mes2[k]||0)+(c.monto||0);
+      if(!fec[k]||row.fecha>fec[k])fec[k]=row.fecha;
+    });
+  });
+  ARQUEO_MES=mes2;ARQUEO_FECHA=fec;
+}
+// Fecha (YYYY-MM-DD) en que el cliente vino a pagar este mes: PDF (ultimo_pago), pago manual o recibo de caja.
+// '' si no ha venido.
+function fechaVinoMes(c,cartId,p){
+  var mes=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
+  var f='';
+  if(pagoEsteMes(c.ultimo_pago)){var d=parseHNDate(c.ultimo_pago);f=d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();}
+  if(p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mes&&p.fecha>f)f=p.fecha;
+  var fa=fechaArqueoMes(cartId,c.nombre);
+  if(fa>f)f=fa;
+  return f;
+}
+// Acuerdo de pago que cuenta para el cierre de ESTE mes: estado 'promesa' con monto y fecha de este mes
+// en adelante (sin fecha: registrado este mes). Notas/visitas con monto viejo o promesas de meses pasados no cuentan.
+function promesaVigente(p){
+  if(!p||p.estado!=='promesa'||!(parseFloat(p.monto)>0))return false;
+  var mes=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
+  return p.fecha?p.fecha.substring(0,7)>=mes:(p.ts||'').substring(0,7)===mes;
+}
+// Hoy -> Cierre: clientes que NO han venido a pagar este mes. Si ya vinieron salen de la lista,
+// salvo que sigan con mora real (calcMoraCliente, con las correcciones de mora_overrides).
+function enCierreHoy(c,cartId){
+  if(c.tramo==='INACTIVO')return false;
+  var p=PROMESAS[cartId+'::'+c.nombre];
+  if(enGraciaSinPrima(c,p))return false;
+  var vino=fechaVinoMes(c,cartId,p);
+  if(!vino)return true;
+  var m=calcMoraCliente(c,cartId);
+  return !!(m&&m.diferencia>0);
 }
 var supa=null, DB_OK=false, PDFJS_OK=false;
 var PIN_VAL='', CAL_Y=HOY.getFullYear(), CAL_M=HOY.getMonth();
@@ -1028,6 +1084,8 @@ async function loadData(){
     var r3=await supa.from('carteras_sucursales').select('cartera_id,sucursal');
     CARTERA_SUCURSAL={};
     if(!r3.error)(r3.data||[]).forEach(function(cs){CARTERA_SUCURSAL[cs.cartera_id]=cs.sucursal;});
+    await loadArqueoMes();
+    await mgLoadOverridesTodas();
     await loadAutores();
     await loadChatEstado();
     DB_OK=true;setConn(true,'Conectado');
@@ -1926,12 +1984,11 @@ async function _renderGerentePanel(){
   var cobradoRealMes={};
   // Recibos reales de arqueos del mes (mas al dia que el PDF, que solo se sube cada tanto): permite
   // "rebajar" del Acordado/Incumplidas a un cliente que ya vino a pagar aunque el PDF todavia no lo refleje.
-  ARQUEO_MES={};
   if(supa){
     var _proyP=_withTimeout(supa.from('proyecciones').select('*'),8000).catch(function(e){console.error('_renderGerentePanel proyecciones:',e);return null;});
     var _cierreP=_withTimeout(supa.from('cierre_proyeccion').select('cartera_id,mes_key,datos').order('mes_key',{ascending:false}),8000).catch(function(e){console.error('_renderGerentePanel cierre:',e);return null;});
     var _histP=_withTimeout(supa.from('historial_clientes').select('cartera_id,cliente_nombre,monto,tipo').gte('fecha_accion',mesActualStr+'-01').lte('fecha_accion',hoyStr).in('tipo',['pago','abono']),8000).catch(function(e){console.error('_renderGerentePanel historial cobrado:',e);return null;});
-    var _arqP=_withTimeout(supa.from('arqueos').select('sucursal,analisis_json').gte('fecha',mesActualStr+'-01').lte('fecha',hoyStr).eq('estado','OK'),8000).catch(function(e){console.error('_renderGerentePanel arqueos:',e);return null;});
+    var _arqP=loadArqueoMes();
     var _res=await Promise.all([_proyP,_cierreP,_histP,_arqP]);
     var rp=_res[0],rc=_res[1],rh=_res[2],ra=_res[3];
     if(rp&&!rp.error){(rp.data||[]).forEach(function(p){PROYECCIONES[p.cartera_id+'::'+p.cliente_nombre+'::'+p.semana_inicio]=p;});_rebuildProyIndex();}
@@ -1944,13 +2001,6 @@ async function _renderGerentePanel(){
       var cli=cc&&cc.clientes&&cc.clientes.find(function(x){return x.nombre===row.cliente_nombre;});
       if(cli&&compraEsteMes(cli))return;
       cobradoRealMes[row.cartera_id]=(cobradoRealMes[row.cartera_id]||0)+(row.monto||0);
-    });}
-    if(ra&&!ra.error){(ra.data||[]).forEach(function(row){
-      var cobros=(row.analisis_json&&row.analisis_json.cobros)||[];
-      cobros.forEach(function(c){
-        var k=row.sucursal+'::'+normNombreArqueo(c.cliente);
-        ARQUEO_MES[k]=(ARQUEO_MES[k]||0)+(c.monto||0);
-      });
     });}
   }
 
@@ -2006,10 +2056,10 @@ async function _renderGerentePanel(){
       // Cliente facturado este mes que ya dio prima/primer pago: no cuenta como pendiente
       // del ciclo. Si no ha pagado nada, sigue pendiente (hay que cobrarle la prima).
       var enGracia=enGraciaSinPrima(x,p);
-      // Acordado en "Hoy → Cierre": mismo criterio que esa pestaña (tiene mora real, o no ha pagado este mes)
+      // Acordado en "Hoy → Cierre": mismo criterio que esa pestaña (no ha venido este mes o sigue con mora; solo promesas vigentes)
       var m=calcMoraCliente(x,id);
       var tieneMora=m&&m.diferencia>0;
-      if((tieneMora||!pagado)&&p&&p.monto)totalAcordado+=p.monto;
+      if(enCierreHoy(x,id)&&promesaVigente(p))totalAcordado+=parseFloat(p.monto);
       if(pagado||enGracia)return;
       nPendientes++;
       var best=_getBestProy(id,x.nombre);
@@ -2470,20 +2520,8 @@ function renderDash(id){
     return !pagoMesAnterior(c.ultimo_pago)&&!pagoEsteMes(c.ultimo_pago);
   }).length;
 
-  // ── Proyección hoy → cierre: clientes con mora real (aunque hayan pagado este mes) o que no han pagado este mes ──
-  var cierreHoyList=activos.filter(function(c){
-    var p=PROMESAS[id+'::'+c.nombre];
-    // Facturado este mismo mes: si ya dio prima/primer pago no es urgente, se excluye.
-    // Si no ha pagado nada, sigue en Hoy -> Cierre (hay que cobrarle la prima).
-    if(enGraciaSinPrima(c,p))return false;
-    var pagoManualEsteMes=p&&p.estado==='pago'&&p.fecha&&p.fecha.substring(0,7)===mesActualStr;
-    var m=calcMoraCliente(c,id);
-    var tieneMora=m&&m.diferencia>0;
-    // "mora pendiente" marcada a mano solo vale si el cálculo aún ve mora; si el cliente ya está al día, se ignora la marca vieja
-    var moraPendVigente=!!(p&&p.mora_pendiente)&&(!m||m.diferencia>0);
-    var pagado=(pagoEsteMes(c.ultimo_pago)||pagoManualEsteMes)&&!moraPendVigente;
-    return tieneMora||!pagado;
-  });
+  // ── Proyección hoy → cierre: clientes que no han venido a pagar este mes, o que vinieron pero siguen con mora ──
+  var cierreHoyList=activos.filter(function(c){return enCierreHoy(c,id);});
 
   // ── Estructura de grupos con subpestañas ──
   var GRUPOS=[
@@ -3524,7 +3562,7 @@ async function resolverPin(pin){
 }
 function abrirAcuerdoRapido(cartId,nombre,montoDefault){
   var ex=PROMESAS[cartId+'::'+nombre]||{};
-  var esEdicion=ex.estado==='promesa'&&(ex.fecha||ex.monto);
+  var esEdicion=promesaVigente(ex);
   var tipoIni=['buscando','visitando'].includes(ex.estado)?ex.estado:'promesa';
   var old=document.getElementById('acuerdo-rapido-overlay');if(old)old.remove();
   var div=document.createElement('div');
@@ -3543,11 +3581,11 @@ function abrirAcuerdoRapido(cartId,nombre,montoDefault){
     +'</select>'
     +'<div id="ar-row-fecha">'
       +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px" id="ar-fecha-lbl">Fecha comprometida</label>'
-      +'<input type="date" class="form-inp" id="ar-fecha" value="'+(ex.fecha||HOY.toISOString().split('T')[0])+'" style="width:100%;margin-bottom:14px;box-sizing:border-box">'
+      +'<input type="date" class="form-inp" id="ar-fecha" value="'+((esEdicion&&ex.fecha)||HOY.toISOString().split('T')[0])+'" style="width:100%;margin-bottom:14px;box-sizing:border-box">'
     +'</div>'
     +'<div id="ar-row-monto">'
       +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Monto (L)</label>'
-      +'<input type="number" class="form-inp" id="ar-monto" value="'+(ex.monto||montoDefault||0)+'" style="width:100%;margin-bottom:14px;box-sizing:border-box">'
+      +'<input type="number" class="form-inp" id="ar-monto" value="'+((esEdicion&&ex.monto)||montoDefault||0)+'" style="width:100%;margin-bottom:14px;box-sizing:border-box">'
     +'</div>'
     +'<div id="ar-row-nota" style="display:none">'
       +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Nota (opcional)</label>'
@@ -3580,7 +3618,7 @@ async function guardarAcuerdoRapido(cartId,nombre){
   var nota=((document.getElementById('ar-nota')||{}).value||'').trim();
   var key=cartId+'::'+nombre;
   var ex=PROMESAS[key]||{};
-  var esEdicion=ex.estado==='promesa'&&(ex.fecha||ex.monto);
+  var esEdicion=promesaVigente(ex);
   var gestorNombre=_nombreEfectivo((USER&&USER.nombre)||'—');
   var hoyStr=HOY.toISOString().split('T')[0];
   var etiquetas={buscando:'🔍 Cliente en búsqueda',visitando:'🚗 Visitando cliente'};
@@ -3621,8 +3659,9 @@ function exportCierreExcel(){
       totalCuota+=r.cuota||0;totalMora+=mora;
       var tl=r.tramo==='INACTIVO'?'+180d':r.tramo==='MES'?'Al dia':r.tramo==='VENCIDO'?'Este mes':(r.tramo||'')+'d';
       var p=PROMESAS[d.cartId+'::'+r.nombre]||{};
-      var gest=p.estado?({promesa:'Promesa',pago:'Pago',visita:'Visita',visita_agenda:'Visita agendada','no-contesta':'No contesta',no_contesta:'No contesta',nota:'Nota',posponer:'Posponer'}[p.estado]||p.estado):'Sin acuerdo';
-      wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,p.fecha||'',p.monto||'']);
+      var vig=promesaVigente(p);
+      var gest=vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando'}[p.estado]||'Sin acuerdo');
+      wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):'',vig?parseFloat(p.monto):'']);
     });
     wsData.push(['','TOTAL ('+d.rows.length+' clientes)','',totalCuota,totalMora,'','','','','']);
     var wb=XLSX.utils.book_new();
@@ -3661,11 +3700,11 @@ function buildCierreHoy(cartId,rows){
   }
   var totalCuota=rows.reduce(function(s,r){return s+(r.cuota||0);},0);
   var totalMora=withMora.reduce(function(s,x){return s+x.mora;},0);
-  var totalAcordado=rows.reduce(function(s,r){var p=PROMESAS[cartId+'::'+r.nombre];return s+(p&&p.monto?p.monto:0);},0);
+  var totalAcordado=rows.reduce(function(s,r){var p=PROMESAS[cartId+'::'+r.nombre];return s+(promesaVigente(p)?parseFloat(p.monto):0);},0);
   window._cierreExcelData={cartId:cartId,rows:withMora.map(function(x){return x.r;})};
   var uid='CH'+Math.random().toString(36).slice(2,6);
   var sortBtn=function(mode,lbl){var act=_CIERRE_HOY_SORT===mode;return '<button onclick="setCierreHoySort(\''+mode+'\')" style="padding:5px 14px;border-radius:20px;border:1px solid '+(act?'var(--blue)':'var(--border2)')+';background:'+(act?'var(--blue)':'transparent')+';color:'+(act?'#fff':'var(--text2)')+';font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">'+lbl+'</button>';};
-  var html='<div class="cierre-hoy-big"><div class="tbl-note">Clientes con mora real (aunque hayan pagado su cuota de este mes) o que aún no han pagado nada este mes. Usalo para llamar a los equipos y confirmar con cuánto se espera cerrar el mes.</div>'
+  var html='<div class="cierre-hoy-big"><div class="tbl-note">Clientes que aún no han venido a pagar este mes (PDF, pago manual o recibo de caja). Si ya vinieron salen de la lista, salvo que sigan con mora. Total acordado = solo promesas vigentes de este mes. Usalo para llamar a los equipos y confirmar con cuánto se espera cerrar el mes.</div>'
     +'<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Clientes</div><div class="kpi-v">'+rows.length+'</div></div>'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total acordado</div><div class="kpi-v" style="color:var(--purple)">L '+fmt(totalAcordado)+'</div></div>'
@@ -3705,8 +3744,8 @@ function buildCierreHoy(cartId,rows){
       +'<td>'+moraHtml+'</td>'
       +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
       +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
-      +'<td class="mono">'+(p&&['buscando','visitando'].includes(p.estado)?'<span style="color:var(--text3);font-weight:400">—</span>':(p&&p.fecha?p.fecha:'<span style="color:var(--text3)">—</span>'))+'</td>'
-      +'<td class="mono" style="color:var(--green);font-weight:600">'+(p&&p.estado==='buscando'?'<span style="color:var(--text3);font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</span>':p&&p.estado==='visitando'?'<span style="color:var(--blue);font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</span>':(p&&p.monto?'L '+fmt(p.monto):'<span style="color:var(--text3);font-weight:400">—</span>'))+'</td>'
+      +'<td class="mono">'+(p&&['buscando','visitando'].includes(p.estado)?'<span style="color:var(--text3);font-weight:400">—</span>':(promesaVigente(p)&&p.fecha?p.fecha:'<span style="color:var(--text3)">—</span>'))+'</td>'
+      +'<td class="mono" style="color:var(--green);font-weight:600">'+(p&&p.estado==='buscando'?'<span style="color:var(--text3);font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</span>':p&&p.estado==='visitando'?'<span style="color:var(--blue);font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</span>':(promesaVigente(p)?'L '+fmt(parseFloat(p.monto)):'<span style="color:var(--text3);font-weight:400">—</span>'))+'</td>'
       +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
         +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+x.mora+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
         +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,r.nombre)+'</span>'
@@ -5842,6 +5881,18 @@ async function mgLoadOverrides(cartId){
       };
     });
   }catch(e){ console.warn('mgLoadOverrides:', e.message); }
+}
+
+// Todas las correcciones de mora (todas las carteras): Hoy -> Cierre las necesita para saber quien sigue con mora.
+async function mgLoadOverridesTodas(){
+  if(!supa) return;
+  try{
+    var r = await supa.from('mora_overrides').select('*');
+    if(r.error) throw r.error;
+    (r.data||[]).forEach(function(o){
+      MG_OVERRIDES[o.cartera_id+'::'+o.cliente_nombre] = {num_cuotas_real:o.num_cuotas_real,total_credito_real:o.total_credito_real,prima_real:o.prima_real||0,nota:o.nota||''};
+    });
+  }catch(e){ console.warn('mgLoadOverridesTodas:', e.message); }
 }
 
 async function mgSaveOverride(cartId, nombre, numCuotasReal, totalCreditoReal, nota, primaReal){
