@@ -840,8 +840,12 @@ async function loadArqueoMes(){
   var mes2={},fec={},vistos={};
   (r.data||[]).forEach(function(row){
     ((row.analisis_json&&row.analisis_json.cobros)||[]).forEach(function(c){
-      // Solo abonos a credito: PRIMA/CONTADO son compras nuevas, no el pago de la cuota.
-      if(c.tipo&&String(c.tipo).toUpperCase()!=='ABONO')return;
+      // Solo abonos a credito: PRIMA y venta de CONTADO son ventas, no cobranza. Una venta de contado real
+      // siempre trae factura_relacionada; un "CONTADO" sin factura es un abono mal clasificado por el
+      // lector del arqueo (paso en R1 el 01/10/2026: 20 abonos de clientes de cartera salieron como CONTADO).
+      var tipo=String(c.tipo||'ABONO').toUpperCase();
+      var esAbono=tipo==='ABONO'||(tipo==='CONTADO'&&!String(c.factura_relacionada||'').trim());
+      if(!esAbono)return;
       var rk=row.sucursal+'::'+(c.recibo||(row.fecha+'|'+c.cliente+'|'+c.monto));
       if(vistos[rk])return;vistos[rk]=1;
       var k=row.sucursal+'::'+normNombreArqueo(c.cliente);
