@@ -818,6 +818,11 @@ function normNombreArqueo(s){
 function pagoArqueoMes(cartId,nombre){
   return !!fechaArqueoMes(cartId,nombre);
 }
+function cobradoArqueoSucursal(suc){
+  var t=0,pre=suc+'::';
+  Object.keys(ARQUEO_MES).forEach(function(k){if(k.indexOf(pre)===0)t+=ARQUEO_MES[k]||0;});
+  return Math.round(t);
+}
 function fechaArqueoMes(cartId,nombre){
   var suc=CARTERA_SUCURSAL[cartId];
   if(!suc)return '';
@@ -2062,10 +2067,12 @@ async function _renderGerentePanel(){
     var nMora=mora60+mora90+mora120+mora150;
     var score=activos.length>0?Math.max(0,Math.round(100-(nMora/activos.length*55)-(vencidos/activos.length*35))):100;
     // Proyectado = meta del mes (todas las cuotas de activos, hayan pagado o no).
-    // Cobrado = dinero REAL detectado (abonos/pagos de historial_clientes este mes), no un proxy por cuota —
-    // asi un abono parcial cuenta por lo que realmente entro, no por la cuota completa.
+    // Cobrado = recibos de ABONO de los arqueos de caja del mes (dinero real que entro a credito).
+    // No usa historial_clientes: ese sale de comparar saldos entre PDFs y metia clientes "cancelados"
+    // (saldo completo como si fuera pago), pagos del mes anterior detectados en la subida del dia 1-2 y
+    // pagos duplicados. PRIMA y CONTADO de los arqueos no cuentan (son ventas, no cobranza).
     var proyectadoCart=cobradoCart+sinRecuperarCart;
-    var cobradoRealCart=cobradoRealMes[id]||0;
+    var cobradoRealCart=CARTERA_SUCURSAL[id]?cobradoArqueoSucursal(CARTERA_SUCURSAL[id]):(cobradoRealMes[id]||0);
     var sinRecuperarRealCart=Math.max(0,proyectadoCart-cobradoRealCart);
     cartStats.push({id:id,nombre:c.empresa,activos:activos.length,pagaron:pagaron,score:score,mora120:mora120+mora150,vencidos:vencidos,nProm:nProm,cobrado:cobradoRealCart,sinRecuperar:sinRecuperarRealCart,proyectado:proyectadoCart});
   });
@@ -2241,7 +2248,7 @@ async function _renderGerentePanel(){
   h+='<thead><tr style="border-bottom:1px solid var(--border)">';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:left;padding:4px 6px;text-transform:uppercase">Tienda</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--blue);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de cuotas de todos los clientes activos del mes (meta del mes) — NO es lo mismo que la columna Proyectado de la tabla de abajo">Meta del mes</th>';
-  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--green);text-align:right;padding:4px 6px;text-transform:uppercase" title="Dinero real detectado en historial_clientes este mes (pagos y abonos), excluyendo primas/ventas nuevas del mismo mes — no un estimado por cuota">Cobrado</th>';
+  h+='<th style="font-family:var(--mono);font-size:9px;color:var(--green);text-align:right;padding:4px 6px;text-transform:uppercase" title="Suma de los recibos de ABONO de los arqueos de caja del mes (OK o en revisión). No incluye primas ni ventas de contado. El arqueo de hoy cuenta cuando se sube.">Cobrado</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--red);text-align:right;padding:4px 6px;text-transform:uppercase" title="Meta del mes menos lo realmente cobrado">Sin recuperar</th>';
   h+='<th style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;padding:4px 6px;text-transform:uppercase">% cobrado</th>';
   h+='</tr></thead><tbody>';
