@@ -878,6 +878,15 @@ function montoAsesorCierre(cartId,nombre){
   var a=CIERRE_ASESOR[cartId+'::'+nombre];
   return a?a.monto:0;
 }
+// Lo que se espera cobrar al cierre de un cliente de Hoy -> Cierre: su Monto asesor; si ya vino a pagar
+// este mes y sigue en la lista es solo por mora, asi que cuenta solo la mora (sin pasar del Monto asesor).
+function montoAcordadoCierre(c,cartId){
+  var ma=montoAsesorCierre(cartId,c.nombre);
+  if(!fechaVinoMes(c,cartId,PROMESAS[cartId+'::'+c.nombre]))return ma;
+  var m=calcMoraCliente(c,cartId);
+  var mora=m&&m.diferencia>0?m.diferencia:0;
+  return Math.min(ma,mora);
+}
 function promesaVigente(p){
   if(!p||p.estado!=='promesa'||!(parseFloat(p.monto)>0))return false;
   var mes=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
@@ -2076,10 +2085,8 @@ async function _renderGerentePanel(){
       // Cliente facturado este mes que ya dio prima/primer pago: no cuenta como pendiente
       // del ciclo. Si no ha pagado nada, sigue pendiente (hay que cobrarle la prima).
       var enGracia=enGraciaSinPrima(x,p);
-      // Acordado en "Hoy → Cierre": suma del Monto asesor (cierre guardado) de los clientes que siguen en esa pestaña
-      var m=calcMoraCliente(x,id);
-      var tieneMora=m&&m.diferencia>0;
-      if(enCierreHoy(x,id))totalAcordado+=montoAsesorCierre(id,x.nombre);
+      // Acordado en "Hoy → Cierre": Monto asesor de los que no han venido + solo la mora de los que ya abonaron
+      if(enCierreHoy(x,id))totalAcordado+=montoAcordadoCierre(x,id);
       if(pagado||enGracia)return;
       nPendientes++;
       var best=_getBestProy(id,x.nombre);
@@ -3682,8 +3689,9 @@ function exportCierreExcel(){
       var vig=promesaVigente(p);
       var ca=CIERRE_ASESOR[d.cartId+'::'+r.nombre]||{};
       var gest=vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando'}[p.estado]||'Sin acuerdo');
-      totalAsesor+=ca.monto||0;
-      wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):(ca.dia?'dia '+ca.dia:''),ca.monto||'']);
+      var mAcX=montoAcordadoCierre(r,d.cartId);
+      totalAsesor+=mAcX;
+      wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):(ca.dia?'dia '+ca.dia:''),ca.monto?mAcX:'']);
     });
     wsData.push(['','TOTAL ('+d.rows.length+' clientes)','',totalCuota,totalMora,'','','','',totalAsesor]);
     var wb=XLSX.utils.book_new();
@@ -3722,11 +3730,11 @@ function buildCierreHoy(cartId,rows){
   }
   var totalCuota=rows.reduce(function(s,r){return s+(r.cuota||0);},0);
   var totalMora=withMora.reduce(function(s,x){return s+x.mora;},0);
-  var totalAcordado=rows.reduce(function(s,r){return s+montoAsesorCierre(cartId,r.nombre);},0);
+  var totalAcordado=rows.reduce(function(s,r){return s+montoAcordadoCierre(r,cartId);},0);
   window._cierreExcelData={cartId:cartId,rows:withMora.map(function(x){return x.r;})};
   var uid='CH'+Math.random().toString(36).slice(2,6);
   var sortBtn=function(mode,lbl){var act=_CIERRE_HOY_SORT===mode;return '<button onclick="setCierreHoySort(\''+mode+'\')" style="padding:5px 14px;border-radius:20px;border:1px solid '+(act?'var(--blue)':'var(--border2)')+';background:'+(act?'var(--blue)':'transparent')+';color:'+(act?'#fff':'var(--text2)')+';font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">'+lbl+'</button>';};
-  var html='<div class="cierre-hoy-big"><div class="tbl-note">Clientes que aún no han venido a pagar este mes (PDF, pago manual o recibo de caja). Si ya vinieron salen de la lista, salvo que sigan con mora. Total acordado = suma del Monto asesor de la proyección guardada del mes. Usalo para llamar a los equipos y confirmar con cuánto se espera cerrar el mes.</div>'
+  var html='<div class="cierre-hoy-big"><div class="tbl-note">Clientes que aún no han venido a pagar este mes (PDF, pago manual o recibo de caja). Si ya vinieron salen de la lista, salvo que sigan con mora. Total acordado = Monto asesor de la proyección guardada del mes; a los que ya abonaron y solo deben mora se les cuenta solo la mora. Usalo para llamar a los equipos y confirmar con cuánto se espera cerrar el mes.</div>'
     +'<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Clientes</div><div class="kpi-v">'+rows.length+'</div></div>'
       +'<div class="kpi-card" style="flex:1;min-width:140px"><div class="kpi-l">Total acordado</div><div class="kpi-v" style="color:var(--purple)">L '+fmt(totalAcordado)+'</div></div>'
@@ -3750,6 +3758,7 @@ function buildCierreHoy(cartId,rows){
     var upColor=pagoEsteMes(r.ultimo_pago)?'color:var(--green);font-weight:600':'color:var(--text2)';
     var p=PROMESAS[cartId+'::'+r.nombre];
     var ca=CIERRE_ASESOR[cartId+'::'+r.nombre];
+    var mAc=montoAcordadoCierre(r,cartId),soloMora=ca&&mAc<ca.monto;
     var cOtro=comentarioDeOtro(cartId,r.nombre);
     var rowAlert=x.solPend?'style="background:var(--purplebg);border-left:3px solid var(--purple)"':cOtro?'style="background:rgba(184,68,0,.10);border-left:3px solid var(--orange)"':'';
     var cellAlert=cOtro?' <span title="Comentario de '+ibEsc(cOtro)+'" style="background:var(--orangebg);color:var(--orange);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px">💬 comentario · '+ibEsc(cOtro)+'</span>':'';
@@ -3768,7 +3777,7 @@ function buildCierreHoy(cartId,rows){
       +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
       +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
       +'<td class="mono">'+(promesaVigente(p)&&p.fecha?p.fecha:(ca&&ca.dia?'día '+ca.dia:'<span style="color:var(--text3)">—</span>'))+'</td>'
-      +'<td class="mono" style="color:var(--green);font-weight:600">'+(ca&&ca.monto?'L '+fmt(ca.monto):'<span style="color:var(--text3);font-weight:400">—</span>')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
+      +'<td class="mono" style="color:var(--green);font-weight:600">'+(ca&&ca.monto?'L '+fmt(mAc)+(soloMora?'<div style="color:var(--text3);font-size:10px;font-weight:400;font-family:var(--sans)">ya abonó · solo mora (asesor L '+fmt(ca.monto)+')</div>':''):'<span style="color:var(--text3);font-weight:400">—</span>')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
       +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
         +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+x.mora+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
         +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,r.nombre)+'</span>'
