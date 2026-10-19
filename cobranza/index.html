@@ -875,6 +875,9 @@ async function loadCierreAsesor(){
   CIERRE_ASESOR=m;
 }
 function montoAsesorCierre(cartId,nombre){
+  // Una promesa vigente del mes reemplaza el monto de la proyeccion (el acuerdo mas reciente manda)
+  var p=PROMESAS[cartId+'::'+nombre];
+  if(promesaVigente(p))return parseFloat(p.monto)||0;
   var a=CIERRE_ASESOR[cartId+'::'+nombre];
   return a?a.monto:0;
 }
@@ -3691,7 +3694,7 @@ function exportCierreExcel(){
       var gest=vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando'}[p.estado]||'Sin acuerdo');
       var mAcX=montoAcordadoCierre(r,d.cartId);
       totalAsesor+=mAcX;
-      wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):(ca.dia?'dia '+ca.dia:''),ca.monto?mAcX:'']);
+      wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):(ca.dia?'dia '+ca.dia:''),montoAsesorCierre(d.cartId,r.nombre)?mAcX:'']);
     });
     wsData.push(['','TOTAL ('+d.rows.length+' clientes)','',totalCuota,totalMora,'','','','',totalAsesor]);
     var wb=XLSX.utils.book_new();
@@ -3758,7 +3761,7 @@ function buildCierreHoy(cartId,rows){
     var upColor=pagoEsteMes(r.ultimo_pago)?'color:var(--green);font-weight:600':'color:var(--text2)';
     var p=PROMESAS[cartId+'::'+r.nombre];
     var ca=CIERRE_ASESOR[cartId+'::'+r.nombre];
-    var mAc=montoAcordadoCierre(r,cartId),soloMora=ca&&mAc<ca.monto;
+    var mAs=montoAsesorCierre(cartId,r.nombre),mAc=montoAcordadoCierre(r,cartId),soloMora=mAs>0&&mAc<mAs;
     var cOtro=comentarioDeOtro(cartId,r.nombre);
     var rowAlert=x.solPend?'style="background:var(--purplebg);border-left:3px solid var(--purple)"':cOtro?'style="background:rgba(184,68,0,.10);border-left:3px solid var(--orange)"':'';
     var cellAlert=cOtro?' <span title="Comentario de '+ibEsc(cOtro)+'" style="background:var(--orangebg);color:var(--orange);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px">💬 comentario · '+ibEsc(cOtro)+'</span>':'';
@@ -3777,7 +3780,7 @@ function buildCierreHoy(cartId,rows){
       +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
       +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
       +'<td class="mono">'+(promesaVigente(p)&&p.fecha?p.fecha:(ca&&ca.dia?'día '+ca.dia:'<span style="color:var(--text3)">—</span>'))+'</td>'
-      +'<td class="mono" style="color:var(--green);font-weight:600">'+(ca&&ca.monto?'L '+fmt(mAc)+(soloMora?'<div style="color:var(--text3);font-size:10px;font-weight:400;font-family:var(--sans)">ya abonó · solo mora (asesor L '+fmt(ca.monto)+')</div>':''):'<span style="color:var(--text3);font-weight:400">—</span>')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
+      +'<td class="mono" style="color:var(--green);font-weight:600">'+(mAs?'L '+fmt(mAc)+(soloMora?'<div style="color:var(--text3);font-size:10px;font-weight:400;font-family:var(--sans)">ya abonó · solo mora (asesor L '+fmt(mAs)+')</div>':''):'<span style="color:var(--text3);font-weight:400">—</span>')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
       +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
         +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+x.mora+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
         +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,r.nombre)+'</span>'
