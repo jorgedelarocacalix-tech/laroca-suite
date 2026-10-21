@@ -878,6 +878,8 @@ function montoAsesorCierre(cartId,nombre){
   // Una promesa vigente del mes reemplaza el monto de la proyeccion (el acuerdo mas reciente manda)
   var p=PROMESAS[cartId+'::'+nombre];
   if(promesaVigente(p))return parseFloat(p.monto)||0;
+  // En busqueda / visitando, o promesa del mes con monto 0: aun no se sabe cuanto abonara, no suma
+  if(acuerdoSinMonto(p))return 0;
   var a=CIERRE_ASESOR[cartId+'::'+nombre];
   return a?a.monto:0;
 }
@@ -889,6 +891,13 @@ function montoAcordadoCierre(c,cartId){
   var m=calcMoraCliente(c,cartId);
   var mora=m&&m.diferencia>0?m.diferencia:0;
   return Math.min(ma,mora);
+}
+function acuerdoSinMonto(p){
+  if(!p)return false;
+  if(p.estado==='buscando'||p.estado==='visitando')return true;
+  if(p.estado!=='promesa'||parseFloat(p.monto)>0)return false;
+  var mes=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
+  return p.fecha?p.fecha.substring(0,7)>=mes:(p.ts||'').substring(0,7)===mes;
 }
 function promesaVigente(p){
   if(!p||p.estado!=='promesa'||!(parseFloat(p.monto)>0))return false;
