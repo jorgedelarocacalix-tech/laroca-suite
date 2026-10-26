@@ -887,7 +887,8 @@ function montoAsesorCierre(cartId,nombre){
 // este mes y sigue en la lista es solo por mora, asi que cuenta solo la mora (sin pasar del Monto asesor).
 function montoAcordadoCierre(c,cartId){
   var ma=montoAsesorCierre(cartId,c.nombre);
-  if(!fechaVinoMes(c,cartId,PROMESAS[cartId+'::'+c.nombre]))return ma;
+  var p=PROMESAS[cartId+'::'+c.nombre];
+  if(!fechaVinoMes(c,cartId,p)||(p&&p.mora_pendiente))return ma;
   var m=calcMoraCliente(c,cartId);
   var mora=m&&m.diferencia>0?m.diferencia:0;
   return Math.min(ma,mora);
@@ -912,6 +913,8 @@ function enCierreHoy(c,cartId){
   if(enGraciaSinPrima(c,p))return false;
   var vino=fechaVinoMes(c,cartId,p);
   if(!vino)return true;
+  // El asesor lo marco "mora pendiente": aunque vino, sigue debiendo (igual que en Hoy y el resto de vistas)
+  if(p&&p.mora_pendiente)return true;
   var m=calcMoraCliente(c,cartId);
   return !!(m&&m.diferencia>0);
 }
