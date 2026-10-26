@@ -908,13 +908,13 @@ function promesaVigente(p){
 // Hoy -> Cierre: clientes que NO han venido a pagar este mes. Si ya vinieron salen de la lista,
 // salvo que sigan con mora real (calcMoraCliente, con las correcciones de mora_overrides).
 function enCierreHoy(c,cartId){
-  if(c.tramo==='INACTIVO')return false;
   var p=PROMESAS[cartId+'::'+c.nombre];
+  // El asesor lo marco "mora pendiente" o lo agrego a mano a Cierre (abrirAgregarCierre): sigue debiendo
+  if(p&&p.mora_pendiente)return true;
+  if(c.tramo==='INACTIVO')return false;
   if(enGraciaSinPrima(c,p))return false;
   var vino=fechaVinoMes(c,cartId,p);
   if(!vino)return true;
-  // El asesor lo marco "mora pendiente": aunque vino, sigue debiendo (igual que en Hoy y el resto de vistas)
-  if(p&&p.mora_pendiente)return true;
   var m=calcMoraCliente(c,cartId);
   return !!(m&&m.diferencia>0);
 }
@@ -3730,7 +3730,7 @@ function setCierreHoySort(mode){
 }
 function buildCierreHoy(cartId,rows){
   window._cierreHoyData={cartId:cartId,rows:rows};
-  if(!rows.length)return '<div class="cierre-hoy-big empty">🎉 Todos al día — nadie con mora ni pagos pendientes este mes.</div>';
+  if(!rows.length)return '<div class="cierre-hoy-big empty">🎉 Todos al día — nadie con mora ni pagos pendientes este mes.<div style="margin-top:10px"><button onclick="abrirAgregarCierre(\''+cartId+'\')" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid rgba(91,33,182,.4);background:var(--purplebg);color:var(--purple);cursor:pointer;font-family:var(--mono);font-weight:600">➕ Agregar cliente</button></div></div>';
   var withMora=rows.map(function(r){var m=calcMoraCliente(r,cartId);var p=PROMESAS[cartId+'::'+r.nombre];var solPend=!!(p&&p.mora_solicitud&&p.mora_solicitud.pendiente);return {r:r,mora:m&&m.diferencia>0?m.diferencia:0,fecha:p&&p.fecha?p.fecha:null,solPend:solPend};});
   if(_CIERRE_HOY_SORT==='fecha'){
     withMora.sort(function(a,b){
@@ -3760,7 +3760,7 @@ function buildCierreHoy(cartId,rows){
       +'<span style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-right:2px">ORDENAR:</span>'
       +sortBtn('mora','🔴 Mayor mora')+sortBtn('fecha','📅 Fecha más cercana')
     +'</div>'
-    +'<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="exportCierreExcel()" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid rgba(26,122,60,.4);background:var(--greenbg);color:var(--green);cursor:pointer;font-family:var(--mono);font-weight:600">📗 Excel</button></div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:6px"><button onclick="abrirAgregarCierre(\''+cartId+'\')" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid rgba(91,33,182,.4);background:var(--purplebg);color:var(--purple);cursor:pointer;font-family:var(--mono);font-weight:600">➕ Agregar cliente</button><button onclick="exportCierreExcel()" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid rgba(26,122,60,.4);background:var(--greenbg);color:var(--green);cursor:pointer;font-family:var(--mono);font-weight:600">📗 Excel</button></div>'
     +'<input class="tbl-search" id="S'+uid+'" onkeyup="flt(\''+uid+'\',\'S'+uid+'\')" placeholder="Buscar...">'
     +'<div class="tbl-wrap"><table id="'+uid+'"><thead><tr>'
     +'<th>#</th><th>Cliente</th><th>Saldo</th><th>Cuota</th><th>Mora</th><th>Último pago</th><th>Tramo</th><th>Fecha acuerdo</th><th>Monto asesor</th><th>Acción</th>'
@@ -6991,6 +6991,51 @@ async function saveAccion(){
   closeModal('modal-accion');
   if(CURRENT) refreshSoft(CURRENT);
   setConn(true,'Guardado ✓');setTimeout(function(){setConn(true,'Conectado');},2000);
+}
+// Hoy -> Cierre: agregar a mano un cliente que no salio en la lista (ej. ya vino a pagar pero sigue en mora)
+// para registrarle su promesa de pago. Queda marcado mora_pendiente, que lo mantiene en Cierre.
+function abrirAgregarCierre(cartId){
+  var old=document.getElementById('agregar-cierre-overlay');if(old)old.remove();
+  var div=document.createElement('div');
+  div.id='agregar-cierre-overlay';
+  div.className='overlay show';
+  div.innerHTML='<div class="modal-card" style="max-width:520px;width:100%;max-height:85vh;display:flex;flex-direction:column;padding:22px">'
+    +'<button class="modal-x" onclick="document.getElementById(\'agregar-cierre-overlay\').remove()">×</button>'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:4px">➕ Agregar cliente a Hoy → Cierre</div>'
+    +'<div class="cart-meta" style="margin-bottom:12px">Clientes que no están en la lista. Al agregarlo se abre la promesa de pago.</div>'
+    +'<input class="tbl-search" id="agregar-cierre-q" placeholder="Buscar cliente..." oninput="_renderAgregarCierre(\''+cartId+'\')" style="margin-bottom:10px">'
+    +'<div id="agregar-cierre-list" style="overflow-y:auto;flex:1"></div>'
+    +'</div>';
+  document.body.appendChild(div);
+  _renderAgregarCierre(cartId);
+  setTimeout(function(){var f=document.getElementById('agregar-cierre-q');if(f)f.focus();},60);
+}
+function _renderAgregarCierre(cartId){
+  var box=document.getElementById('agregar-cierre-list');if(!box)return;
+  var q=((document.getElementById('agregar-cierre-q')||{}).value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  var cl=((CARTERAS[cartId]||{}).clientes||[]).filter(function(c){
+    if(enCierreHoy(c,cartId))return false;
+    return !q||c.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').indexOf(q)>=0;
+  }).sort(function(a,b){return a.nombre.localeCompare(b.nombre);});
+  var tot=cl.length;cl=cl.slice(0,50);
+  box.innerHTML=cl.length?cl.map(function(c){
+    var m=calcMoraCliente(c,cartId);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border)">'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">'+ibEsc(c.nombre)+'</div>'
+      +'<div style="font-family:var(--mono);font-size:10px;color:var(--text3)">Saldo L '+fmt(c.saldo||0)+' · Cuota L '+fmt(c.cuota||0)+' · Últ. pago '+(c.ultimo_pago||'—')+(m&&m.diferencia>0?' · <span style="color:var(--red)">mora L '+fmt(m.diferencia)+'</span>':'')+'</div></div>'
+      +'<button class="btn btn-g" style="padding:5px 12px;font-size:12px" onclick="agregarACierre(\''+cartId+'\',\''+esc(c.nombre)+'\')">Agregar</button>'
+      +'</div>';
+  }).join('')+(tot>50?'<div class="cart-meta" style="padding:8px 4px">Mostrando 50 de '+tot+' — escribe para filtrar.</div>':''):'<div class="empty">Sin resultados.</div>';
+}
+async function agregarACierre(cartId,nombre){
+  var key=cartId+'::'+nombre;
+  var c=((CARTERAS[cartId]||{}).clientes||[]).find(function(x){return x.nombre===nombre;})||{};
+  PROMESAS[key]=Object.assign({},PROMESAS[key]||{},{mora_pendiente:true,ts:new Date().toISOString()});
+  await dbSaveProm(cartId,nombre);
+  await dbSaveHist({cartera_id:cartId,cliente_nombre:nombre,tipo:'nota',nota:'➕ Agregado a Hoy → Cierre por promesa de pago',monto:null,fecha_accion:HOY.toISOString().split('T')[0],gestor:_nombreEfectivo((USER&&USER.nombre)||'—'),created_at:new Date().toISOString()});
+  var ov=document.getElementById('agregar-cierre-overlay');if(ov)ov.remove();
+  if(CURRENT)refreshSoft(CURRENT);
+  abrirAcuerdoRapido(cartId,nombre,c.cuota||0);
 }
 async function marcarMora(cartId,nombre){var key=cartId+'::'+nombre;PROMESAS[key]=Object.assign({},PROMESAS[key]||{},{mora_pendiente:true,ts:new Date().toISOString()});await dbSaveProm(cartId,nombre);refreshSoft(cartId);}
 async function quitarMora(cartId,nombre){var key=cartId+'::'+nombre;if(PROMESAS[key])delete PROMESAS[key].mora_pendiente;await dbSaveProm(cartId,nombre);refreshSoft(cartId);}
