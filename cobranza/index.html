@@ -877,6 +877,7 @@ async function loadCierreAsesor(){
 function montoAsesorCierre(cartId,nombre){
   // Una promesa vigente del mes reemplaza el monto de la proyeccion (el acuerdo mas reciente manda)
   var p=PROMESAS[cartId+'::'+nombre];
+  if(promesaMesSiguiente(p))return 0;
   if(promesaVigente(p))return parseFloat(p.monto)||0;
   // En busqueda / visitando, o promesa del mes con monto 0: aun no se sabe cuanto abonara, no suma
   if(acuerdoSinMonto(p))return 0;
@@ -907,7 +908,8 @@ function promesaVigente(p){
 }
 // Hoy -> Cierre: clientes que NO han venido a pagar este mes. Si ya vinieron salen de la lista,
 // salvo que sigan con mora real (calcMoraCliente, con las correcciones de mora_overrides).
-// Promesa con fecha de un mes posterior (ej. noviembre estando en octubre): no es para el cierre de este mes
+// Promesa con fecha de un mes posterior (ej. noviembre estando en octubre): sigue en Hoy -> Cierre (al final)
+// pero no suma al Total acordado de este mes
 function promesaMesSiguiente(p){
   if(!p||p.estado!=='promesa'||!p.fecha)return false;
   var mes=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
@@ -915,7 +917,6 @@ function promesaMesSiguiente(p){
 }
 function enCierreHoy(c,cartId){
   var p=PROMESAS[cartId+'::'+c.nombre];
-  if(promesaMesSiguiente(p))return false;
   // El asesor lo marco "mora pendiente" o lo agrego a mano a Cierre (abrirAgregarCierre): sigue debiendo
   if(p&&p.mora_pendiente)return true;
   if(c.tramo==='INACTIVO')return false;
@@ -3710,7 +3711,7 @@ function exportCierreExcel(){
       var p=PROMESAS[d.cartId+'::'+r.nombre]||{};
       var vig=promesaVigente(p);
       var ca=CIERRE_ASESOR[d.cartId+'::'+r.nombre]||{};
-      var gest=vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando'}[p.estado]||'Sin acuerdo');
+      var gest=promesaMesSiguiente(p)?'Prometio mes siguiente (no suma)':vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando'}[p.estado]||'Sin acuerdo');
       var mAcX=montoAcordadoCierre(r,d.cartId);
       totalAsesor+=mAcX;
       wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):(ca.dia?'dia '+ca.dia:''),montoAsesorCierre(d.cartId,r.nombre)?mAcX:'']);
@@ -3738,17 +3739,18 @@ function setCierreHoySort(mode){
 function buildCierreHoy(cartId,rows){
   window._cierreHoyData={cartId:cartId,rows:rows};
   if(!rows.length)return '<div class="cierre-hoy-big empty">🎉 Todos al día — nadie con mora ni pagos pendientes este mes.<div style="margin-top:10px"><button onclick="abrirAgregarCierre(\''+cartId+'\')" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid rgba(91,33,182,.4);background:var(--purplebg);color:var(--purple);cursor:pointer;font-family:var(--mono);font-weight:600">➕ Agregar cliente</button></div></div>';
-  var withMora=rows.map(function(r){var m=calcMoraCliente(r,cartId);var p=PROMESAS[cartId+'::'+r.nombre];var solPend=!!(p&&p.mora_solicitud&&p.mora_solicitud.pendiente);return {r:r,mora:m&&m.diferencia>0?m.diferencia:0,fecha:p&&p.fecha?p.fecha:null,solPend:solPend};});
+  var withMora=rows.map(function(r){var m=calcMoraCliente(r,cartId);var p=PROMESAS[cartId+'::'+r.nombre];var solPend=!!(p&&p.mora_solicitud&&p.mora_solicitud.pendiente);return {r:r,mora:m&&m.diferencia>0?m.diferencia:0,fecha:p&&p.fecha?p.fecha:null,solPend:solPend,sig:promesaMesSiguiente(p)};});
   if(_CIERRE_HOY_SORT==='fecha'){
     withMora.sort(function(a,b){
       if(a.solPend!==b.solPend)return a.solPend?-1:1; // solicitudes de mora pendientes siempre al tope
+      if(a.sig!==b.sig)return a.sig?1:-1; // prometieron para el mes siguiente: al final
       if(a.fecha&&b.fecha)return a.fecha.localeCompare(b.fecha);
       if(a.fecha&&!b.fecha)return -1;
       if(!a.fecha&&b.fecha)return 1;
       return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);
     });
   } else {
-    withMora.sort(function(a,b){if(a.solPend!==b.solPend)return a.solPend?-1:1;return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);});
+    withMora.sort(function(a,b){if(a.solPend!==b.solPend)return a.solPend?-1:1;if(a.sig!==b.sig)return a.sig?1:-1;return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);});
   }
   var totalCuota=rows.reduce(function(s,r){return s+(r.cuota||0);},0);
   var totalMora=withMora.reduce(function(s,x){return s+x.mora;},0);
@@ -3799,7 +3801,7 @@ function buildCierreHoy(cartId,rows){
       +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
       +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
       +'<td class="mono">'+(promesaVigente(p)&&p.fecha?p.fecha:(ca&&ca.dia?'día '+ca.dia:'<span style="color:var(--text3)">—</span>'))+'</td>'
-      +'<td class="mono" style="color:var(--green);font-weight:600">'+(mAs?'L '+fmt(mAc)+(soloMora?'<div style="color:var(--text3);font-size:10px;font-weight:400;font-family:var(--sans)">ya abonó · solo mora (asesor L '+fmt(mAs)+')</div>':''):'<span style="color:var(--text3);font-weight:400">—</span>')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
+      +'<td class="mono" style="color:var(--green);font-weight:600">'+(mAs?'L '+fmt(mAc)+(soloMora?'<div style="color:var(--text3);font-size:10px;font-weight:400;font-family:var(--sans)">ya abonó · solo mora (asesor L '+fmt(mAs)+')</div>':''):'<span style="color:var(--text3);font-weight:400">—</span>')+(x.sig?'<div style="color:var(--orange);font-size:10px;font-weight:600;font-family:var(--sans)">📅 Prometió para el mes siguiente ('+p.fecha+(parseFloat(p.monto)>0?' · L '+fmt(p.monto):'')+') — no suma al cierre</div>':'')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
       +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
         +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+x.mora+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
         +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,r.nombre)+'</span>'
