@@ -907,8 +907,15 @@ function promesaVigente(p){
 }
 // Hoy -> Cierre: clientes que NO han venido a pagar este mes. Si ya vinieron salen de la lista,
 // salvo que sigan con mora real (calcMoraCliente, con las correcciones de mora_overrides).
+// Promesa con fecha de un mes posterior (ej. noviembre estando en octubre): no es para el cierre de este mes
+function promesaMesSiguiente(p){
+  if(!p||p.estado!=='promesa'||!p.fecha)return false;
+  var mes=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
+  return p.fecha.substring(0,7)>mes;
+}
 function enCierreHoy(c,cartId){
   var p=PROMESAS[cartId+'::'+c.nombre];
+  if(promesaMesSiguiente(p))return false;
   // El asesor lo marco "mora pendiente" o lo agrego a mano a Cierre (abrirAgregarCierre): sigue debiendo
   if(p&&p.mora_pendiente)return true;
   if(c.tramo==='INACTIVO')return false;
