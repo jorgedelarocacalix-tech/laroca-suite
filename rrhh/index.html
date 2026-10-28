@@ -843,16 +843,16 @@ function bindDashboardEmpleados(){
 function viewEmpleadosAdmin(){
   const list = state.empleados || [];
   return `<div style="display:flex;justify-content:space-between;align-items:center">
-    <div><h1 class="page-title">Asociados</h1><p class="page-sub">${list.length} registrados</p></div>
+    <div><h1 class="page-title">Asociados</h1><p class="page-sub">${list.filter(e=>e.activo).length} activos · ${list.filter(e=>!e.activo).length} dados de baja</p></div>
     <button class="btn gold sm" id="btn-nuevo-empleado">+ Nuevo asociado</button></div>
     <div class="card"><table><thead><tr><th>Foto</th><th>Código</th><th>Nombre</th><th>Puesto</th><th>Sucursal</th><th>Salario base</th><th>Rol</th><th>Accesos</th><th>Identidad</th><th>Estado</th><th></th></tr></thead>
-    <tbody>${list.map(e=>`<tr>
+    <tbody>${list.map(e=>`<tr${e.activo?'':' style="opacity:.6"'}>
       <td><div class="avatar-wrap" data-foto-emp="${e.id}">${avatarHtml(e.nombre, e.foto_url, 'sm')}<span class="cam">📷</span></div></td>
       <td class="mono">${e.codigo}</td><td>${e.nombre}${e.nivel_admin?`<span class="badge-role">${e.nivel_admin}</span>`:''}</td><td>${e.puesto||'—'}</td><td>${e.sucursal||'—'}</td><td class="mono">${fmtL(e.salario_base)}</td><td>${e.rol}</td>
       <td style="font-size:12px">${APPS_SUITE.filter(([k])=>e.accesos_apps&&e.accesos_apps[k]===true).map(([,l])=>l).join(', ')||'—'}${e.accesos_apps&&Array.isArray(e.accesos_apps.sucursales)&&e.accesos_apps.sucursales.length?`<div style="color:var(--slate);font-size:11px">${e.accesos_apps.sucursales.join(' &middot; ')}</div>`:''}</td>
       <td>${e.identidad_url?`<a href="${e.identidad_url}" target="_blank">Ver</a>`:'—'}</td>
-      <td><span class="stamp ${e.activo?'aprobado':'rechazado'}">${e.activo?'activo':'inactivo'}</span></td>
-      <td><button class="link" data-expediente="${e.id}">📋 Expediente</button> · <button class="link" data-editar-empleado="${e.id}">Editar datos</button> · <button class="link" data-editar-accesos="${e.id}">Editar accesos</button> · <button class="link" data-cambiar-pin="${e.id}">Cambiar PIN</button></td></tr>`).join('') || `<tr><td colspan="11" class="empty">Aún no hay asociados — crea el primero</td></tr>`}</tbody></table></div>`;
+      <td><span class="stamp ${e.activo?'aprobado':'rechazado'}">${e.activo?'activo':'inactivo'}</span>${!e.activo&&e.fecha_baja?`<div style="font-size:11px;color:var(--slate);margin-top:3px">Baja ${fmtDate(e.fecha_baja)} · ${e.motivo_baja||''}${e.documento_baja_url?` · <a href="${e.documento_baja_url}" target="_blank">carta</a>`:''}</div>`:''}</td>
+      <td><button class="link" data-expediente="${e.id}">📋 Expediente</button> · <button class="link" data-editar-empleado="${e.id}">Editar datos</button>${e.activo?` · <button class="link" data-editar-accesos="${e.id}">Editar accesos</button> · <button class="link" data-cambiar-pin="${e.id}">Cambiar PIN</button> · <button class="link" data-dar-baja="${e.id}" style="color:var(--red,#b42318)">🚪 Dar de baja</button>`:` · <button class="link" data-reactivar="${e.id}">↩️ Reactivar</button>`}</td></tr>`).join('') || `<tr><td colspan="11" class="empty">Aún no hay asociados — crea el primero</td></tr>`}</tbody></table></div>`;
 }
 
 function viewVacacionesAdmin(){
@@ -1388,6 +1388,66 @@ function leerAccesosAppsBuilder(prefix){
   return out;
 }
 
+// Baja: el asociado queda inactivo (no entra a ninguna app de la Suite); su expediente no se borra
+async function modalDarBaja(emp){
+  const hoy = new Date().toISOString().slice(0,10);
+  openModal(`
+    <h3>Dar de baja — ${emp.nombre}</h3>
+    <p style="font-size:13px;color:var(--slate);margin-top:0">Queda inactivo y ya no puede entrar a la Suite. Su expediente, adelantos, préstamos y vacaciones se conservan.</p>
+    <div id="db-saldos" style="font-size:13px;margin-bottom:10px;color:var(--slate)">Cargando saldos pendientes…</div>
+    <div class="form-row">
+      <div class="field"><label>Fecha de baja</label><input type="date" id="db-fecha" value="${hoy}"></div>
+      <div class="field"><label>Motivo</label><select id="db-motivo">${['Renuncia','Despido','Abandono','Fin de contrato','Otro'].map(m=>`<option>${m}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label>Nota (opcional)</label><textarea id="db-nota" rows="2"></textarea></div>
+    <div class="field"><label>Carta de renuncia / despido (opcional)</label><input type="file" id="db-doc" accept="image/*,.pdf"></div>
+    <div class="row-end"><button class="link" id="db-cancel">Cancelar</button><button class="btn gold sm" id="db-save">Confirmar baja</button></div>`);
+  document.getElementById('db-cancel').onclick = closeModal;
+  sb.rpc('rrhh_admin_saldos_empleado', {p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: emp.id}).then(({data, error})=>{
+    const el = document.getElementById('db-saldos');
+    if(!el) return;
+    if(error){ el.textContent = 'No se pudieron cargar los saldos: '+error.message; return; }
+    const hay = data.adelantos_monto>0 || data.prestamos_monto>0 || data.dias_vacaciones_pend>0;
+    el.innerHTML = `<div class="card" style="padding:10px 12px;margin:0;${hay?'border-left:3px solid var(--gold,#b8860b)':''}">
+      <b>Para la liquidación:</b><br>
+      Adelantos pendientes: <span class="mono">${fmtL(data.adelantos_monto)}</span> (${data.adelantos_n})<br>
+      Préstamos pendientes: <span class="mono">${fmtL(data.prestamos_monto)}</span><br>
+      Días de vacaciones pendientes: <span class="mono">${data.dias_vacaciones_pend}</span>
+      ${hay?'<div style="margin-top:6px;color:var(--slate)">Rebajar o pagar estos saldos en la liquidación.</div>':''}</div>`;
+  });
+  document.getElementById('db-save').onclick = async () => {
+    const btn = document.getElementById('db-save');
+    const fecha = document.getElementById('db-fecha').value;
+    if(!fecha){ toast('Elegí la fecha de baja'); return; }
+    btn.disabled = true;
+    const file = document.getElementById('db-doc').files[0];
+    const docUrl = file ? await uploadDoc(file) : null;
+    if(file && !docUrl){ btn.disabled = false; return; }
+    const {error} = await sb.rpc('rrhh_admin_dar_baja', {
+      p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: emp.id,
+      p_fecha: fecha, p_motivo: document.getElementById('db-motivo').value,
+      p_nota: document.getElementById('db-nota').value, p_documento_url: docUrl
+    });
+    if(error){ btn.disabled = false; toast('Error: '+error.message); return; }
+    toast(emp.nombre+' dado de baja'); closeModal();
+    state.dashEmp = null;
+    await loadAdminEmpleados(); render();
+  };
+}
+function modalReactivar(emp){
+  openModal(`
+    <h3>Reactivar — ${emp.nombre}</h3>
+    <p style="font-size:13px">Vuelve a quedar activo y puede entrar otra vez a la Suite con su mismo código y PIN.${emp.fecha_baja?` Baja anterior: ${fmtDate(emp.fecha_baja)} (${emp.motivo_baja||''}) — queda anotada en la nota.`:''}</p>
+    <div class="row-end"><button class="link" id="ra-cancel">Cancelar</button><button class="btn gold sm" id="ra-save">Reactivar</button></div>`);
+  document.getElementById('ra-cancel').onclick = closeModal;
+  document.getElementById('ra-save').onclick = async () => {
+    const {error} = await sb.rpc('rrhh_admin_reactivar', {p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin, p_empleado_id: emp.id});
+    if(error){ toast('Error: '+error.message); return; }
+    toast(emp.nombre+' reactivado'); closeModal();
+    state.dashEmp = null;
+    await loadAdminEmpleados(); render();
+  };
+}
 function modalEditarEmpleado(emp){
   openModal(`
     <h3>Editar datos — ${emp.nombre}</h3>
@@ -1626,6 +1686,18 @@ function bindEmpleadosAdmin(){
     btn.onclick = () => {
       const emp = (state.empleados||[]).find(e=>e.id===btn.getAttribute('data-cambiar-pin'));
       if(emp) modalCambiarPin(emp);
+    };
+  });
+  document.querySelectorAll('[data-dar-baja]').forEach(btn=>{
+    btn.onclick = () => {
+      const emp = (state.empleados||[]).find(e=>e.id===btn.getAttribute('data-dar-baja'));
+      if(emp) modalDarBaja(emp);
+    };
+  });
+  document.querySelectorAll('[data-reactivar]').forEach(btn=>{
+    btn.onclick = () => {
+      const emp = (state.empleados||[]).find(e=>e.id===btn.getAttribute('data-reactivar'));
+      if(emp) modalReactivar(emp);
     };
   });
   document.querySelectorAll('[data-foto-emp]').forEach(wrap=>{
