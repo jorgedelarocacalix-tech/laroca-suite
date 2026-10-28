@@ -4783,9 +4783,10 @@ async function quickComentarioHist(cartId,nombre,forceScroll){
   // Si el usuario estaba leyendo arriba, no forzar scroll al fondo
   var stick=el.scrollHeight-el.scrollTop-el.clientHeight<80;
   try{
-    var r=await supa.from('historial_clientes').select('*').eq('cartera_id',cartId).eq('cliente_nombre',nombre).order('created_at',{ascending:true}).limit(100);
+    var r=await supa.from('historial_clientes').select('*').eq('cartera_id',cartId).eq('cliente_nombre',nombre).order('created_at',{ascending:false}).limit(300);
     if(r.error)throw r.error;
-    var rows=r.data||[];
+    // Se piden los 300 MAS RECIENTES (desc) y se invierten: con asc+limit se cortaban los ultimos (caso Ixsa Soto, 102 comentarios)
+    var rows=(r.data||[]).reverse();
     if(!rows.length){el.innerHTML='<div class="empty">Sin comentarios aún — escribe el primero abajo.</div>';return;}
     function puedeBorrar(h){return !!USER&&(h.gestor===nombreComentaristaActual()||USER.rol==='gerente'||USER.rol==='admin');}
     var html='',lastDay='';
