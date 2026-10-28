@@ -865,7 +865,7 @@ function viewVacacionesAdmin(){
       <td>${fmtDate(v.fecha_inicio)}</td><td>${fmtDate(v.fecha_fin)}</td><td>${v.dias}</td><td>${v.motivo||'—'}</td>
       <td><span class="stamp ${v.estado}">${v.estado}</span></td><td>${v.aprobado_por||'—'}</td>
       <td>${v.estado==='aprobado' ? `<button class="btn-chat" data-hoja="${v.id}">${v.documento_url?'📄 Ver / actualizar':'📄 Subir hoja'}</button>` : '—'}</td>
-      <td><button class="btn-chat" data-chat-historial="vacaciones|${v.id}">💬 Ver</button></td>
+      <td><button class="btn-chat" data-chat${v.estado==='pendiente'?'':'-historial'}="vacaciones|${v.id}">💬 Ver</button></td>
     </tr>`).join('') || `<tr><td colspan="9" class="empty">Aún no hay solicitudes de vacaciones</td></tr>`}</tbody></table></div>
     <div style="height:16px"></div>
     <div class="card"><h3 style="margin-top:0">Permisos</h3><table><thead><tr><th>Asociado</th><th>Fecha</th><th>Tipo</th><th>Horas</th><th>Motivo</th><th>Estado</th><th>Aprobado por</th><th>Comentarios</th></tr></thead>
@@ -873,7 +873,7 @@ function viewVacacionesAdmin(){
       <td>${p.empleado}<div style="font-size:11px;color:var(--slate)">${p.codigo||''}</div></td>
       <td>${fmtDate(p.fecha)}</td><td style="text-transform:capitalize">${p.tipo}</td><td>${p.horas??'—'}</td><td>${p.motivo||'—'}</td>
       <td><span class="stamp ${p.estado}">${p.estado}</span></td><td>${p.aprobado_por||'—'}</td>
-      <td><button class="btn-chat" data-chat-historial="permisos|${p.id}">💬 Ver</button></td>
+      <td><button class="btn-chat" data-chat${p.estado==='pendiente'?'':'-historial'}="permisos|${p.id}">💬 Ver</button></td>
     </tr>`).join('') || `<tr><td colspan="8" class="empty">Aún no hay solicitudes de permiso</td></tr>`}</tbody></table></div>`;
 }
 
@@ -897,7 +897,7 @@ function viewAdelantosAdmin(){
       <td><span class="stamp ${a.estado==='pagado'?'aprobado':a.estado}">${a.estado}</span></td>
       <td>${a.estado==='aprobado'||a.estado==='pagado' ? `<button class="link" data-toggle-entrega="${a.id}" data-val="${a.entregado_at?'0':'1'}">${a.entregado_at?'✅ '+fmtDate(a.entregado_at?.slice(0,10)):'Marcar entregado'}</button>` : '—'}</td>
       <td>${a.estado==='aprobado'||a.estado==='pagado' ? `<button class="link" data-toggle-arqueo="${a.id}" data-val="${a.declarado_en_arqueo?'0':'1'}">${a.declarado_en_arqueo?'✅ Declarado':'Marcar declarado'}</button>${a.declarado_en_arqueo_nota?`<div style="font-size:11px;color:var(--slate)">${a.declarado_en_arqueo_nota}</div>`:''}` : '—'}</td>
-      <td><button class="btn-chat" data-chat-historial="adelantos|${a.id}">💬 Ver</button></td>
+      <td><button class="btn-chat" data-chat${a.estado==='pendiente'?'':'-historial'}="adelantos|${a.id}">💬 Ver</button></td>
     </tr>`).join('') || `<tr><td colspan="10" class="empty">Aún no hay solicitudes de adelanto</td></tr>`}</tbody></table></div>`;
 }
 
