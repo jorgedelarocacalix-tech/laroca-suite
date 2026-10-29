@@ -879,7 +879,7 @@ function montoAsesorCierre(cartId,nombre){
   var p=PROMESAS[cartId+'::'+nombre];
   if(promesaMesSiguiente(p))return 0;
   if(promesaVigente(p))return parseFloat(p.monto)||0;
-  // En busqueda / visitando, o promesa del mes con monto 0: aun no se sabe cuanto abonara, no suma
+  // En busqueda / visitando / sin acuerdo, o promesa del mes con monto 0: aun no se sabe cuanto abonara, no suma
   if(acuerdoSinMonto(p))return 0;
   var a=CIERRE_ASESOR[cartId+'::'+nombre];
   return a?a.monto:0;
@@ -896,7 +896,7 @@ function montoAcordadoCierre(c,cartId){
 }
 function acuerdoSinMonto(p){
   if(!p)return false;
-  if(p.estado==='buscando'||p.estado==='visitando')return true;
+  if(p.estado==='buscando'||p.estado==='visitando'||p.estado==='sin_acuerdo')return true;
   if(p.estado!=='promesa'||parseFloat(p.monto)>0)return false;
   var mes=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
   return p.fecha?p.fecha.substring(0,7)>=mes:(p.ts||'').substring(0,7)===mes;
@@ -3613,7 +3613,7 @@ async function resolverPin(pin){
 function abrirAcuerdoRapido(cartId,nombre,montoDefault){
   var ex=PROMESAS[cartId+'::'+nombre]||{};
   var esEdicion=promesaVigente(ex);
-  var tipoIni=['buscando','visitando'].includes(ex.estado)?ex.estado:'promesa';
+  var tipoIni=['buscando','visitando','sin_acuerdo'].includes(ex.estado)?ex.estado:'promesa';
   var old=document.getElementById('acuerdo-rapido-overlay');if(old)old.remove();
   var div=document.createElement('div');
   div.id='acuerdo-rapido-overlay';
@@ -3628,6 +3628,7 @@ function abrirAcuerdoRapido(cartId,nombre,montoDefault){
       +'<option value="promesa"'+(tipoIni==='promesa'?' selected':'')+'>📅 Promesa de pago</option>'
       +'<option value="buscando"'+(tipoIni==='buscando'?' selected':'')+'>🔍 Cliente en búsqueda</option>'
       +'<option value="visitando"'+(tipoIni==='visitando'?' selected':'')+'>🚗 Visitando cliente</option>'
+      +'<option value="sin_acuerdo"'+(tipoIni==='sin_acuerdo'?' selected':'')+'>🚫 Sin acuerdo</option>'
     +'</select>'
     +'<div id="ar-row-fecha">'
       +'<label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px" id="ar-fecha-lbl">Fecha comprometida</label>'
@@ -3671,7 +3672,7 @@ async function guardarAcuerdoRapido(cartId,nombre){
   var esEdicion=promesaVigente(ex);
   var gestorNombre=_nombreEfectivo((USER&&USER.nombre)||'—');
   var hoyStr=HOY.toISOString().split('T')[0];
-  var etiquetas={buscando:'🔍 Cliente en búsqueda',visitando:'🚗 Visitando cliente'};
+  var etiquetas={buscando:'🔍 Cliente en búsqueda',visitando:'🚗 Visitando cliente',sin_acuerdo:'🚫 Sin acuerdo'};
   var notaFinal=tipo==='promesa'
     ?'📅 Prometió pagar el '+(fecha||'—')+(monto?' por L '+fmt(monto):'')
     :etiquetas[tipo]+(nota?' — '+nota:'');
@@ -3711,7 +3712,7 @@ function exportCierreExcel(){
       var p=PROMESAS[d.cartId+'::'+r.nombre]||{};
       var vig=promesaVigente(p);
       var ca=CIERRE_ASESOR[d.cartId+'::'+r.nombre]||{};
-      var gest=promesaMesSiguiente(p)?'Prometio mes siguiente (no suma)':vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando'}[p.estado]||'Sin acuerdo');
+      var gest=promesaMesSiguiente(p)?'Prometio mes siguiente (no suma)':vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando',sin_acuerdo:'Sin acuerdo'}[p.estado]||'Sin acuerdo');
       var mAcX=montoAcordadoCierre(r,d.cartId);
       totalAsesor+=mAcX;
       wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):(ca.dia?'dia '+ca.dia:''),montoAsesorCierre(d.cartId,r.nombre)?mAcX:'']);
@@ -3801,7 +3802,7 @@ function buildCierreHoy(cartId,rows){
       +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
       +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
       +'<td class="mono">'+(promesaVigente(p)&&p.fecha?p.fecha:(ca&&ca.dia?'día '+ca.dia:'<span style="color:var(--text3)">—</span>'))+'</td>'
-      +'<td class="mono" style="color:var(--green);font-weight:600">'+(mAs?'L '+fmt(mAc)+(soloMora?'<div style="color:var(--text3);font-size:10px;font-weight:400;font-family:var(--sans)">ya abonó · solo mora (asesor L '+fmt(mAs)+')</div>':''):'<span style="color:var(--text3);font-weight:400">—</span>')+(x.sig?'<div style="color:var(--orange);font-size:10px;font-weight:600;font-family:var(--sans)">📅 Prometió para el mes siguiente ('+p.fecha+(parseFloat(p.monto)>0?' · L '+fmt(p.monto):'')+') — no suma al cierre</div>':'')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
+      +'<td class="mono" style="color:var(--green);font-weight:600">'+(mAs?'L '+fmt(mAc)+(soloMora?'<div style="color:var(--text3);font-size:10px;font-weight:400;font-family:var(--sans)">ya abonó · solo mora (asesor L '+fmt(mAs)+')</div>':''):'<span style="color:var(--text3);font-weight:400">—</span>')+(x.sig?'<div style="color:var(--orange);font-size:10px;font-weight:600;font-family:var(--sans)">📅 Prometió para el mes siguiente ('+p.fecha+(parseFloat(p.monto)>0?' · L '+fmt(p.monto):'')+') — no suma al cierre</div>':'')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='sin_acuerdo'?'<div style="color:var(--red);font-size:10px;font-weight:600;font-family:var(--sans)">🚫 Sin acuerdo'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
       +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
         +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+x.mora+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
         +'<span class="add-p" onclick="quickComentario(\''+cartId+'\',\''+esc(r.nombre)+'\')" style="background:var(--bluebg);color:var(--blue)">💬'+chatBadge(cartId,r.nombre)+'</span>'
@@ -4888,7 +4889,7 @@ async function quickComentarioGuardar(cartId,nombre){
   var key=cartId+'::'+nombre;
   // Un comentario no debe sacar al cliente de "en búsqueda"/"visitando": conserva ese estado (y su nota).
   var _exC=PROMESAS[key]||{};
-  PROMESAS[key]=Object.assign({},_exC,['buscando','visitando'].includes(_exC.estado)?{ts:new Date().toISOString()}:{estado:'nota',nota:texto.trim(),ts:new Date().toISOString()});
+  PROMESAS[key]=Object.assign({},_exC,['buscando','visitando','sin_acuerdo'].includes(_exC.estado)?{ts:new Date().toISOString()}:{estado:'nota',nota:texto.trim(),ts:new Date().toISOString()});
   _AUTOR[key]=autor;
   await dbSaveProm(cartId,nombre);
   setConn(true,'💬 Comentario guardado ✓');
@@ -7344,7 +7345,7 @@ function _withTimeout(promise,ms){
 }
 function setProg(pct,lbl){document.getElementById('prog-wrap').style.display='block';document.getElementById('prog-fill').style.width=pct+'%';document.getElementById('prog-lbl').textContent=lbl;}
 function copyMsg(id,btn){navigator.clipboard.writeText(document.getElementById(id).textContent).then(function(){btn.textContent='✓ copiado';setTimeout(function(){btn.textContent='⧉ copiar';},2000);});}
-function promBadge(p){var m={promesa:'<span class="b bp">📅 '+(p.fecha||'—')+'</span>',pago:'<span class="b bg">✅ Pago</span>','no-contesta':'<span class="b bx">📵 No contesta</span>','no_contesta':'<span class="b bx">📵 No contesta</span>','numero-mal':'<span class="b bx">❌ Num. mal</span>',negociacion:'<span class="b ba">🤝 Negocia</span>',visita:'<span class="b bb">🚗 Visita</span>',buscando:'<span class="b bx">🔍 En búsqueda</span>',visitando:'<span class="b bb">🚗 Visitando</span>'};return m[p.estado]||'';}
+function promBadge(p){var m={promesa:'<span class="b bp">📅 '+(p.fecha||'—')+'</span>',pago:'<span class="b bg">✅ Pago</span>','no-contesta':'<span class="b bx">📵 No contesta</span>','no_contesta':'<span class="b bx">📵 No contesta</span>','numero-mal':'<span class="b bx">❌ Num. mal</span>',negociacion:'<span class="b ba">🤝 Negocia</span>',visita:'<span class="b bb">🚗 Visita</span>',buscando:'<span class="b bx">🔍 En búsqueda</span>',visitando:'<span class="b bb">🚗 Visitando</span>',sin_acuerdo:'<span class="b bx">🚫 Sin acuerdo</span>'};return m[p.estado]||'';}
 function flt(tid,sid){var q=document.getElementById(sid).value.toLowerCase();document.querySelectorAll('#'+tid+' tbody tr:not(.total-row)').forEach(function(r){r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';});}
 document.getElementById('modal-accion').addEventListener('click',function(e){if(e.target===this)closeModal('modal-accion');});
 document.getElementById('modal-alerta').addEventListener('click',function(e){if(e.target===this)closeModal('modal-alerta');});
@@ -9309,7 +9310,7 @@ async function executeChatAction(actionId){
     _appendChatMsg('bot','✅ Visita agendada para '+cliente.nombre+' el '+vFmt+'.');
   }else if(action.tipo==='nota'){
     var _exN=PROMESAS[key]||{};
-    PROMESAS[key]=Object.assign({},_exN,['buscando','visitando'].includes(_exN.estado)?{ts:new Date().toISOString()}:{estado:'nota',nota:action.nota||'',ts:new Date().toISOString()});
+    PROMESAS[key]=Object.assign({},_exN,['buscando','visitando','sin_acuerdo'].includes(_exN.estado)?{ts:new Date().toISOString()}:{estado:'nota',nota:action.nota||'',ts:new Date().toISOString()});
     await dbSaveProm(CURRENT,cliente.nombre);
     await dbSaveHist({cartera_id:CURRENT,cliente_nombre:cliente.nombre,tipo:'nota',nota:action.nota||'',fecha_accion:hoyStr,gestor:gestor,created_at:new Date().toISOString()});
     _appendChatMsg('bot','✅ Nota guardada para '+cliente.nombre+'.');
