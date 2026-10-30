@@ -802,7 +802,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20261030-41';
+var APP_VERSION='20261030-42';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
@@ -1809,9 +1809,9 @@ function pagoEsteMes(s){var d=parseHNDate(s);if(!d)return false;return d.getMont
 function pagoMesAnterior(s){var d=parseHNDate(s);if(!d)return false;var am=new Date(HOY.getFullYear(),HOY.getMonth()-1,1);return d.getFullYear()===am.getFullYear()&&d.getMonth()===am.getMonth();}
 // Cliente facturado este mismo mes y sin pago aun: esta en su mes de gracia,
 // su primera cuota vence hasta el dia_pago del MES SIGUIENTE.
-// Ultimo pago = fecha de factura cuenta igual que sin ultimo pago: ese pago fue la prima del dia de la compra
-// (caso Merlin Yamileth Mejia Orellana: compro y dio L1,000 de prima el 12/10, y aparecia en Hoy -> Cierre)
-function compraEsteMes(c){if(!c||(!c.sin_ultimo_pago&&c.ultimo_pago!==c.fecha_factura))return false;var fd=parseHNDate(c.fecha_factura);return !!(fd&&fd.getMonth()===HOY.getMonth()&&fd.getFullYear()===HOY.getFullYear());}
+// Cuenta aunque el PDF traiga ultimo pago: lo pagado el mes de la compra es prima, no cuota (casos Merlin Yamileth
+// Mejia Orellana, prima el 12/10; Rigoberto Gutierrez Gutierrez, compro 24/10 y abono 29/10: aparecian en Hoy -> Cierre)
+function compraEsteMes(c){if(!c)return false;var fd=parseHNDate(c.fecha_factura);return !!(fd&&fd.getMonth()===HOY.getMonth()&&fd.getFullYear()===HOY.getFullYear());}
 // Cliente facturado este mes que YA dio prima o primer pago (pagado>0): no es urgente,
 // se saca de Hoy -> Cierre. Si no ha pagado nada todavia, sigue urgente y se mantiene.
 // Si el gestor ya le registro una promesa activa, tambien se mantiene visible.
