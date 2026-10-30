@@ -292,7 +292,7 @@ tr:hover td{background:#f5f8ff}
 .bv-btn:hover{background:#0d5a2e}
 .bv-close{position:absolute;top:12px;right:14px;background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3);padding:4px;line-height:1}
 /* ══ BURBUJA IA ══ */
-#ai-bubble{position:fixed;bottom:78px;right:18px;z-index:1500;display:none}
+#ai-bubble{position:fixed;bottom:78px;right:18px;z-index:1500;display:none!important} /* Asistente IA desactivado (oct 2026): no se usaba y gastaba tokens */
 #ai-fab{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#1a55a0,#6030b0);border:none;cursor:pointer;box-shadow:0 4px 18px rgba(26,85,160,.38);display:flex;align-items:center;justify-content:center;font-size:22px;transition:transform .2s,box-shadow .2s;position:relative}
 #ai-fab:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(26,85,160,.48)}
 #ai-fab-badge{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border-radius:10px;font-size:9px;font-family:var(--mono);font-weight:700;padding:1px 5px;min-width:16px;text-align:center;line-height:14px}
@@ -802,7 +802,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20261030-42';
+var APP_VERSION='20261030-43';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
@@ -1098,16 +1098,6 @@ function entrarConUsuario(u){
   loadData().then(function(){
     if(!aplicarParamsURL())renderHome();
     startSync();
-    if(USER.rol==='gerente'){
-      // Abrir burbuja IA en modo global al entrar
-      var bubble=document.getElementById('ai-bubble');
-      if(bubble)bubble.style.display='';
-      setTimeout(function(){
-        switchAITab('chat');
-        switchChatMode('general');
-        if(!_AI_OPEN)toggleAIPanel();
-      },700);
-    }
   });
 }
 function logout(){
@@ -8530,13 +8520,6 @@ function showBienvenida(cartId){
 function closeBienvenida(){
   var ov=document.getElementById('bv-overlay');
   ov.style.display='none';
-  document.getElementById('ai-bubble').style.display='block';
-  if(CURRENT){
-    setTimeout(function(){
-      buildAIRecomendaciones(CURRENT);
-      actualizarBadgeIA();
-    },200);
-  }
 }
 
 function toggleAIPanel(){
@@ -8913,6 +8896,7 @@ function _aiProjectionHTML(cartId){
 }
 
 async function buildAIRecomendaciones(cartId){
+  return; // Asistente IA desactivado: no llamar a la Edge Function (gasta tokens)
   var body=document.getElementById('ai-panel-body');
   if(!body)return;
   var payload=_buildCarteraPayload(cartId);
@@ -9136,6 +9120,7 @@ function _buildGeneralPayload(){
 }
 
 async function sendChatMsg(){
+  return; // Chat IA desactivado: no llamar a la Edge Function (gasta tokens)
   if(_CHAT_TYPING)return;
   var inp=document.getElementById('ai-chat-inp');
   var sendBtn=document.getElementById('ai-chat-send-btn');
