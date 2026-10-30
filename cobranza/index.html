@@ -889,7 +889,7 @@ function montoAsesorCierre(cartId,nombre){
 function montoAcordadoCierre(c,cartId){
   var ma=montoAsesorCierre(cartId,c.nombre);
   var p=PROMESAS[cartId+'::'+c.nombre];
-  if(!fechaVinoMes(c,cartId,p)||(p&&p.mora_pendiente))return ma;
+  if(!fechaVinoMes(c,cartId,p)||(p&&p.mora_pendiente&&!pagoCubreMoraPendiente(c,cartId,p)))return ma;
   var m=calcMoraCliente(c,cartId);
   var mora=m&&m.diferencia>0?m.diferencia:0;
   return Math.min(ma,mora);
@@ -915,10 +915,18 @@ function promesaMesSiguiente(p){
   var mes=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1);
   return p.fecha.substring(0,7)>mes;
 }
+// La marca "mora pendiente" deja de valer cuando el cliente ya vino a pagar este mes y su mora real es 0
+function pagoCubreMoraPendiente(c,cartId,p){
+  if(!fechaVinoMes(c,cartId,p))return false;
+  var m=calcMoraCliente(c,cartId);
+  return !!m&&m.diferencia<=0;
+}
 function enCierreHoy(c,cartId){
   var p=PROMESAS[cartId+'::'+c.nombre];
-  // El asesor lo marco "mora pendiente" o lo agrego a mano a Cierre (abrirAgregarCierre): sigue debiendo
-  if(p&&p.mora_pendiente)return true;
+  // El asesor lo marco "mora pendiente" o lo agrego a mano a Cierre (abrirAgregarCierre): sigue debiendo,
+  // salvo que despues vino a pagar este mes y quedo sin mora real (caso Ginmy Nectaly Ponce Galeano:
+  // pago el 29/10, mora corregida a L0, y la marca lo dejaba en Cierre sumando su cuota al acordado)
+  if(p&&p.mora_pendiente&&!pagoCubreMoraPendiente(c,cartId,p))return true;
   if(c.tramo==='INACTIVO')return false;
   if(enGraciaSinPrima(c,p))return false;
   var vino=fechaVinoMes(c,cartId,p);
@@ -1801,7 +1809,9 @@ function pagoEsteMes(s){var d=parseHNDate(s);if(!d)return false;return d.getMont
 function pagoMesAnterior(s){var d=parseHNDate(s);if(!d)return false;var am=new Date(HOY.getFullYear(),HOY.getMonth()-1,1);return d.getFullYear()===am.getFullYear()&&d.getMonth()===am.getMonth();}
 // Cliente facturado este mismo mes y sin pago aun: esta en su mes de gracia,
 // su primera cuota vence hasta el dia_pago del MES SIGUIENTE.
-function compraEsteMes(c){if(!c||!c.sin_ultimo_pago)return false;var fd=parseHNDate(c.fecha_factura);return !!(fd&&fd.getMonth()===HOY.getMonth()&&fd.getFullYear()===HOY.getFullYear());}
+// Ultimo pago = fecha de factura cuenta igual que sin ultimo pago: ese pago fue la prima del dia de la compra
+// (caso Merlin Yamileth Mejia Orellana: compro y dio L1,000 de prima el 12/10, y aparecia en Hoy -> Cierre)
+function compraEsteMes(c){if(!c||(!c.sin_ultimo_pago&&c.ultimo_pago!==c.fecha_factura))return false;var fd=parseHNDate(c.fecha_factura);return !!(fd&&fd.getMonth()===HOY.getMonth()&&fd.getFullYear()===HOY.getFullYear());}
 // Cliente facturado este mes que YA dio prima o primer pago (pagado>0): no es urgente,
 // se saca de Hoy -> Cierre. Si no ha pagado nada todavia, sigue urgente y se mantiene.
 // Si el gestor ya le registro una promesa activa, tambien se mantiene visible.
@@ -2881,6 +2891,9 @@ function limpiarCacheCartera(cartId){
 function primaDeducida(total,numCuotas,cuota,c){
   if(!total||!numCuotas||!cuota)return 0;
   if(c&&(c.cuota_corregida||(c.saldo||0)>numCuotas*cuota+cuota*0.5))return 0;
+  // Lo pagado no llega a media cuota: fue una prima chica, no la cuota 1 (Merlin Yamileth Mejia Orellana:
+  // prima L1,000 con cuota L19,197 — sin esto la formula le marcaba L18,197 de mora el mismo mes que compro)
+  if(c&&c.pagado>0&&c.pagado<cuota*0.5)return c.pagado;
   var x=total-numCuotas*cuota;
   if(x<Math.max(300,cuota*0.5)||x>total*0.7)return 0;
   return Math.round(x/100)*100;
