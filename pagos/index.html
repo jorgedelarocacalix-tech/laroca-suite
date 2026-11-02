@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pago de Proveedores · La Roca</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;background:#E8EAF0;color:#202124;min-height:100vh}
+.app{max-width:760px;margin:0 auto;background:#F4F5F8;min-height:100vh;box-shadow:0 0 24px rgba(0,0,0,.14);padding-bottom:84px}
+button,input,select,textarea{font:inherit}
+
+/* HEADER */
+.header{background:#185FA5;color:#fff;padding:12px 14px 10px;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.header-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.header-title{font-size:17px;font-weight:700;letter-spacing:.3px}
+.hbtn{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mes-nav{display:flex;align-items:center;justify-content:center;gap:10px}
+.mes-nav button{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:4px;width:32px;height:28px;cursor:pointer;font-size:16px}
+.mes-label{font-size:13px;font-weight:600;min-width:130px;text-align:center}
+
+/* RESUMEN */
+.chips{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:12px 12px 4px}
+.chip{background:#fff;border-radius:8px;padding:10px 12px;border-left:3px solid #185FA5;min-width:0}
+.chip .n{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.chip .l{font-size:11px;color:#666;margin-top:2px}
+.chip.saldo{border-color:#A32D2D}.chip.saldo .n{color:#A32D2D}
+.chip.falta{border-color:#185FA5}.chip.falta .n{color:#185FA5}
+.chip.abonado{border-color:#3B6D11}.chip.abonado .n{color:#3B6D11}
+.chip.postear{border-color:#B7791F}.chip.postear .n{color:#8A5A10}
+@media(min-width:640px){.chips{grid-template-columns:repeat(4,1fr)}}
+
+/* CUADRO */
+.grupo{margin:12px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.fila{display:grid;grid-template-columns:minmax(0,1fr) 98px 98px;gap:4px;padding:8px 10px;align-items:center}
+.num{text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px;overflow-wrap:anywhere}
+@media(min-width:640px){.fila{grid-template-columns:minmax(0,1fr) 124px 124px}.num{font-size:13.5px}}
+.grupo-titulo{background:#185FA5;color:#fff;font-weight:700;font-size:13px}
+.grupo-titulo .num{font-size:11px;font-weight:600}
+.cuenta{border-top:2px solid #E3E6EC}
+.cuenta:first-of-type{border-top:none}
+.c-head{background:#F7F8FB}
+.c-nombre{font-weight:700;font-size:13.5px;overflow-wrap:anywhere}
+.c-nota{font-size:11px;color:#777;margin-top:1px}
+.c-acciones{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.btn-mini{border:1px solid #C9D3E0;background:#fff;color:#185FA5;border-radius:6px;padding:5px 9px;font-size:12px;font-weight:600;cursor:pointer;min-height:30px}
+.c-head .num{font-weight:600}
+.abono{border-top:1px solid #EEF0F4}
+.a-det{display:flex;gap:8px;align-items:center;min-width:0}
+.a-foto{width:38px;height:38px;border-radius:6px;object-fit:cover;background:#EEF0F4;border:1px solid #DDE1E8;flex:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;padding:0}
+.a-txt{min-width:0;flex:1;cursor:pointer;background:none;border:none;text-align:left;color:inherit;padding:0}
+.a-tit{font-size:12.5px;overflow-wrap:anywhere}
+.a-nota{font-size:11px;color:#777;overflow-wrap:anywhere}
+.post{display:inline-flex;align-items:center;gap:4px;margin-top:4px;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #E2C27A;background:#FFF6DD;color:#8A5A10;min-height:24px}
+.post.si{border-color:#A9CF85;background:#EAF3DE;color:#3B6D11}
+.abono .num{color:#A32D2D}
+.queda{border-top:1px solid #DDE1E8;background:#FBFBFD;font-weight:700;font-size:12.5px}
+.queda .num{color:#202124}
+.queda .num.negativo{color:#A32D2D}
+.subtotal{border-top:2px solid #185FA5;background:#EEF5FF;font-weight:700;font-size:13px}
+.subtotal .num{color:#0D3D6E;font-size:12px}
+.empty{text-align:center;color:#666;padding:48px 20px;line-height:1.6}
+.spinner{width:28px;height:28px;border:3px solid #DDE1E8;border-top-color:#185FA5;border-radius:50%;animation:gira .8s linear infinite;margin:0 auto 10px}
+.spinner.mini{width:18px;height:18px;border-width:2px;margin:0}
+@keyframes gira{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spinner{animation-duration:3s}}
+.pie{display:flex;justify-content:center;padding:4px 12px 12px}
+
+/* BOTONES */
+.btn-submit{border:none;background:#185FA5;color:#fff;border-radius:8px;padding:11px 16px;font-weight:700;cursor:pointer;min-height:42px}
+.btn-submit:disabled{opacity:.6;cursor:wait}
+.btn-sec{border:1px solid #C9D3E0;background:#fff;color:#444;border-radius:8px;padding:11px 16px;font-weight:600;cursor:pointer;min-height:42px}
+.btn-peligro{border:1px solid #E5B5B5;background:#fff;color:#A32D2D;border-radius:8px;padding:11px 14px;font-weight:600;cursor:pointer;min-height:42px;margin-right:auto}
+.btn-peligro.armado{background:#A32D2D;color:#fff;border-color:#A32D2D}
+.fab{position:fixed;right:max(16px,calc(50vw - 364px));bottom:18px;z-index:9;border:none;background:#185FA5;color:#fff;border-radius:999px;padding:13px 18px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer}
+
+/* MODAL */
+.modal-fondo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:#fff;width:100%;max-width:480px;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px}
+@media(min-width:640px){.modal-fondo{align-items:center}.modal{border-radius:14px}}
+.modal h2{font-size:16px;margin-bottom:12px}
+.campo{margin-bottom:11px}
+.campo label{display:block;font-size:12px;font-weight:600;color:#555;margin-bottom:4px}
+.campo input,.campo select,.campo textarea{width:100%;border:1px solid #CCD3DE;border-radius:7px;padding:10px;font-size:16px;background:#fff}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.foto-box{display:block;border:2px dashed #B9C6D8;border-radius:10px;padding:14px;text-align:center;color:#185FA5;font-weight:600;cursor:pointer;background:#F7FAFE}
+.foto-box img{display:block;max-width:100%;max-height:220px;margin:0 auto 8px;border-radius:6px}
+.check{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;margin-bottom:12px;cursor:pointer}
+.check input{width:20px;height:20px}
+.modal-pie{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;flex-wrap:wrap}
+.error{color:#A32D2D;font-size:12.5px;margin-bottom:8px}
+.visor{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:30;display:flex;align-items:center;justify-content:center;padding:12px}
+.visor img{max-width:100%;max-height:100%;object-fit:contain}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:76px;background:#202124;color:#fff;padding:9px 14px;border-radius:8px;font-size:13px;z-index:40;max-width:90vw}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-top">
+      <div class="header-title">Pago de Proveedores</div>
+      <a class="hbtn" href="/">← Apps</a>
+    </div>
+    <div class="mes-nav">
+      <button onclick="cambiarMes(-1)" aria-label="Mes anterior">‹</button>
+      <div class="mes-label" id="mes-label"></div>
+      <button onclick="cambiarMes(1)" aria-label="Mes siguiente">›</button>
+    </div>
+  </div>
+  <div id="contenido"><div class="empty"><div class="spinner"></div>Cargando...</div></div>
+</div>
+<div id="capa-modal"></div>
+<div id="capa-visor"></div>
+
+<script>
+const SB_URL = 'https://upaenjotkocmdvfuobii.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+const BUCKET = 'estados-cuenta';
+const GRUPOS = ['Tienda', 'Motos'];
+const BANCOS = ['Atlántida', 'BAC', 'Banpaís', 'Banrural', 'Cuscatlán', 'Davivienda', 'Ficohsa', 'Promerica', 'Efectivo', 'Otro'];
+const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// Acceso solo desde el menú de la suite (mismo permiso que Fintrack)
+let SESION = null;
+(function(){
+  try{ SESION = JSON.parse(sessionStorage.getItem('suite_sesion') || 'null'); }catch(e){}
+  if(!(SESION && SESION.accesos_apps && SESION.accesos_apps.fintrack === true)) location.replace('/');
+})();
+
+const hoy = new Date();
+const S = {
+  mes: `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`,
+  cuentas: null,
+  abonos: [],
+  mesAnterior: [],   // cuentas del mes anterior con sus abonos (para iniciar un mes vacío)
+  error: '',
+  modalAbierto: false,
+  subiendo: {},      // abonos con foto subiendo en segundo plano
+};
+
+// ═══════════════════════════════════════════════════
+// SUPABASE
+// ═══════════════════════════════════════════════════
+const sbHeaders = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY };
+
+async function sbPeticion(ruta, opciones = {}) {
+  const r = await fetch(`${SB_URL}/rest/v1/${ruta}`, {
+    ...opciones,
+    headers: { ...sbHeaders, 'Content-Type': 'application/json', Prefer: 'return=representation', ...(opciones.headers || {}) },
+  });
+  if (!r.ok) {
+    const det = await r.json().catch(() => ({}));
+    throw new Error(det.code === '23505' ? 'Ya existe un proveedor con ese nombre en este mes.' : (det.message || 'No se pudo guardar.'));
+  }
+  return r.status === 204 ? null : r.json();
+}
+const sbGet = (tabla, params) => sbPeticion(`${tabla}?${params}`);
+const sbPost = (tabla, body) => sbPeticion(tabla, { method: 'POST', body: JSON.stringify(body) });
+const sbPatch = (tabla, id, body) => sbPeticion(`${tabla}?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+const sbDelete = (tabla, id) => sbPeticion(`${tabla}?id=eq.${id}`, { method: 'DELETE' });
+
+const fotoUrl = ruta => `${SB_URL}/storage/v1/object/public/${BUCKET}/${ruta}`;
+
+// Reduce fotos del teléfono antes de subirlas; PDF o formatos que el navegador no abre van tal cual
+async function prepararArchivo(file) {
+  if (!file.type.startsWith('image/')) return { blob: file, ext: (file.name.split('.').pop() || 'pdf').toLowerCase(), tipo: file.type || 'application/octet-stream' };
+  try {
+    const bmp = await createImageBitmap(file);
+    const escala = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * escala);
+    canvas.height = Math.round(bmp.height * escala);
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.82));
+    if (blob) return { blob, ext: 'jpg', tipo: 'image/jpeg' };
+  } catch (e) {}
+  return { blob: file, ext: (file.name.split('.').pop() || 'jpg').toLowerCase(), tipo: file.type };
+}
+
+// Storage a veces guarda el archivo pero tarda más de un minuto en responder,
+// así que la subida termina con su respuesta o cuando el archivo ya se puede leer
+async function subirFoto(file) {
+  const { blob, ext, tipo } = await prepararArchivo(file);
+  const ruta = `abonos/${S.mes}/${crypto.randomUUID()}.${ext}`;
+  let terminado = false;
+  const envio = fetch(`${SB_URL}/storage/v1/object/${BUCKET}/${ruta}`, {
+    method: 'POST',
+    headers: { ...sbHeaders, 'Content-Type': tipo },
+    body: blob,
+  }).then(r => {
+    if (!r.ok) throw new Error('rechazada');
+  });
+  const visible = (async () => {
+    for (let i = 0; i < 60 && !terminado; i++) {
+      await new Promise(res => setTimeout(res, 3000));
+      const r = await fetch(fotoUrl(ruta), { method: 'HEAD', cache: 'no-store' }).catch(() => null);
+      if (r && r.ok) return;
+    }
+    if (!terminado) throw new Error('tiempo agotado');
+  })();
+  try {
+    await Promise.race([envio, visible]);
+  } finally {
+    terminado = true;
+  }
+  return ruta;
+}
+
+// No se espera la respuesta porque Storage puede tardar en contestar
+function borrarFoto(ruta) {
+  if (!ruta) return;
+  fetch(`${SB_URL}/storage/v1/object/${BUCKET}/${ruta}`, { method: 'DELETE', headers: sbHeaders, keepalive: true }).catch(() => {});
+}
+
+// El abono ya quedó guardado; la foto se le agrega cuando termina de subir
+async function subirFotoEnFondo(abonoId, file, rutaAnterior) {
+  try {
+    const ruta = await subirFoto(file);
+    const [act] = await sbPatch('pp_abonos', abonoId, { foto_path: ruta });
+    if (!act) borrarFoto(ruta);   // el abono se eliminó mientras subía
+    else borrarFoto(rutaAnterior);
+    aviso('Foto guardada');
+  } catch (e) {
+    aviso('No se pudo subir la foto. Abre el abono y súbela de nuevo.');
+  }
+  delete S.subiendo[abonoId];
+  await cargar();
+}
+
+// ═══════════════════════════════════════════════════
+// FORMATO Y CÁLCULOS
+// ═══════════════════════════════════════════════════
+function esc(t) {
+  return String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmt(n) {
+  const v = Number(n) || 0;
+  return (v < 0 ? '−L' : 'L') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function parseMonto(txt) {
+  const limpio = String(txt).replace(/[L,\s]/gi, '');
+  if (limpio === '') return null;
+  const v = Number(limpio);
+  return Number.isFinite(v) ? Math.round(v * 100) / 100 : NaN;
+}
+function fmtFecha(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${d}-${m}-${y}`;
+}
+function mesLabel(mes) {
+  const [y, m] = mes.split('-').map(Number);
+  return `${MESES_ES[m - 1]} ${y}`;
+}
+function sumarMes(mes, delta) {
+  const [y, m] = mes.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+function hoyISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const redondear = n => Math.round(n * 100) / 100;
+
+// Cada abono rebaja el saldo y la proyección apenas se registra; "posteado" solo indica si ya está en el libro
+function calcular(cuenta, abonos) {
+  const abonado = redondear(abonos.reduce((s, a) => s + Number(a.monto), 0));
+  const saldo = cuenta.saldo_inicial === null ? null : redondear(Number(cuenta.saldo_inicial) - abonado);
+  const proyQueda = redondear(Number(cuenta.proyeccion) - abonado);
+  return { abonado, saldo, proyQueda, falta: Math.max(0, proyQueda) };
+}
+function abonosDe(cuentaId) {
+  return S.abonos.filter(a => a.cuenta_id === cuentaId);
+}
+
+// ═══════════════════════════════════════════════════
+// CARGA
+// ═══════════════════════════════════════════════════
+async function cargar() {
+  S.error = '';
+  const mes = S.mes;
+  document.getElementById('mes-label').textContent = mesLabel(mes);
+  try {
+    const cuentas = await sbGet('pp_cuentas', `select=*&mes=eq.${mes}&order=orden.asc,nombre.asc`);
+    let abonos = [], mesAnterior = [];
+    if (cuentas.length) {
+      const ids = cuentas.map(c => c.id).join(',');
+      abonos = await sbGet('pp_abonos', `select=*&cuenta_id=in.(${ids})&order=fecha.asc,created_at.asc`);
+    } else {
+      mesAnterior = await sbGet('pp_cuentas', `select=*,pp_abonos(monto)&mes=eq.${sumarMes(mes, -1)}&order=orden.asc`);
+    }
+    if (mes !== S.mes) return;
+    S.cuentas = cuentas;
+    S.abonos = abonos;
+    S.mesAnterior = mesAnterior;
+  } catch (e) {
+    if (mes !== S.mes) return;
+    S.cuentas = null;
+    S.error = 'No se pudieron cargar los datos. Revisa la conexión.';
+  }
+  render();
+}
+
+function cambiarMes(delta) {
+  S.mes = sumarMes(S.mes, delta);
+  S.cuentas = null;
+  document.getElementById('contenido').innerHTML = '<div class="empty"><div class="spinner"></div>Cargando...</div>';
+  cargar();
+}
+
+// ═══════════════════════════════════════════════════
+// CUADRO
+// ═══════════════════════════════════════════════════
+function render() {
+  const cont = document.getElementById('contenido');
+  if (S.error) {
+    cont.innerHTML = `<div class="empty">${esc(S.error)}<br><br><button class="btn-submit" onclick="cargar()">Reintentar</button></div>`;
+    return;
+  }
+  if (!S.cuentas.length) {
+    cont.innerHTML = renderMesVacio();
+    return;
+  }
+  cont.innerHTML = renderResumen()
+    + GRUPOS.map(renderGrupo).join('')
+    + `<div class="pie"><button class="btn-mini" onclick="abrirCuenta()">+ Agregar proveedor</button></div>
+       <button class="fab" onclick="abrirAbono()">📷 Subir abono</button>`;
+}
+
+function renderMesVacio() {
+  const ant = sumarMes(S.mes, -1);
+  const puedeIniciar = S.mesAnterior.length > 0;
+  return `<div class="empty">
+    <b>${esc(mesLabel(S.mes))}</b> todavía no tiene proyección.<br>
+    ${puedeIniciar ? `Puedes iniciarlo con los saldos que quedaron en ${esc(mesLabel(ant))}; la proyección queda en cero para que la llenes.<br><br>
+      <button class="btn-submit" id="btn-iniciar" onclick="iniciarMes()">Iniciar ${esc(mesLabel(S.mes))}</button><br><br>` : '<br>'}
+    <button class="btn-mini" onclick="abrirCuenta()">+ Agregar proveedor</button>
+  </div>`;
+}
+
+function renderResumen() {
+  let saldo = 0, falta = 0, proy = 0, abonado = 0, sinSaldo = 0;
+  S.cuentas.forEach(c => {
+    const k = calcular(c, abonosDe(c.id));
+    if (k.saldo === null) sinSaldo++; else saldo += k.saldo;
+    falta += k.falta;
+    proy += Number(c.proyeccion);
+    abonado += k.abonado;
+  });
+  const sinPostear = S.abonos.filter(a => !a.posteado);
+  const montoSinPostear = sinPostear.reduce((s, a) => s + Number(a.monto), 0);
+  return `<div class="chips">
+    <div class="chip saldo"><div class="n">${fmt(saldo)}</div><div class="l">Saldo total${sinSaldo ? ` (${sinSaldo} sin saldo)` : ''}</div></div>
+    <div class="chip falta"><div class="n">${fmt(falta)}</div><div class="l">Falta de proyección (${fmt(proy)})</div></div>
+    <div class="chip abonado"><div class="n">${fmt(abonado)}</div><div class="l">Abonado en el mes</div></div>
+    <div class="chip postear"><div class="n">${sinPostear.length}</div><div class="l">Sin postear en libro (${fmt(montoSinPostear)})</div></div>
+  </div>`;
+}
+
+function renderGrupo(grupo) {
+  const cuentas = S.cuentas.filter(c => c.grupo === grupo);
+  if (!cuentas.length) return '';
+  let saldo = 0, falta = 0;
+  cuentas.forEach(c => {
+    const k = calcular(c, abonosDe(c.id));
+    saldo += k.saldo || 0;
+    falta += k.falta;
+  });
+  return `<div class="grupo">
+    <div class="fila grupo-titulo"><div>${esc(grupo)}</div><div class="num">Saldo</div><div class="num">Proyección</div></div>
+    ${cuentas.map(renderCuenta).join('')}
+    <div class="fila subtotal"><div>Queda ${esc(grupo)}</div><div class="num">${fmt(saldo)}</div><div class="num">${fmt(falta)}</div></div>
+  </div>`;
+}
+
+function renderCuenta(c) {
+  const abonos = abonosDe(c.id);
+  const k = calcular(c, abonos);
+  return `<div class="cuenta">
+    <div class="fila c-head">
+      <div>
+        <div class="c-nombre">${esc(c.nombre)}</div>
+        ${c.nota ? `<div class="c-nota">${esc(c.nota)}</div>` : ''}
+        <div class="c-acciones">
+          <button class="btn-mini" onclick="abrirAbono(null,'${c.id}')">+ Abono</button>
+          <button class="btn-mini" onclick="abrirCuenta('${c.id}')">Editar</button>
+        </div>
+      </div>
+      <div class="num">${c.saldo_inicial === null ? 'Sin saldo' : fmt(c.saldo_inicial)}</div>
+      <div class="num">${fmt(c.proyeccion)}</div>
+    </div>
+    ${abonos.map(renderAbono).join('')}
+    ${abonos.length ? `<div class="fila queda">
+      <div>Queda</div>
+      <div class="num">${k.saldo === null ? '—' : fmt(k.saldo)}</div>
+      <div class="num ${k.proyQueda < 0 ? 'negativo' : ''}">${fmt(k.proyQueda)}</div>
+    </div>` : ''}
+  </div>`;
+}
+
+function renderAbono(a) {
+  const esImagen = a.foto_path && !/\.pdf$/i.test(a.foto_path);
+  const foto = S.subiendo[a.id]
+    ? `<div class="a-foto" role="img" aria-label="Subiendo foto"><div class="spinner mini"></div></div>`
+    : a.foto_path
+    ? (esImagen
+        ? `<img class="a-foto" src="${esc(fotoUrl(a.foto_path))}" alt="Comprobante" loading="lazy" onclick="verFoto('${a.id}')">`
+        : `<a class="a-foto" href="${esc(fotoUrl(a.foto_path))}" target="_blank" rel="noopener" aria-label="Ver comprobante">📄</a>`)
+    : `<button class="a-foto" onclick="abrirAbono('${a.id}')" aria-label="Agregar foto">➕</button>`;
+  return `<div class="fila abono">
+    <div class="a-det">
+      ${foto}
+      <div style="min-width:0;flex:1">
+        <button class="a-txt" onclick="abrirAbono('${a.id}')">
+          <div class="a-tit">Abono ${esc(a.banco || '')} ${esc(fmtFecha(a.fecha))}</div>
+          ${a.nota ? `<div class="a-nota">${esc(a.nota)}</div>` : ''}
+        </button>
+        <button class="post ${a.posteado ? 'si' : ''}" aria-pressed="${a.posteado}" onclick="alternarPosteado('${a.id}')">${a.posteado ? '✓ Posteado en libro' : '○ Sin postear'}</button>
+      </div>
+    </div>
+    <div class="num">−${fmt(a.monto)}</div>
+    <div class="num">−${fmt(a.monto)}</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// ACCIONES
+// ═══════════════════════════════════════════════════
+function aviso(txt) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.setAttribute('role', 'status');
+  t.textContent = txt;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+async function alternarPosteado(id) {
+  const a = S.abonos.find(x => x.id === id);
+  if (!a) return;
+  const nuevo = !a.posteado;
+  try {
+    const [act] = await sbPatch('pp_abonos', id, {
+      posteado: nuevo,
+      posteado_at: nuevo ? new Date().toISOString() : null,
+      posteado_por: nuevo ? (SESION.nombre || null) : null,
+    });
+    Object.assign(a, act);
+    render();
+  } catch (e) {
+    aviso(e.message);
+  }
+}
+
+async function iniciarMes() {
+  const btn = document.getElementById('btn-iniciar');
+  btn.disabled = true;
+  try {
+    await sbPost('pp_cuentas', S.mesAnterior.map(c => ({
+      mes: S.mes,
+      grupo: c.grupo,
+      nombre: c.nombre,
+      saldo_inicial: calcular(c, c.pp_abonos).saldo,
+      proyeccion: 0,
+      orden: c.orden,
+    })));
+    await cargar();
+  } catch (e) {
+    btn.disabled = false;
+    aviso(e.message);
+  }
+}
+
+function verFoto(id) {
+  const a = S.abonos.find(x => x.id === id);
+  const capa = document.getElementById('capa-visor');
+  capa.innerHTML = `<div class="visor" onclick="cerrarVisor()"><img src="${esc(fotoUrl(a.foto_path))}" alt="Comprobante del abono"></div>`;
+}
+function cerrarVisor() { document.getElementById('capa-visor').innerHTML = ''; }
+
+function cerrarModal() {
+  S.modalAbierto = false;
+  document.getElementById('capa-modal').innerHTML = '';
+}
+function mostrarModal(html) {
+  S.modalAbierto = true;
+  document.getElementById('capa-modal').innerHTML = `<div class="modal-fondo" onclick="if(event.target===this)cerrarModal()"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
+}
+function errorModal(txt) {
+  document.getElementById('modal-error').textContent = txt;
+}
+// El botón Eliminar pide un segundo toque en vez de un confirm() del navegador
+function confirmarBorrado(btn, accion) {
+  if (btn.classList.contains('armado')) { accion(); return; }
+  btn.classList.add('armado');
+  btn.textContent = 'Toca otra vez para eliminar';
+}
+
+// ─── Abono ─────────────────────────────────────────
+let fotoNueva = null;
+
+function abrirAbono(abonoId, cuentaId) {
+  const a = abonoId ? S.abonos.find(x => x.id === abonoId) : null;
+  const elegida = a ? a.cuenta_id : (cuentaId || '');
+  fotoNueva = null;
+  const opciones = GRUPOS.map(g => {
+    const cs = S.cuentas.filter(c => c.grupo === g);
+    return cs.length ? `<optgroup label="${esc(g)}">${cs.map(c => `<option value="${c.id}" ${c.id === elegida ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</optgroup>` : '';
+  }).join('');
+  const banco = a ? a.banco : '';
+  const previa = a && a.foto_path && !/\.pdf$/i.test(a.foto_path) ? `<img src="${esc(fotoUrl(a.foto_path))}" alt="Comprobante actual">` : '';
+  mostrarModal(`
+    <h2>${a ? 'Editar abono' : 'Subir abono'}</h2>
+    <div class="campo">
+      <label class="foto-box" id="foto-box">
+        <span id="foto-previa">${previa}</span>
+        <span id="foto-txt">${a && a.foto_path ? 'Cambiar comprobante' : '📷 Tomar o elegir foto del comprobante'}</span>
+        <input type="file" id="ab-foto" accept="image/*,application/pdf" style="display:none" onchange="fotoElegida(this)">
+      </label>
+    </div>
+    <div class="campo"><label for="ab-cuenta">Proveedor</label>
+      <select id="ab-cuenta"><option value="">Elige...</option>${opciones}</select></div>
+    <div class="dos">
+      <div class="campo"><label for="ab-monto">Monto (L)</label>
+        <input id="ab-monto" inputmode="decimal" autocomplete="off" value="${a ? esc(a.monto) : ''}"></div>
+      <div class="campo"><label for="ab-fecha">Fecha</label>
+        <input id="ab-fecha" type="date" value="${a ? esc(a.fecha) : hoyISO()}"></div>
+    </div>
+    <div class="campo"><label for="ab-banco">Banco</label>
+      <select id="ab-banco"><option value="">Elige...</option>${BANCOS.map(b => `<option ${b === banco ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select></div>
+    <div class="campo"><label for="ab-nota">Nota (opcional)</label>
+      <input id="ab-nota" autocomplete="off" value="${a ? esc(a.nota || '') : ''}"></div>
+    <label class="check"><input type="checkbox" id="ab-posteado" ${a && a.posteado ? 'checked' : ''}> Ya está posteado en libro</label>
+    <div class="error" id="modal-error" role="alert"></div>
+    <div class="modal-pie">
+      ${a ? `<button class="btn-peligro" onclick="confirmarBorrado(this,()=>borrarAbono('${a.id}'))">Eliminar</button>` : ''}
+      <button class="btn-sec" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-submit" id="ab-guardar" onclick="guardarAbono(${a ? `'${a.id}'` : 'null'})">Guardar abono</button>
+    </div>`);
+}
+
+function fotoElegida(input) {
+  fotoNueva = input.files[0] || null;
+  if (!fotoNueva) return;
+  document.getElementById('foto-txt').textContent = fotoNueva.name;
+  document.getElementById('foto-previa').innerHTML = fotoNueva.type.startsWith('image/')
+    ? `<img src="${URL.createObjectURL(fotoNueva)}" alt="Foto elegida">` : '';
+}
+
+async function guardarAbono(id) {
+  const anterior = id ? S.abonos.find(x => x.id === id) : null;
+  const cuenta_id = document.getElementById('ab-cuenta').value;
+  const monto = parseMonto(document.getElementById('ab-monto').value);
+  const fecha = document.getElementById('ab-fecha').value;
+  if (!cuenta_id) return errorModal('Elige el proveedor.');
+  if (!monto || monto <= 0) return errorModal('Escribe un monto mayor que cero.');
+  if (!fecha) return errorModal('Escribe la fecha del abono.');
+  const posteado = document.getElementById('ab-posteado').checked;
+  const cambioPosteado = !anterior || anterior.posteado !== posteado;
+  const cuerpo = {
+    cuenta_id, monto, fecha,
+    banco: document.getElementById('ab-banco').value || null,
+    nota: document.getElementById('ab-nota').value.trim() || null,
+    posteado,
+  };
+  if (cambioPosteado) {
+    cuerpo.posteado_at = posteado ? new Date().toISOString() : null;
+    cuerpo.posteado_por = posteado ? (SESION.nombre || null) : null;
+  }
+  const btn = document.getElementById('ab-guardar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+  const archivo = fotoNueva;
+  try {
+    let abonoId = id;
+    if (anterior) {
+      await sbPatch('pp_abonos', id, cuerpo);
+    } else {
+      cuerpo.creado_por = SESION.nombre || null;
+      const [nuevo] = await sbPost('pp_abonos', cuerpo);
+      abonoId = nuevo.id;
+    }
+    if (archivo) S.subiendo[abonoId] = true;
+    cerrarModal();
+    await cargar();
+    aviso(archivo ? 'Abono guardado. Subiendo foto...' : 'Abono guardado');
+    if (archivo) subirFotoEnFondo(abonoId, archivo, anterior && anterior.foto_path);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Guardar abono';
+    errorModal(e.message);
+  }
+}
+
+async function borrarAbono(id) {
+  const a = S.abonos.find(x => x.id === id);
+  try {
+    await sbDelete('pp_abonos', id);
+    borrarFoto(a && a.foto_path);
+    cerrarModal();
+    await cargar();
+    aviso('Abono eliminado');
+  } catch (e) {
+    errorModal(e.message);
+  }
+}
+
+// ─── Proveedor (cuenta del mes) ────────────────────
+function abrirCuenta(id) {
+  const c = id ? S.cuentas.find(x => x.id === id) : null;
+  const tieneAbonos = c && abonosDe(c.id).length > 0;
+  mostrarModal(`
+    <h2>${c ? 'Editar proveedor' : 'Agregar proveedor'}</h2>
+    <div class="campo"><label for="cu-nombre">Nombre</label>
+      <input id="cu-nombre" autocomplete="off" value="${c ? esc(c.nombre) : ''}"></div>
+    <div class="campo"><label for="cu-grupo">Grupo</label>
+      <select id="cu-grupo">${GRUPOS.map(g => `<option ${c && c.grupo === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}</select></div>
+    <div class="dos">
+      <div class="campo"><label for="cu-saldo">Saldo del mes (L)</label>
+        <input id="cu-saldo" inputmode="decimal" autocomplete="off" value="${c && c.saldo_inicial !== null ? esc(c.saldo_inicial) : ''}"></div>
+      <div class="campo"><label for="cu-proy">Proyección (L)</label>
+        <input id="cu-proy" inputmode="decimal" autocomplete="off" value="${c ? esc(c.proyeccion) : ''}"></div>
+    </div>
+    <div class="campo"><label for="cu-nota">Nota (opcional)</label>
+      <input id="cu-nota" autocomplete="off" value="${c ? esc(c.nota || '') : ''}"></div>
+    <div class="error" id="modal-error" role="alert"></div>
+    <div class="modal-pie">
+      ${c && !tieneAbonos ? `<button class="btn-peligro" onclick="confirmarBorrado(this,()=>borrarCuenta('${c.id}'))">Eliminar</button>` : ''}
+      <button class="btn-sec" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-submit" id="cu-guardar" onclick="guardarCuenta(${c ? `'${c.id}'` : 'null'})">Guardar</button>
+    </div>`);
+}
+
+async function guardarCuenta(id) {
+  const nombre = document.getElementById('cu-nombre').value.trim();
+  const saldo = parseMonto(document.getElementById('cu-saldo').value);
+  const proy = parseMonto(document.getElementById('cu-proy').value);
+  if (!nombre) return errorModal('Escribe el nombre del proveedor.');
+  if (Number.isNaN(saldo) || Number.isNaN(proy)) return errorModal('Revisa los montos: solo números.');
+  const cuerpo = {
+    nombre,
+    grupo: document.getElementById('cu-grupo').value,
+    saldo_inicial: saldo,
+    proyeccion: proy || 0,
+    nota: document.getElementById('cu-nota').value.trim() || null,
+  };
+  const btn = document.getElementById('cu-guardar');
+  btn.disabled = true;
+  try {
+    if (id) {
+      await sbPatch('pp_cuentas', id, cuerpo);
+    } else {
+      const orden = (S.cuentas || []).reduce((m, c) => Math.max(m, c.orden), 0) + 1;
+      await sbPost('pp_cuentas', { ...cuerpo, mes: S.mes, orden });
+    }
+    cerrarModal();
+    await cargar();
+  } catch (e) {
+    btn.disabled = false;
+    errorModal(e.message);
+  }
+}
+
+async function borrarCuenta(id) {
+  try {
+    await sbDelete('pp_cuentas', id);
+    cerrarModal();
+    await cargar();
+  } catch (e) {
+    errorModal(e.message);
+  }
+}
+
+window.addEventListener('beforeunload', e => {
+  if (Object.keys(S.subiendo).length) e.preventDefault();
+});
+
+// Al volver a la app se refresca, por si otra persona registró abonos
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && !S.modalAbierto && S.cuentas) cargar();
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  cerrarVisor();
+  if (S.modalAbierto) cerrarModal();
+});
+
+cargar();
+</script>
+</body>
+</html>
