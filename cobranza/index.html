@@ -802,7 +802,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20261030-43';
+var APP_VERSION='20261105-1';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
@@ -874,6 +874,8 @@ async function loadCierreAsesor(){
   });});
   CIERRE_ASESOR=m;
 }
+// Fecha completa (AAAA-MM-DD) del dia proyectado en el mes actual
+function fechaProyCierre(dia){return _diaToFechaNextMes(dia,_curMesKey())||('día '+dia);}
 function montoAsesorCierre(cartId,nombre){
   // Una promesa vigente del mes reemplaza el monto de la proyeccion (el acuerdo mas reciente manda)
   var p=PROMESAS[cartId+'::'+nombre];
@@ -3718,7 +3720,7 @@ function exportCierreExcel(){
       var gest=promesaMesSiguiente(p)?'Prometio mes siguiente (no suma)':vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando',sin_acuerdo:'Sin acuerdo'}[p.estado]||'Sin acuerdo');
       var mAcX=montoAcordadoCierre(r,d.cartId);
       totalAsesor+=mAcX;
-      wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):(ca.dia?'dia '+ca.dia:''),montoAsesorCierre(d.cartId,r.nombre)?mAcX:'']);
+      wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):(ca.dia?fechaProyCierre(ca.dia):''),montoAsesorCierre(d.cartId,r.nombre)?mAcX:'']);
     });
     wsData.push(['','TOTAL ('+d.rows.length+' clientes)','',totalCuota,totalMora,'','','','',totalAsesor]);
     var wb=XLSX.utils.book_new();
@@ -3804,7 +3806,7 @@ function buildCierreHoy(cartId,rows){
       +'<td>'+moraHtml+'</td>'
       +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
       +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
-      +'<td class="mono">'+(promesaVigente(p)&&p.fecha?p.fecha:(ca&&ca.dia?'día '+ca.dia:'<span style="color:var(--text3)">—</span>'))+'</td>'
+      +'<td class="mono">'+(promesaVigente(p)&&p.fecha?p.fecha:(ca&&ca.dia?fechaProyCierre(ca.dia):'<span style="color:var(--text3)">—</span>'))+'</td>'
       +'<td class="mono" style="color:var(--green);font-weight:600">'+(mAs?'L '+fmt(mAc)+(soloMora?'<div style="color:var(--text3);font-size:10px;font-weight:400;font-family:var(--sans)">ya abonó · solo mora (asesor L '+fmt(mAs)+')</div>':''):'<span style="color:var(--text3);font-weight:400">—</span>')+(x.sig?'<div style="color:var(--orange);font-size:10px;font-weight:600;font-family:var(--sans)">📅 Prometió para el mes siguiente ('+p.fecha+(parseFloat(p.monto)>0?' · L '+fmt(p.monto):'')+') — no suma al cierre</div>':'')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='sin_acuerdo'?'<div style="color:var(--red);font-size:10px;font-weight:600;font-family:var(--sans)">🚫 Sin acuerdo'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
       +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
         +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+x.mora+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
