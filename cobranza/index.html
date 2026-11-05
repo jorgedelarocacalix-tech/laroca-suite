@@ -802,7 +802,7 @@ function loginRRHH(pin){
 }
 
 // ══ STATE ══
-var APP_VERSION='20261105-1';
+var APP_VERSION='20261105-2';
 var HOY=new Date(); HOY.setHours(0,0,0,0);
 var USER=null, CARTERAS={}, PROMESAS={}, CURRENT=null, CURRENT_TAB=null;
 var CARTERA_SUCURSAL={}; // cartera_id -> 'R1'..'R6', para restringir gerentes a su(s) sucursal(es) RRHH
@@ -3717,7 +3717,7 @@ function exportCierreExcel(){
       var p=PROMESAS[d.cartId+'::'+r.nombre]||{};
       var vig=promesaVigente(p);
       var ca=CIERRE_ASESOR[d.cartId+'::'+r.nombre]||{};
-      var gest=promesaMesSiguiente(p)?'Prometio mes siguiente (no suma)':vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando',sin_acuerdo:'Sin acuerdo'}[p.estado]||'Sin acuerdo');
+      var gest=promesaMesSiguiente(p)?'Prometio mes siguiente (no suma)':vig?'Promesa':({buscando:'En busqueda',visitando:'Visitando',sin_acuerdo:'Sin acuerdo'}[p.estado]||(ca.dia?'Promesa (proyeccion)':'Sin acuerdo'));
       var mAcX=montoAcordadoCierre(r,d.cartId);
       totalAsesor+=mAcX;
       wsData.push([i+1,r.nombre,r.saldo||0,r.cuota||0,mora,r.ultimo_pago||'',tl,gest,vig?(p.fecha||''):(ca.dia?fechaProyCierre(ca.dia):''),montoAsesorCierre(d.cartId,r.nombre)?mAcX:'']);
@@ -3806,7 +3806,7 @@ function buildCierreHoy(cartId,rows){
       +'<td>'+moraHtml+'</td>'
       +'<td class="mono" style="'+upColor+'">'+upStr+'</td>'
       +'<td><span class="b '+(r.tramo==='INACTIVO'?'bx':r.tramo==='MES'?'':r.tramo==='VENCIDO'?'bo':'br')+'">'+tl+'</span></td>'
-      +'<td class="mono">'+(promesaVigente(p)&&p.fecha?p.fecha:(ca&&ca.dia?fechaProyCierre(ca.dia):'<span style="color:var(--text3)">—</span>'))+'</td>'
+      +'<td class="mono">'+(promesaVigente(p)&&p.fecha?p.fecha:(ca&&ca.dia?'<span class="b bp" title="Promesa de la proyección del mes">📅 Promesa '+fechaProyCierre(ca.dia)+'</span>':'<span style="color:var(--text3)">—</span>'))+'</td>'
       +'<td class="mono" style="color:var(--green);font-weight:600">'+(mAs?'L '+fmt(mAc)+(soloMora?'<div style="color:var(--text3);font-size:10px;font-weight:400;font-family:var(--sans)">ya abonó · solo mora (asesor L '+fmt(mAs)+')</div>':''):'<span style="color:var(--text3);font-weight:400">—</span>')+(x.sig?'<div style="color:var(--orange);font-size:10px;font-weight:600;font-family:var(--sans)">📅 Prometió para el mes siguiente ('+p.fecha+(parseFloat(p.monto)>0?' · L '+fmt(p.monto):'')+') — no suma al cierre</div>':'')+(p&&p.estado==='buscando'?'<div style="color:var(--text3);font-size:10px;font-weight:600;font-family:var(--sans)">🔍 En búsqueda'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='visitando'?'<div style="color:var(--blue);font-size:10px;font-weight:600;font-family:var(--sans)">🚗 Visitando'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':p&&p.estado==='sin_acuerdo'?'<div style="color:var(--red);font-size:10px;font-weight:600;font-family:var(--sans)">🚫 Sin acuerdo'+(p.nota?' — '+ibEsc(p.nota):'')+'</div>':'')+'</td>'
       +'<td style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">'
         +'<span class="add-p" onclick="abrirAcuerdoRapido(\''+cartId+'\',\''+esc(r.nombre)+'\','+x.mora+')">'+(p?'✏️ editar':'📅 Registrar')+'</span>'
@@ -7863,10 +7863,10 @@ function _buildMesView(cartId,cl,mesActualStr){
     var c=it.c,p=it.p;
     var esPromesa=p&&p.estado==='promesa';
     var tieneProyAsesor=!!(it.proy&&(it.proy.fecha_proyectada||it.proy.monto_proyectado));
-    var estadoBadge=esPromesa?'<span style="font-family:var(--mono);font-size:9px;background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.25);padding:1px 5px;border-radius:3px">📅 Promesa '+p.fecha+'</span>':tieneProyAsesor?'<span style="font-family:var(--mono);font-size:9px;background:var(--amberbg);color:var(--amber);border:1px solid rgba(180,120,0,.25);padding:1px 5px;border-radius:3px">⚠ Sin promesa</span>':'<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">Sin acuerdo</span>';
+    var estadoBadge=esPromesa?'<span style="font-family:var(--mono);font-size:9px;background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.25);padding:1px 5px;border-radius:3px">📅 Promesa '+p.fecha+'</span>':tieneProyAsesor?'<span style="font-family:var(--mono);font-size:9px;background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.25);padding:1px 5px;border-radius:3px">📅 Promesa '+(it.proy.fecha_proyectada||'(proyección)')+'</span>':'<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">Sin acuerdo</span>';
     var fechaGestorCell=it.fechaGestor?'<span style="font-family:var(--mono);font-size:11px;color:var(--green);font-weight:600">'+it.fechaGestor.substring(8)+' '+_diaN(_s2d(it.fechaGestor))+'</span>':'<span style="color:var(--text3)">--</span>';
     var montoGestorCell=it.montoProy?'<span style="font-family:var(--mono);font-size:12px;color:var(--green);font-weight:700">L '+fmt(it.montoProy)+'</span>':'<span style="color:var(--text3)">--</span>';
-    var rowBg=esPromesa?'background:var(--bluebg)':tieneProyAsesor?'background:var(--amberbg)':'';
+    var rowBg=(esPromesa||tieneProyAsesor)?'background:var(--bluebg)':'';
     h+='<tr style="'+rowBg+'">';
     h+='<td><div style="font-weight:600;font-size:12px">'+esc2(c.nombre)+'</div></td>';
     h+='<td style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--text2)">'+( it.fechaSistema?it.fechaSistema.substring(8)+'&nbsp;'+_diaN(_s2d(it.fechaSistema)):'--')+'</td>';
