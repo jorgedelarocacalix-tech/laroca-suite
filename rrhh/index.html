@@ -2120,13 +2120,19 @@ function bindPlanillaAdmin(){
     state.planillasAdmin = null; await loadPlanillasAdmin(); render();
   };
 }
+// Solo las cajas de R1, R3 y R4 dan adelantos (orden de Jorge 2026-11-07). R1 y R2 son un
+// equipo (caja R1); R4 y R5 son otro (caja R4). Arqueos aplica la misma regla en /api/integra/vale.
+const CAJA_ADELANTO = {roca1:'R1 · La Roca Comercial', roca1motors:'R1 · La Roca Comercial', comercial:'R1 · La Roca Comercial', larocacomercial:'R1 · La Roca Comercial', comayagua:'R1 · La Roca Comercial',
+  roca2motors:'R3 · Roca Motors 2', sumuebledanli:'R4 · Su Mueble Danlí', sumotodanli:'R4 · Su Mueble Danlí'};
+function cajaAdelantoLabel(suc){ return CAJA_ADELANTO[String(suc||'').trim().toLowerCase()] || 'la caja de la sucursal'; }
 function modalFormaPagoAdelanto(adRef, id){
   const monto = Number(adRef.monto||0).toLocaleString('es-HN',{minimumFractionDigits:2});
   openModal(`
     <h3>💰 ¿Cómo se pagó este adelanto?</h3>
     <p class="empty">${adRef.empleado} — L ${monto}${adRef.motivo ? ' — '+adRef.motivo : ''}</p>
     <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
-      <button class="btn" id="fp-caja" style="width:100%;">💵 Efectivo desde caja de la sucursal</button>
+      <button class="btn" id="fp-caja" style="width:100%;">💵 Efectivo desde caja ${cajaAdelantoLabel(adRef.sucursal)}</button>
+      <div style="font-size:11px;color:var(--slate);margin-top:-4px;">Solo las cajas de R1, R3 y R4 dan adelantos. R2 se paga en R1 y R5 en R4.</div>
       <button class="btn gold" id="fp-banco" style="width:100%;">🏦 Transferencia bancaria directa</button>
     </div>
     <p style="font-size:11px;color:var(--slate);margin-top:12px;">Si se pagó por banco, el gasto queda marcado como no autorizado para descontarse del efectivo de caja — Arqueos lo rechazará si aparece en el arqueo de la sucursal.</p>
