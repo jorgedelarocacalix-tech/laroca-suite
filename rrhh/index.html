@@ -2157,6 +2157,8 @@ function bindSolicitudesAdmin(){
       const vacRef = tabla==='vacaciones' ? (state.adminData.vacaciones_pendientes||[]).find(v=>v.id===id) : null;
       const adRef = tabla==='adelantos' ? (state.adminData.adelantos_pendientes||[]).find(a=>a.id===id) : null;
       if(tabla==='adelantos' && estado==='aprobado' && adRef){
+        // Solo Isis Fonseca (v_joh) o Jorge Calix (ADMIN) autorizan gastos; Milagro no (orden de Jorge 2026-11-09).
+        if(!['ADMIN','v_joh'].includes(state.session.codigo)){ toast('Solo Isis Fonseca o Jorge Calix pueden aprobar adelantos'); return; }
         modalFormaPagoAdelanto(adRef, id);
         return;
       }
