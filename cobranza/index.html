@@ -161,6 +161,10 @@ tr:hover td{background:#f5f8ff}
 .bx{background:var(--bg4);color:var(--text2);border:1px solid var(--border2)}
 .bp{background:var(--purplebg);color:var(--purple);border:1px solid rgba(96,48,176,.2)}
 .bb{background:var(--bluebg);color:var(--blue);border:1px solid rgba(26,85,160,.2)}
+.pr-dot{position:relative;display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:1px 7px 1px 5px;border-radius:10px;background:var(--bluebg);color:var(--blue);font-size:9px;font-weight:700;font-family:var(--sans);cursor:help;vertical-align:middle}
+.pr-dot::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--blue);display:inline-block}
+.pr-dot .pr-tip{display:none;position:fixed;z-index:9999;min-width:220px;max-width:300px;padding:9px 11px;border-radius:8px;background:#1f2a37;color:#fff;font-size:11px;font-weight:400;line-height:1.45;box-shadow:0 6px 18px rgba(0,0,0,.25);white-space:normal;text-align:left}
+.pr-dot:hover .pr-tip,.pr-dot:focus .pr-tip{display:block}
 .add-p{position:relative;display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-family:var(--mono);font-size:10px;background:var(--bg4);color:var(--text2);cursor:pointer;border:1px dashed var(--border2);transition:all .15s}
 .chat-dot{position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--red);border:1.5px solid var(--bg2)}
 .add-p:hover{color:var(--amber);border-color:var(--amber);background:var(--amberbg)}
@@ -876,6 +880,31 @@ async function loadCierreAsesor(){
 }
 // Fecha completa (AAAA-MM-DD) del dia proyectado en el mes actual
 function fechaProyCierre(dia){return _diaToFechaNextMes(dia,_curMesKey())||('día '+dia);}
+// Burbuja azul en Hoy -> Cierre: el cliente tiene una promesa registrada (estado 'promesa').
+// No se borran las promesas viejas (pedido de Jorge 2026-11-09): solo se muestran al pasar el
+// puntero, marcando si es de un mes anterior.
+function burbujaPromesaActiva(p){
+  if(!p||p.estado!=='promesa')return '';
+  var mes=_curMesKey();
+  var f=p.fecha||'';
+  var vieja=f&&f.substring(0,7)<mes;
+  var fDMY=f?f.split('-').reverse().join('/'):'sin fecha';
+  var tip='<b>'+(vieja?'Promesa anterior que sigue activa':'Promesa activa')+'</b><br>'
+    +'📅 '+fDMY+(parseFloat(p.monto)>0?' · L '+fmt(p.monto):'')
+    +(p.nota?'<br>📝 '+ibEsc(p.nota):'')
+    +(p.created_at?'<br><span style="opacity:.7">Registrada el '+String(p.created_at).substring(0,10).split('-').reverse().join('/')+'</span>':'')
+    +(vieja?'<br><span style="opacity:.8">Es de un mes anterior: no cuenta para el cierre de este mes.</span>':'');
+  return ' <span class="pr-dot" tabindex="0" onclick="event.stopPropagation();prTipPos(this)" onmouseenter="prTipPos(this)" onfocus="prTipPos(this)">'+(vieja?'promesa anterior':'promesa activa')+'<span class="pr-tip">'+tip+'</span></span>';
+}
+// Ubica el globo de la promesa junto a la burbuja (position:fixed para que la tabla no lo corte)
+function prTipPos(el){
+  var t=el.querySelector('.pr-tip');if(!t)return;
+  var r=el.getBoundingClientRect(),w=Math.min(300,window.innerWidth-16);
+  var left=Math.max(8,Math.min(r.left,window.innerWidth-w-8));
+  t.style.maxWidth=w+'px';t.style.left=left+'px';
+  var abajo=r.bottom+6, h=t.offsetHeight||110;
+  t.style.top=(abajo+h>window.innerHeight-8?Math.max(8,r.top-h-6):abajo)+'px';
+}
 // Fecha que cuenta para Hoy -> Cierre (la misma que se muestra en la tabla): promesa vigente del
 // mes; si no, la del cierre de proyección del asesor; si no, la proyección semanal del mes.
 function fechaCierreEfectiva(cartId,r,p){
@@ -3814,6 +3843,7 @@ function buildCierreHoy(cartId,rows){
     var rowAlert=x.solPend?'style="background:var(--purplebg);border-left:3px solid var(--purple)"':cOtro?'style="background:rgba(184,68,0,.10);border-left:3px solid var(--orange)"':'';
     var cellAlert=cOtro?' <span title="Comentario de '+ibEsc(cOtro)+'" style="background:var(--orangebg);color:var(--orange);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px">💬 comentario · '+ibEsc(cOtro)+'</span>':'';
     if(x.solPend)cellAlert+=' <span style="background:var(--purple);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px">⚠️ Solicitud de mora pendiente</span>';
+    cellAlert+=burbujaPromesaActiva(p);
     var moraBtn=x.solPend
       ?'<span style="color:var(--purple);font-size:10px;font-weight:600">⏳ pendiente aprobación</span>'
       :(p&&p.mora_anulada
