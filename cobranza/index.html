@@ -876,6 +876,18 @@ async function loadCierreAsesor(){
 }
 // Fecha completa (AAAA-MM-DD) del dia proyectado en el mes actual
 function fechaProyCierre(dia){return _diaToFechaNextMes(dia,_curMesKey())||('día '+dia);}
+// Fecha que cuenta para Hoy -> Cierre (la misma que se muestra en la tabla): promesa vigente del
+// mes; si no, la del cierre de proyección del asesor; si no, la proyección semanal del mes.
+function fechaCierreEfectiva(cartId,r,p){
+  if(promesaVigente(p)&&p.fecha)return p.fecha;
+  if(promesaMesSiguiente(p))return p.fecha;
+  var ca=CIERRE_ASESOR[cartId+'::'+r.nombre];
+  if(ca&&ca.dia){var f=_diaToFechaNextMes(ca.dia,_curMesKey());if(f&&/^\d{4}-\d{2}-\d{2}$/.test(f))return f;}
+  var pr=_PROY_INDEX&&_PROY_INDEX[cartId+'::'+r.nombre];
+  var mes=_curMesKey();
+  if(pr&&pr.fecha_proyectada&&pr.fecha_proyectada.substring(0,7)===mes)return pr.fecha_proyectada;
+  return null;
+}
 function montoAsesorCierre(cartId,nombre){
   // Una promesa vigente del mes reemplaza el monto de la proyeccion (el acuerdo mas reciente manda)
   var p=PROMESAS[cartId+'::'+nombre];
@@ -3745,12 +3757,21 @@ function setCierreHoySort(mode){
 function buildCierreHoy(cartId,rows){
   window._cierreHoyData={cartId:cartId,rows:rows};
   if(!rows.length)return '<div class="cierre-hoy-big empty">🎉 Todos al día — nadie con mora ni pagos pendientes este mes.<div style="margin-top:10px"><button onclick="abrirAgregarCierre(\''+cartId+'\')" style="font-size:11px;padding:4px 12px;border-radius:6px;border:1px solid rgba(91,33,182,.4);background:var(--purplebg);color:var(--purple);cursor:pointer;font-family:var(--mono);font-weight:600">➕ Agregar cliente</button></div></div>';
-  var withMora=rows.map(function(r){var m=calcMoraCliente(r,cartId);var p=PROMESAS[cartId+'::'+r.nombre];var solPend=!!(p&&p.mora_solicitud&&p.mora_solicitud.pendiente);return {r:r,mora:m&&m.diferencia>0?m.diferencia:0,fecha:p&&p.fecha?p.fecha:null,solPend:solPend,sig:promesaMesSiguiente(p)};});
+  var withMora=rows.map(function(r){var m=calcMoraCliente(r,cartId);var p=PROMESAS[cartId+'::'+r.nombre];var solPend=!!(p&&p.mora_solicitud&&p.mora_solicitud.pendiente);return {r:r,mora:m&&m.diferencia>0?m.diferencia:0,fecha:fechaCierreEfectiva(cartId,r,p),solPend:solPend,sig:promesaMesSiguiente(p)};});
   if(_CIERRE_HOY_SORT==='fecha'){
+    // "Fecha más cercana" = la misma fecha que se muestra en la tabla (promesa vigente del mes,
+    // si no la de la proyección del asesor). Primero lo que vence de hoy en adelante (más próximo
+    // primero); después lo ya vencido este mes (lo más reciente primero). Antes usaba la fecha de
+    // promesas viejas (ej. 06/07) y esos clientes salían de primeros (reporte de Jorge 2026-11-09).
+    var hoyISO=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1)+'-'+(HOY.getDate()<10?'0':'')+HOY.getDate();
     withMora.sort(function(a,b){
       if(a.solPend!==b.solPend)return a.solPend?-1:1; // solicitudes de mora pendientes siempre al tope
       if(a.sig!==b.sig)return a.sig?1:-1; // prometieron para el mes siguiente: al final
-      if(a.fecha&&b.fecha)return a.fecha.localeCompare(b.fecha);
+      if(a.fecha&&b.fecha){
+        var fa=a.fecha>=hoyISO,fb=b.fecha>=hoyISO;
+        if(fa!==fb)return fa?-1:1;
+        return fa?a.fecha.localeCompare(b.fecha):b.fecha.localeCompare(a.fecha);
+      }
       if(a.fecha&&!b.fecha)return -1;
       if(!a.fecha&&b.fecha)return 1;
       return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);
