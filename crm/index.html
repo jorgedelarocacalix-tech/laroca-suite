@@ -3960,10 +3960,10 @@ function waBotRender(){
 }
 function waBotReglasHtml(c,ro,ta){
   var rs=Array.isArray(c.reglas)?c.reglas:[];
-  return '<div style="font-size:12px;font-weight:700;margin-bottom:4px;">Respuestas automáticas <span style="font-weight:400;color:var(--t2);">(si el mensaje trae alguna de las palabras clave, el bot contesta eso; si no coincide ninguna, pasa a un vendedor)</span></div>'
+  return '<div style="font-size:12px;font-weight:700;margin-bottom:4px;">Respuestas automáticas <span style="font-weight:400;color:var(--t2);">(# = número de opción del menú; si el mensaje trae alguna palabra clave o el número, el bot contesta eso; si no coincide nada, pasa a un vendedor)</span></div>'
    +'<div id="wabot-reglas">'+rs.map(function(r,i){
      return '<div class="wabot-regla" style="border:1.5px solid var(--border);border-radius:10px;padding:8px;margin-bottom:8px;background:#fafbfc;">'
-      +'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;"><input class="wabot-rp"'+ro+' value="'+waEsc(r.palabras)+'" placeholder="Palabras clave separadas por coma: horario, a que hora, abren" style="'+ta+'flex:1;padding:7px;">'
+      +'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;"><input class="wabot-ro" type="number" min="1" max="30"'+ro+' value="'+(r.opcion||'')+'" title="Número de opción del menú (opcional)" placeholder="#" style="'+ta+'width:56px;padding:7px;text-align:center;"><input class="wabot-rp"'+ro+' value="'+waEsc(r.palabras)+'" placeholder="Palabras clave separadas por coma: horario, a que hora, abren" style="'+ta+'flex:1;padding:7px;">'
       +(ro?'':'<button onclick="waBotSync();_waBotCfg.reglas.splice('+i+',1);waBotRender()" title="Quitar" style="border:none;background:#fee2e2;color:#b91c1c;border-radius:8px;width:30px;height:30px;cursor:pointer;">✕</button>')+'</div>'
       +'<textarea class="wabot-rr" rows="2"'+ro+' placeholder="Respuesta que verá el cliente" style="'+ta+'padding:7px;">'+waEsc(r.respuesta)+'</textarea>'
       +'<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);margin-top:4px;"><input type="checkbox" class="wabot-rs"'+(r.solo?' checked':'')+ro+'> Solo si es lo único que escribe (ej. saludo o gracias)</label></div>';
@@ -3979,7 +3979,7 @@ function waBotBorrador(){
   var a=document.getElementById('wabot-activo');
   var o={activo:a?a.checked:undefined,motor:g('wabot-motor'),modelo:g('wabot-modelo'),conocimiento:g('wabot-conoc'),instrucciones:g('wabot-instr'),mensaje_traspaso:g('wabot-trasp')};
   var box=document.getElementById('wabot-reglas');
-  if(box){o.reglas=[].map.call(box.querySelectorAll('.wabot-regla'),function(d){return {palabras:d.querySelector('.wabot-rp').value,respuesta:d.querySelector('.wabot-rr').value,solo:!!(d.querySelector('.wabot-rs')||{}).checked};});o.palabras_traspaso=g('wabot-ptras');}
+  if(box){o.reglas=[].map.call(box.querySelectorAll('.wabot-regla'),function(d){return {opcion:(d.querySelector('.wabot-ro')||{}).value||null,palabras:d.querySelector('.wabot-rp').value,respuesta:d.querySelector('.wabot-rr').value,solo:!!(d.querySelector('.wabot-rs')||{}).checked};});o.palabras_traspaso=g('wabot-ptras');}
   else if(_waBotCfg){o.reglas=_waBotCfg.reglas;o.palabras_traspaso=_waBotCfg.palabras_traspaso;}
   return o;
 }
