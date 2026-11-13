@@ -3951,7 +3951,7 @@ function waBotRender(){
    +(c.puede_editar?'<div style="margin-top:12px;display:flex;gap:8px;"><button class="btn-p" onclick="waBotGuardar()">💾 Guardar</button></div>':'')
    +'</div>'
    +'<div style="flex:1 1 360px;min-width:280px;display:flex;flex-direction:column;border:1.5px solid var(--border);border-radius:14px;overflow:hidden;background:#efeae2;">'
-   +'<div style="background:#075e54;color:#fff;padding:10px 12px;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;">🧪 Probador (no envía nada) <button onclick="_waBotProbar=[];waBotPintarProbar()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">Reiniciar</button></div>'
+   +'<div style="background:#075e54;color:#fff;padding:10px 12px;font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center;">🧪 Probador (no envía nada) <button onclick="_waBotProbar=[];window._waBotProbarEstado={};waBotPintarProbar()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">Reiniciar</button></div>'
    +'<div id="wabot-pmsgs" style="flex:1;min-height:320px;max-height:52vh;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:6px;"></div>'
    +'<div style="display:flex;gap:6px;padding:8px;background:#f0f0f0;"><input id="wabot-pinp" placeholder="Escribe como si fueras un cliente…" style="flex:1;border:none;border-radius:18px;padding:9px 14px;font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();waBotProbarEnviar();}"><button onclick="waBotProbarEnviar()" style="background:#25D366;color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:16px;cursor:pointer;">➤</button></div>'
    +'<div style="font-size:10px;color:#555;padding:4px 10px 8px;background:#f0f0f0;">El probador usa lo que está escrito en el formulario aunque no lo hayas guardado.</div>'
@@ -3962,15 +3962,48 @@ function waBotReglasHtml(c,ro,ta){
   var rs=Array.isArray(c.reglas)?c.reglas:[];
   return '<div style="font-size:12px;font-weight:700;margin-bottom:4px;">Respuestas automáticas <span style="font-weight:400;color:var(--t2);">(# = número de opción del menú; si el mensaje trae alguna palabra clave o el número, el bot contesta eso; si no coincide nada, pasa a un vendedor)</span></div>'
    +'<div id="wabot-reglas">'+rs.map(function(r,i){
-     return '<div class="wabot-regla" style="border:1.5px solid var(--border);border-radius:10px;padding:8px;margin-bottom:8px;background:#fafbfc;">'
+     return '<div class="wabot-regla" data-i="'+i+'" style="border:1.5px solid var(--border);border-radius:10px;padding:8px;margin-bottom:8px;background:#fafbfc;">'
       +'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;"><input class="wabot-ro" type="number" min="1" max="30"'+ro+' value="'+(r.opcion||'')+'" title="Número de opción del menú (opcional)" placeholder="#" style="'+ta+'width:56px;padding:7px;text-align:center;"><input class="wabot-rp"'+ro+' value="'+waEsc(r.palabras)+'" placeholder="Palabras clave separadas por coma: horario, a que hora, abren" style="'+ta+'flex:1;padding:7px;">'
       +(ro?'':'<button onclick="waBotSync();_waBotCfg.reglas.splice('+i+',1);waBotRender()" title="Quitar" style="border:none;background:#fee2e2;color:#b91c1c;border-radius:8px;width:30px;height:30px;cursor:pointer;">✕</button>')+'</div>'
       +'<textarea class="wabot-rr" rows="2"'+ro+' placeholder="Respuesta que verá el cliente" style="'+ta+'padding:7px;">'+waEsc(r.respuesta)+'</textarea>'
-      +'<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);margin-top:4px;"><input type="checkbox" class="wabot-rs"'+(r.solo?' checked':'')+ro+'> Solo si es lo único que escribe (ej. saludo o gracias)</label></div>';
+      +'<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);margin-top:4px;"><input type="checkbox" class="wabot-rs"'+(r.solo?' checked':'')+ro+'> Solo si es lo único que escribe (ej. saludo o gracias)</label>'
+      +(r.clave?waBotFotosHtml(r,i,ro):'')+'</div>';
    }).join('')+'</div>'
    +(ro?'':'<button class="btn-s" style="font-size:12px;margin-bottom:12px;" onclick="waBotSync();_waBotCfg.reglas=(_waBotCfg.reglas||[]).concat([{palabras:\'\',respuesta:\'\'}]);waBotRender()">➕ Agregar respuesta</button>')
    +'<div style="font-size:12px;font-weight:700;margin:4px 0;">Palabras que pasan directo a un vendedor <span style="font-weight:400;color:var(--t2);">(separadas por coma)</span></div>'
    +'<textarea id="wabot-ptras" rows="2"'+ro+' style="'+ta+'margin-bottom:12px;">'+waEsc(c.palabras_traspaso)+'</textarea>';
+}
+var WA_CIUDADES=[['comayagua','Comayagua'],['danli','Danlí'],['libertad','La Libertad']];
+var _waBotFotos={i:null,ciudad:'comayagua'};
+function waBotFotosHtml(r,i,ro){
+  var m=r.medios||{};
+  var resumen=WA_CIUDADES.map(function(c){return c[1]+' ('+((m[c[0]]||[]).length)+')';}).join(' · ');
+  var h='<div style="margin-top:6px;"><button onclick="waBotSync();_waBotFotos.i=(_waBotFotos.i==='+i+'?null:'+i+');waBotRender()" style="border:1px solid var(--border);background:#fff;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;">📷 Fotos: '+resumen+'</button></div>';
+  if(_waBotFotos.i!==i)return h;
+  var cid=_waBotFotos.ciudad,fotos=m[cid]||[];
+  h+='<div style="margin-top:6px;border:1px dashed var(--border);border-radius:8px;padding:8px;background:#fff;">'
+   +'<div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">'+WA_CIUDADES.map(function(c){return '<button onclick="waBotSync();_waBotFotos.ciudad=\''+c[0]+'\';waBotRender()" style="border:1px solid '+(c[0]===cid?'#075e54':'var(--border)')+';background:'+(c[0]===cid?'#075e54':'#fff')+';color:'+(c[0]===cid?'#fff':'inherit')+';border-radius:12px;padding:3px 10px;font-size:11px;cursor:pointer;">'+c[1]+' ('+((m[c[0]]||[]).length)+')</button>';}).join('')+'</div>'
+   +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'+(fotos.length?fotos.map(function(u,k){var pdf=/\.pdf(\?|$)/i.test(u);return '<div style="position:relative;width:74px;height:74px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:#f3f4f6;display:flex;align-items:center;justify-content:center;">'+(pdf?'<a href="'+u+'" target="_blank" style="font-size:26px;text-decoration:none;">📄</a>':'<a href="'+u+'" target="_blank"><img src="'+u+'" loading="lazy" style="width:74px;height:74px;object-fit:cover;"></a>')+'<span style="position:absolute;left:3px;top:2px;font-size:10px;background:rgba(0,0,0,.55);color:#fff;border-radius:4px;padding:0 4px;">'+(k+1)+'</span>'+(ro?'':'<button onclick="waBotQuitarFoto('+i+',\''+cid+'\','+k+')" title="Quitar" style="position:absolute;right:2px;top:2px;border:none;background:rgba(185,28,28,.9);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;line-height:18px;padding:0;">✕</button>')+'</div>';}).join(''):'<div style="font-size:11px;color:var(--t2);">Sin fotos para esta ciudad'+(cid!=='comayagua'?' (se usan las de Comayagua)':'')+'.</div>')+'</div>'
+   +(ro?'':'<label style="display:inline-block;margin-top:8px;border:1.5px solid #25D366;color:#166534;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">➕ Subir fotos o PDF<input type="file" accept="image/*,application/pdf" multiple style="display:none" onchange="waBotSubirFotos('+i+',\''+cid+'\',this)"></label><span style="font-size:10px;color:var(--t2);margin-left:6px;">Se mandan en este orden. Recuerda 💾 Guardar.</span>')
+   +'</div>';
+  return h;
+}
+function waBotQuitarFoto(i,ciudad,k){waBotSync();var r=_waBotCfg.reglas[i];r.medios=r.medios||{};(r.medios[ciudad]=r.medios[ciudad]||[]).splice(k,1);waBotRender();}
+function waBotImgAJpeg(file){return new Promise(function(ok,no){var fr=new FileReader();fr.onload=function(){var im=new Image();im.onload=function(){var esc=Math.min(1,1280/Math.max(im.width,im.height));var c=document.createElement('canvas');c.width=Math.round(im.width*esc);c.height=Math.round(im.height*esc);var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);c.toBlob(function(b){b?ok(b):no(new Error('No se pudo convertir la imagen'));},'image/jpeg',0.82);};im.onerror=function(){no(new Error('Imagen inválida'));};im.src=fr.result;};fr.readAsDataURL(file);});}
+function waBotSubirFotos(i,ciudad,input){
+  waBotSync();var r=_waBotCfg.reglas[i];var files=[].slice.call(input.files||[]);if(!files.length)return;
+  toast('Subiendo '+files.length+' archivo(s)…','ok');
+  var base=SB_URL+'/storage/v1/object/';var subidas=[];
+  files.reduce(function(p,f,k){return p.then(function(){
+    var pdf=f.type==='application/pdf';
+    return (pdf?Promise.resolve(f):waBotImgAJpeg(f)).then(function(blob){
+      var ruta='wa-catalogo/catalogo/'+(r.clave||'otros')+'/'+ciudad+'/'+Date.now()+'_'+k+(pdf?'.pdf':'.jpg');
+      return fetch(base+ruta,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':pdf?'application/pdf':'image/jpeg'},body:blob})
+      .then(function(res){if(!res.ok)return res.text().then(function(t){throw new Error(t||res.status);});subidas.push(SB_URL+'/storage/v1/object/public/'+ruta);});
+    });
+  });},Promise.resolve())
+  .then(function(){r.medios=r.medios||{};r.medios[ciudad]=(r.medios[ciudad]||[]).concat(subidas);toast(subidas.length+' subida(s). Falta 💾 Guardar','ok');waBotRender();})
+  .catch(function(e){r.medios=r.medios||{};r.medios[ciudad]=(r.medios[ciudad]||[]).concat(subidas);toast('Error al subir: '+e.message,'err');waBotRender();});
 }
 // Pasa lo escrito en el formulario a _waBotCfg (para no perderlo al redibujar)
 function waBotSync(){if(_waBotCfg)Object.assign(_waBotCfg,waBotBorrador());}
@@ -3979,7 +4012,7 @@ function waBotBorrador(){
   var a=document.getElementById('wabot-activo');
   var o={activo:a?a.checked:undefined,motor:g('wabot-motor'),modelo:g('wabot-modelo'),conocimiento:g('wabot-conoc'),instrucciones:g('wabot-instr'),mensaje_traspaso:g('wabot-trasp')};
   var box=document.getElementById('wabot-reglas');
-  if(box){o.reglas=[].map.call(box.querySelectorAll('.wabot-regla'),function(d){return {opcion:(d.querySelector('.wabot-ro')||{}).value||null,palabras:d.querySelector('.wabot-rp').value,respuesta:d.querySelector('.wabot-rr').value,solo:!!(d.querySelector('.wabot-rs')||{}).checked};});o.palabras_traspaso=g('wabot-ptras');}
+  if(box){o.reglas=[].map.call(box.querySelectorAll('.wabot-regla'),function(d){var base=((_waBotCfg&&_waBotCfg.reglas)||[])[Number(d.getAttribute('data-i'))]||{};return Object.assign({},base,{opcion:(d.querySelector('.wabot-ro')||{}).value||null,palabras:d.querySelector('.wabot-rp').value,respuesta:d.querySelector('.wabot-rr').value,solo:!!(d.querySelector('.wabot-rs')||{}).checked});});o.palabras_traspaso=g('wabot-ptras');}
   else if(_waBotCfg){o.reglas=_waBotCfg.reglas;o.palabras_traspaso=_waBotCfg.palabras_traspaso;}
   return o;
 }
@@ -3994,6 +4027,7 @@ function waBotPintarProbar(){
   if(!_waBotProbar.length){box.innerHTML='<div style="margin:auto;text-align:center;color:#666;font-size:12px;">Escribe un mensaje de cliente<br>para ver qué contestaría el bot.</div>';return;}
   box.innerHTML=_waBotProbar.map(function(m){
     if(m.rol==='aviso')return '<div style="align-self:center;background:#fff3cd;color:#7b341e;border-radius:8px;padding:6px 10px;font-size:11px;max-width:90%;text-align:center;">'+m.texto+'</div>';
+    if(m.media)return /\.pdf(\?|$)/i.test(m.media)?'<a href="'+m.media+'" target="_blank" style="align-self:flex-start;background:#fff;border-radius:10px;padding:8px 10px;font-size:12px;">📄 PDF</a>':'<a href="'+m.media+'" target="_blank" style="align-self:flex-start;"><img src="'+m.media+'" loading="lazy" style="width:170px;border-radius:10px;box-shadow:0 1px 1px rgba(0,0,0,.08);display:block;"></a>';
     var cli=m.rol==='cliente';
     return '<div style="align-self:'+(cli?'flex-end':'flex-start')+';background:'+(cli?'#d9fdd3':'#fff')+';border-radius:10px;padding:7px 10px;font-size:13px;max-width:80%;box-shadow:0 1px 1px rgba(0,0,0,.08);white-space:pre-wrap;">'+(cli?'':'<div style="font-size:10px;font-weight:700;color:#075e54;">🤖 Bot</div>')+waEsc(m.texto)+'</div>';
   }).join('');
@@ -4003,11 +4037,13 @@ function waBotProbarEnviar(){
   var inp=document.getElementById('wabot-pinp');if(!inp)return;var t=inp.value.trim();if(!t)return;inp.value='';
   _waBotProbar.push({rol:'cliente',texto:t});_waBotProbar.push({rol:'aviso',texto:'⏳ El bot está escribiendo…',tmp:true});waBotPintarProbar();
   var hist=_waBotProbar.filter(function(m){return m.rol==='cliente'||m.rol==='bot';});
-  fetch(WA_URL+'/api/bot/probar',{method:'POST',headers:waH(),body:JSON.stringify({historial:hist,borrador:waBotBorrador()})})
+  fetch(WA_URL+'/api/bot/probar',{method:'POST',headers:waH(),body:JSON.stringify({historial:hist,estado:window._waBotProbarEstado||{},borrador:waBotBorrador()})})
   .then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||('Error '+r.status));return j;});})
   .then(function(j){
     _waBotProbar=_waBotProbar.filter(function(m){return !m.tmp;});
-    if(j.respuesta)_waBotProbar.push({rol:'bot',texto:j.respuesta});
+    window._waBotProbarEstado=j.estado||{};
+    if(j.mensajes&&j.mensajes.length){j.mensajes.forEach(function(x){if(x.media)_waBotProbar.push({rol:'botmedia',media:x.media});else if(x.texto)_waBotProbar.push({rol:'bot',texto:x.texto});});}
+    else if(j.respuesta)_waBotProbar.push({rol:'bot',texto:j.respuesta});
     if(j.traspasar)_waBotProbar.push({rol:'aviso',texto:'↪ Aquí pasaría la conversación a un vendedor. Motivo: '+waEsc(j.motivo||'—')});
     waBotPintarProbar();
   })
