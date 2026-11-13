@@ -4027,9 +4027,9 @@ function waBotPintarProbar(){
   if(!_waBotProbar.length){box.innerHTML='<div style="margin:auto;text-align:center;color:#666;font-size:12px;">Escribe un mensaje de cliente<br>para ver qué contestaría el bot.</div>';return;}
   box.innerHTML=_waBotProbar.map(function(m){
     if(m.rol==='aviso')return '<div style="align-self:center;background:#fff3cd;color:#7b341e;border-radius:8px;padding:6px 10px;font-size:11px;max-width:90%;text-align:center;">'+m.texto+'</div>';
-    if(m.media)return /\.pdf(\?|$)/i.test(m.media)?'<a href="'+m.media+'" target="_blank" style="align-self:flex-start;background:#fff;border-radius:10px;padding:8px 10px;font-size:12px;">📄 PDF</a>':'<a href="'+m.media+'" target="_blank" style="align-self:flex-start;"><img src="'+m.media+'" loading="lazy" style="width:170px;border-radius:10px;box-shadow:0 1px 1px rgba(0,0,0,.08);display:block;"></a>';
+    if(m.media)return /\.pdf(\?|$)/i.test(m.media)?'<a href="'+m.media+'" target="_blank" style="align-self:flex-start;background:#fff;border-radius:10px;padding:8px 10px;font-size:12px;">📄 PDF</a>':'<a href="'+m.media+'" target="_blank" style="align-self:flex-start;"><img src="'+m.media+'" onload="var b=document.getElementById(\'wabot-pmsgs\');if(b)b.scrollTop=b.scrollHeight;" style="width:170px;border-radius:10px;box-shadow:0 1px 1px rgba(0,0,0,.08);display:block;"></a>';
     var cli=m.rol==='cliente';
-    return '<div style="align-self:'+(cli?'flex-end':'flex-start')+';background:'+(cli?'#d9fdd3':'#fff')+';border-radius:10px;padding:7px 10px;font-size:13px;max-width:80%;box-shadow:0 1px 1px rgba(0,0,0,.08);white-space:pre-wrap;">'+(cli?'':'<div style="font-size:10px;font-weight:700;color:#075e54;">🤖 Bot</div>')+waEsc(m.texto)+'</div>';
+    return '<div style="align-self:'+(cli?'flex-end':'flex-start')+';background:'+(cli?'#d9fdd3':'#fff')+';border-radius:10px;padding:7px 10px;font-size:13px;max-width:80%;box-shadow:0 1px 1px rgba(0,0,0,.08);white-space:pre-wrap;">'+(cli?'':'<div style="font-size:10px;font-weight:700;color:#075e54;">🤖 Claudia</div>')+waEsc(m.texto)+'</div>';
   }).join('');
   box.scrollTop=box.scrollHeight;
 }
