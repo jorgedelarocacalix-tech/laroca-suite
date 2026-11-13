@@ -369,7 +369,10 @@ button{cursor:pointer}
 
 <script>
 var SB_URL='https://upaenjotkocmdvfuobii.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
-var WA_URL=localStorage.getItem('wa_url')||'https://tassel-wasting-cesarean.ngrok-free.dev';
+// Servidor de WhatsApp en Railway (2026-11-12). Antes apuntaba a un túnel ngrok en la Mac de Jorge;
+// una URL vieja de ngrok guardada en el navegador se ignora para que todos usen el servidor fijo.
+var WA_URL_DEF='https://laroca-whatsapp-production.up.railway.app';
+var WA_URL=(function(){var u=localStorage.getItem('wa_url')||'';return (!u||/ngrok/i.test(u))?WA_URL_DEF:u;})();
 var waConvs=[],waActivePhone=null,waActiveCanal='whatsapp',waFilter='todos',waEmpresaFilt='todas',waCanalFilt='todos',waPollingTimer=null,waPendingMasivo=[],_waConvsLoaded=false,_waImgCache={};
 function sbF(t,m,b,q){return fetch(SB_URL+'/rest/v1/'+t+(q||''),{method:m||'GET',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':m==='POST'?'resolution=merge-duplicates':''},...(b?{body:JSON.stringify(b)}:{})}).then(function(r){if(!r.ok)return null;return(m||'GET')==='GET'?r.json():true;}).catch(function(){return null;});}
 function sbUp(t,d){return sbF(t,'POST',Array.isArray(d)?d:[d]);}
@@ -786,6 +789,7 @@ function doLogin(){
     var acc=rr.accesos_apps||{};
     if(!acc.crm){err.textContent='Tu usuario no tiene acceso al CRM';shk();pinBuf='';renderPD();return;}
     err.textContent='';
+    try{sessionStorage.setItem('crm_wa_auth',JSON.stringify({codigo:cod,pin:pb}));}catch(e){}
     entrarComo(rr);
   }).catch(function(){err.textContent='Error de conexión';shk();});
 }
@@ -842,7 +846,7 @@ function launchApp(){
 }
 
 
-function doLogout(){if(_rtChannel){try{_rtChannel.close();}catch(e){}}_rtChannel=null;CU=null;CCI=null;activeCart=null;kbActiveCart=null;kbSelVend=null;dashCart=null;dashSelVend=null;segCart=null;segSelVend=null;location.href='https://laroca-suite-production.up.railway.app/';}
+function doLogout(){try{sessionStorage.removeItem('crm_wa_auth');}catch(e){}if(_rtChannel){try{_rtChannel.close();}catch(e){}}_rtChannel=null;CU=null;CCI=null;activeCart=null;kbActiveCart=null;kbSelVend=null;dashCart=null;dashSelVend=null;segCart=null;segSelVend=null;location.href='https://laroca-suite-production.up.railway.app/';}
 
 function buildSB(){
   document.getElementById('sb-av').textContent=CU.name[0].toUpperCase();
@@ -3954,17 +3958,23 @@ function waInit(){
   },5000);
 }
 
-function waH(){return{'ngrok-skip-browser-warning':'true','Content-Type':'application/json'};}
+// Código + PIN de RRHH del usuario: el servidor de WhatsApp solo atiende a usuarios con acceso al CRM.
+function waAuth(){
+  try{var a=JSON.parse(sessionStorage.getItem('crm_wa_auth')||'null');if(a&&a.codigo&&a.pin)return a;}catch(e){}
+  try{var s=JSON.parse(sessionStorage.getItem('suite_sesion')||'null');if(s&&s.codigo&&s.pin)return {codigo:s.codigo,pin:s.pin};}catch(e){}
+  return null;
+}
+function waH(){var h={'ngrok-skip-browser-warning':'true','Content-Type':'application/json'};var a=waAuth();if(a){h['x-crm-codigo']=a.codigo;h['x-crm-pin']=a.pin;}return h;}
 
 function waRefreshConvs(cb){
-  fetch(WA_URL+'/api/conversaciones',{headers:{'ngrok-skip-browser-warning':'true'}})
+  fetch(WA_URL+'/api/conversaciones',{headers:waH()})
   .then(function(r){return r.json();})
   .then(function(d){waConvs=d||[];_waConvsLoaded=true;if(cb)cb();})
   .catch(function(){_waConvsLoaded=true;if(cb)cb();});
 }
 
 function waLoadConvs(){
-  fetch(WA_URL+'/api/conversaciones',{headers:{'ngrok-skip-browser-warning':'true'}})
+  fetch(WA_URL+'/api/conversaciones',{headers:waH()})
   .then(function(r){return r.json();})
   .then(function(d){waConvs=d||[];_waConvsLoaded=true;waRenderList();})
   .catch(function(){var l=document.getElementById('wa-list');if(l)l.innerHTML='<div class="empty-st"><div class="ei">⚠️</div>Sin conexión al backend</div>';});
@@ -4067,7 +4077,7 @@ function waCargarRecomendacion(tel){
   if(!rec||!txt)return;
   rec.style.display='flex';
   txt.textContent='Analizando conversación...';
-  fetch(WA_URL+'/api/recomendar/'+encodeURIComponent(tel),{headers:{'ngrok-skip-browser-warning':'true'}})
+  fetch(WA_URL+'/api/recomendar/'+encodeURIComponent(tel),{headers:waH()})
   .then(function(r){return r.json();})
   .then(function(d){
     if(d.recomendacion){txt.textContent=d.recomendacion;}
@@ -4077,7 +4087,7 @@ function waCargarRecomendacion(tel){
 }
 
 function waLoadMessages(tel){
-  fetch(WA_URL+'/api/mensajes/'+encodeURIComponent(tel),{headers:{'ngrok-skip-browser-warning':'true'}})
+  fetch(WA_URL+'/api/mensajes/'+encodeURIComponent(tel),{headers:waH()})
   .then(function(r){return r.json();})
   .then(function(msgs){
     var el=document.getElementById('wa-msgs');if(!el)return;
@@ -4101,7 +4111,7 @@ function waLoadMessages(tel){
             body+='<img id="'+imgId+'" src="'+cachedSrc+'" style="max-width:200px;border-radius:8px;display:block;margin-bottom:4px;min-height:'+(cachedSrc?'0':'40')+'px;background:'+(cachedSrc?'transparent':'#f0f0f0')+'" />';
             if(!cachedSrc){
               setTimeout(function(id,url){
-                fetch(WA_URL+'/api/media-proxy?url='+encodeURIComponent(url),{headers:{'ngrok-skip-browser-warning':'true'}})
+                fetch(WA_URL+'/api/media-proxy?url='+encodeURIComponent(url),{headers:waH()})
                 .then(function(r){return r.blob();})
                 .then(function(b){
                   var el=document.getElementById(id);if(!el)return;
@@ -4272,7 +4282,7 @@ function waAnalisisDia(){
   +'<div class="mfoot"><button class="btn-s" onclick="this.closest(\'.mov\').remove()">Cerrar</button></div>'
   +'</div>';
   document.body.appendChild(ov);
-  fetch(WA_URL+'/api/analisis-diario',{headers:{'ngrok-skip-browser-warning':'true'}})
+  fetch(WA_URL+'/api/analisis-diario',{headers:waH()})
   .then(function(r){return r.json();})
   .then(function(d){
     var b=document.getElementById('wa-analisis-body');if(!b)return;
