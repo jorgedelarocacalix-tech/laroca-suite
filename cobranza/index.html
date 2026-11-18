@@ -975,7 +975,11 @@ function enCierreHoy(c,cartId){
   var vino=fechaVinoMes(c,cartId,p);
   if(!vino)return true;
   var m=calcMoraCliente(c,cartId);
-  return !!(m&&m.diferencia>0);
+  // Si la formula no se puede calcular (null: cuota > credito tras deducir prima, cuota 0, etc.) y el cliente
+  // sigue debiendo, NO se esconde: queda en Cierre. Caso Cindy Suyapa Padilla Villalobos (R1): 1 cuota de
+  // L48,570, prima L5,000, abono el 11/11 → formula null → desaparecia de Cierre con L43,570 de saldo.
+  if(!m)return (c.saldo||0)>0;
+  return m.diferencia>0;
 }
 var supa=null, DB_OK=false, PDFJS_OK=false;
 var PIN_VAL='', CAL_Y=HOY.getFullYear(), CAL_M=HOY.getMonth();
