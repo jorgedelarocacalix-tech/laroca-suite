@@ -303,8 +303,12 @@ $("vXlsx").onclick=()=>{
 function rowsNow(){ const st=STATE[PROV]; if(st&&st.rows) return st.rows; if(PROV==="movesa") return EJEMPLO_MOVESA; return []; }
 function compute(){
   const p=readInputs(); const prev=ls("precios_prev_"+PROV);
-  return rowsNow().map(r=>{
-    const mat=(r.matricula===null||r.matricula===undefined||isNaN(r.matricula))?p.mat:r.matricula;
+  const _rows=rowsNow();
+  // Versión de un modelo (ej. "SX1 RALLY") sin matrícula en la lista: toma la matrícula del modelo base ("SX1")
+  const matBase=r=>{const n=norm(r.modelo);let b=null;for(const x of _rows){const bn=norm(x.modelo);if(x!==r&&x.matricula>0&&n.startsWith(bn+" ")&&(!b||bn.length>norm(b.modelo).length))b=x;}return b?b.matricula:0;};
+  return _rows.map(r=>{
+    let mat=(r.matricula===null||r.matricula===undefined||isNaN(r.matricula))?p.mat:r.matricula;
+    if(!mat) mat=matBase(r)||mat;
     let margen=r.margen, costo=r.costo;
     const noC=costo===null||costo===undefined||isNaN(costo), noM=margen===null||margen===undefined||isNaN(margen);
     if(noC&&noM) margen=p.margen/100;
