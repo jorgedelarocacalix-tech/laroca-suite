@@ -77,7 +77,7 @@ table.adm{border-collapse:collapse;width:100%;min-width:1300px;font-variant-nume
 table.sheet{border-collapse:collapse;width:100%;min-width:1400px;color:var(--sheet-ink);font-family:"Times New Roman",Georgia,serif;font-size:14px;font-variant-numeric:tabular-nums}
 .sheet .ttl td{background:var(--sheet-title);color:#fff;font-weight:700;font-size:20px;padding:8px 10px;text-align:left;border:1px solid var(--sheet-title)}
 .sheet .ttl td small{font-size:12px;font-weight:400;opacity:.85;margin-left:10px;font-family:-apple-system,'Segoe UI',sans-serif}
-.sheet th{background:var(--sheet-head);color:#fff;font-weight:700;padding:6px 8px;border:1px solid #0d3a5a;text-align:center;line-height:1.2}
+.sheet th.skg{background:#7A4B0F} .sheet td.skg{background:#FFF4E0;font-weight:700} .sheet th{background:var(--sheet-head);color:#fff;font-weight:700;padding:6px 8px;border:1px solid #0d3a5a;text-align:center;line-height:1.2}
 .sheet td{border:1px solid var(--sheet-line);padding:3px 8px;white-space:nowrap}
 .sheet tbody tr:nth-child(even) td{background:var(--sheet-alt)}
 .sheet td.seg{background:#DCE6F0!important;font-weight:700;letter-spacing:.3px}
@@ -100,7 +100,7 @@ table.sheet{border-collapse:collapse;width:100%;min-width:1400px;color:var(--she
   .pill{border:1px solid #999;background:#fff!important;color:#111!important}
   .up,.down{color:#111} .noprint{display:none!important} .wrap{max-width:none;padding:0}
   .sheetbox{overflow:visible} table.sheet{min-width:0;font-size:9px} .sheet td{padding:2px 4px} .lm{min-width:0;gap:4px}
-  .sheet th,.sheet .ttl td,.sheet td.seg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet th,.sheet .ttl td,.sheet td.seg,.sheet td.skg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 </style>
 </head>
@@ -268,8 +268,8 @@ function renderVend(){
   const filas=pb.filas.filter(r=>!q||norm(r.modelo+" "+(r.marca||"")).includes(q));
   const titulo=(pb.titulo||"LISTADO DE PRECIOS").toUpperCase();
   const c4=pb.filas[0]&&pb.filas[0].cuotas4||3;
-  let h=`<thead><tr class="ttl"><td colspan="14">${esc(titulo)} · ${esc(P.nombre.toUpperCase())} · LA ROCA<small>Publicada el ${new Date(pb.created_at).toLocaleDateString("es-HN")}</small></td></tr>
-  <tr><th rowspan="2">MODELO</th><th rowspan="2">MARCA</th><th rowspan="2">TIPO</th><th rowspan="2">SEGMENTO</th><th rowspan="2">Precio Cash</th><th rowspan="2">Matrícula</th><th rowspan="2">Precio Cash con matrícula incluida</th>
+  let h=`<thead><tr class="ttl"><td colspan="15">${esc(titulo)} · ${esc(P.nombre.toUpperCase())} · LA ROCA<small>Publicada el ${new Date(pb.created_at).toLocaleDateString("es-HN")}</small></td></tr>
+  <tr><th rowspan="2">MODELO</th><th rowspan="2">MARCA</th><th rowspan="2">TIPO</th><th rowspan="2">SEGMENTO</th><th rowspan="2">Precio Cash</th><th rowspan="2">Matrícula</th><th rowspan="2">Precio Cash con matrícula incluida</th><th rowspan="2" class="skg">Para usar con financiera SKG</th>
   <th colspan="3">Contado en 4 pagos</th><th colspan="2">Crédito 6 meses</th><th colspan="2">Crédito 12 meses</th></tr>
   <tr><th>Total</th><th>Prima</th><th>${c4} cuotas de</th><th>Prima</th><th>Cuota</th><th>Prima</th><th>Cuota</th></tr></thead><tbody>`;
   const fx=filas.map(r=>Object.assign({},r,{segmento:segAlias(r.segmento)}));
@@ -277,10 +277,10 @@ function renderVend(){
   const ord=pegarVariantes(fx.slice().sort((a,b)=>orden.indexOf(norm(a.segmento))-orden.indexOf(norm(b.segmento))));
   let seg=null;
   for(const r of ord){
-    if(norm(r.segmento)!==seg){ seg=norm(r.segmento); if(seg) h+=`<tr><td class="seg" colspan="14">${esc(seg)}</td></tr>`; }
-    h+=`<tr><td>${esc(r.modelo)}</td><td>${esc(r.marca||"")}</td><td>${esc(r.tipo||"")}</td><td>${esc(r.segmento||"")}</td><td>${LM(r.cash_sin_mat)}</td><td>${LM(r.matricula)}</td><td>${LM(r.cash,true)}</td><td>${LM(r.pagos,true)}</td><td>${LM(r.prima)}</td><td>${LM(r.cuota4)}</td><td>${LM(r.prima6)}</td><td>${LM(r.cuota6,true)}</td><td>${LM(r.prima12)}</td><td>${LM(r.cuota12,true)}</td></tr>`;
+    if(norm(r.segmento)!==seg){ seg=norm(r.segmento); if(seg) h+=`<tr><td class="seg" colspan="15">${esc(seg)}</td></tr>`; }
+    h+=`<tr><td>${esc(r.modelo)}</td><td>${esc(r.marca||"")}</td><td>${esc(r.tipo||"")}</td><td>${esc(r.segmento||"")}</td><td>${LM(r.cash_sin_mat)}</td><td>${LM(r.matricula)}</td><td>${LM(r.cash,true)}</td><td class="skg">${r.skg!=null?LM(r.skg,true):"—"}</td><td>${LM(r.pagos,true)}</td><td>${LM(r.prima)}</td><td>${LM(r.cuota4)}</td><td>${LM(r.prima6)}</td><td>${LM(r.cuota6,true)}</td><td>${LM(r.prima12)}</td><td>${LM(r.cuota12,true)}</td></tr>`;
   }
-  if(!filas.length) h+='<tr><td colspan="14" style="padding:12px">Ningún modelo coincide con la búsqueda.</td></tr>';
+  if(!filas.length) h+='<tr><td colspan="15" style="padding:12px">Ningún modelo coincide con la búsqueda.</td></tr>';
   tbl.innerHTML=h+"</tbody>";
   $("vInfo").textContent=`${filas.length} de ${pb.filas.length} modelos`;
 }
@@ -288,11 +288,11 @@ $("vq").addEventListener("input",renderVend);
 $("vPrint").onclick=()=>window.print();
 $("vXlsx").onclick=()=>{
   const pb=PUB[PROV]; if(!pb) return;
-  const aoa=[[`${(pb.titulo||"LISTADO DE PRECIOS").toUpperCase()} · ${PROVS[PROV].nombre.toUpperCase()} · LA ROCA`],["MODELO","MARCA","TIPO","SEGMENTO","Precio Cash","Matrícula","Precio Cash con matrícula incluida","4 pagos: total","4 pagos: prima","4 pagos: cuota","6 meses: prima","6 meses: cuota","12 meses: prima","12 meses: cuota"],
-    ...pb.filas.map(r=>[r.modelo,r.marca,r.tipo,r.segmento,r.cash_sin_mat,r.matricula,r.cash,r.pagos,r.prima,r.cuota4,r.prima6,r.cuota6,r.prima12,r.cuota12])];
-  const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:13}}];
-  ws["!cols"]=[{wch:24},{wch:12},{wch:8},{wch:14},{wch:14},{wch:11},{wch:18},{wch:14},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13}];
-  for(let i=2;i<aoa.length;i++) for(let c=4;c<=13;c++){ const a=XLSX.utils.encode_cell({r:i,c}); if(ws[a]) ws[a].z='"L" #,##0.00'; }
+  const aoa=[[`${(pb.titulo||"LISTADO DE PRECIOS").toUpperCase()} · ${PROVS[PROV].nombre.toUpperCase()} · LA ROCA`],["MODELO","MARCA","TIPO","SEGMENTO","Precio Cash","Matrícula","Precio Cash con matrícula incluida","Para usar con financiera SKG","4 pagos: total","4 pagos: prima","4 pagos: cuota","6 meses: prima","6 meses: cuota","12 meses: prima","12 meses: cuota"],
+    ...pb.filas.map(r=>[r.modelo,r.marca,r.tipo,r.segmento,r.cash_sin_mat,r.matricula,r.cash,r.skg,r.pagos,r.prima,r.cuota4,r.prima6,r.cuota6,r.prima12,r.cuota12])];
+  const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:14}}];
+  ws["!cols"]=[{wch:24},{wch:12},{wch:8},{wch:14},{wch:14},{wch:11},{wch:18},{wch:16},{wch:14},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13}];
+  for(let i=2;i<aoa.length;i++) for(let c=4;c<=14;c++){ const a=XLSX.utils.encode_cell({r:i,c}); if(ws[a]) ws[a].z='"L" #,##0.00'; }
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Lista vendedores");
   XLSX.writeFile(wb,`Lista de precios ${PROVS[PROV].nombre} La Roca.xlsx`);
 };
@@ -320,7 +320,7 @@ function compute(){
     const gCash=cash-mat-costo, gPagos=pagos-mat-costo;
     const estado=[]; if(margen<=0.0001) estado.push("zero"); else if(margen<=0.05) estado.push("order");
     let prevCash=null,isNew=false; if(prev&&prev.modelos){ const k=keyOf(r.modelo); if(k in prev.modelos) prevCash=prev.modelos[k]; else isNew=true; }
-    return {...r,matricula:mat,margen,costo,conMat,aumento,cash,pagos,prima,nC,cuota4,prima6,cuota6,prima12,cuota12,gCash,gPagos,estado,prevCash,isNew};
+    return {...r,provConMat:r.precio+((r.matricula>0)?r.matricula:0),matricula:mat,margen,costo,conMat,aumento,cash,pagos,prima,nC,cuota4,prima6,cuota6,prima12,cuota12,gCash,gPagos,estado,prevCash,isNew};
   });
 }
 function renderAdm(){
@@ -431,7 +431,7 @@ $("fSeg").addEventListener("change",renderAdm);
 $("btnPub").onclick=async()=>{
   const st=STATE[PROV]; if(!st||!st.rows) return;
   const rows=compute();
-  const filas=rows.map(r=>({modelo:r.modelo,marca:r.marca||"",tipo:r.tipo||"",segmento:r.segmento||"",cash_sin_mat:r.cash-r.matricula,matricula:r.matricula,cash:r.cash,pagos:r.pagos,prima:r.prima,cuotas4:r.nC,cuota4:r.cuota4,prima6:r.prima6,cuota6:r.cuota6,prima12:r.prima12,cuota12:r.cuota12}));
+  const filas=rows.map(r=>({modelo:r.modelo,marca:r.marca||"",tipo:r.tipo||"",segmento:r.segmento||"",cash_sin_mat:r.cash-r.matricula,matricula:r.matricula,cash:r.cash,skg:r.provConMat,pagos:r.pagos,prima:r.prima,cuotas4:r.nC,cuota4:r.cuota4,prima6:r.prima6,cuota6:r.cuota6,prima12:r.prima12,cuota12:r.cuota12}));
   const titulo=(st.title||"").replace(/^LISTADO DE PRECIOS|^LISTA DE PRECIOS/i,"LISTADO DE PRECIOS").trim()||"LISTADO DE PRECIOS";
   $("btnPub").disabled=true;
   try{
