@@ -274,8 +274,9 @@ function renderVend(){
   <tr><th rowspan="2">MODELO</th><th rowspan="2">MARCA</th><th rowspan="2">TIPO</th><th rowspan="2">SEGMENTO</th><th rowspan="2">Precio Cash</th><th rowspan="2">Matrícula</th><th rowspan="2">Precio Cash con matrícula incluida</th>
   <th colspan="3">Contado en 4 pagos</th><th colspan="2">Crédito 6 meses</th><th colspan="2">Crédito 12 meses</th></tr>
   <tr><th>Total</th><th>Prima</th><th>${c4} cuotas de</th><th>Prima</th><th>Cuota</th><th>Prima</th><th>Cuota</th></tr></thead><tbody>`;
-  const orden=[...new Set(filas.map(r=>norm(r.segmento)))];
-  const ord=filas.slice().sort((a,b)=>orden.indexOf(norm(a.segmento))-orden.indexOf(norm(b.segmento)));
+  const fx=filas.map(r=>Object.assign({},r,{segmento:segAlias(r.segmento)}));
+  const orden=[...new Set(fx.map(r=>norm(r.segmento)))];
+  const ord=pegarVariantes(fx.slice().sort((a,b)=>orden.indexOf(norm(a.segmento))-orden.indexOf(norm(b.segmento))));
   let seg=null;
   for(const r of ord){
     if(norm(r.segmento)!==seg){ seg=norm(r.segmento); if(seg) h+=`<tr><td class="seg" colspan="14">${esc(seg)}</td></tr>`; }
@@ -366,6 +367,9 @@ function guessMap(h){
   if(PROV==="honda" && !/FACTURA/.test(h[m.costo]||"")) m.costo=-1;
   return m;
 }
+const SEG_ALIAS={RALLY:"TT"};
+function segAlias(v){const k=String(v||"").trim().toUpperCase();return SEG_ALIAS[k]||v;}
+function pegarVariantes(arr){const out=[];const rest=arr.slice();while(rest.length){const r=rest.shift();out.push(r);const base=norm(r.modelo)+" ";for(let i=0;i<rest.length;){if(norm(rest[i].modelo).startsWith(base)&&norm(rest[i].segmento)===norm(r.segmento)){out.push(rest.splice(i,1)[0]);}else i++;}}return out;}
 function buildRows(st){ const m=st.map, out=[];
   for(const row of st.aoa.slice(st.hi+1)){
     const mod=m.modelo>=0?row[m.modelo]:null; if(mod===null||String(mod).trim()===""||/^MODELO$|^DESCRIPCION$|^MATERIAL$/i.test(norm(mod))) continue;
@@ -377,7 +381,7 @@ function buildRows(st){ const m=st.map, out=[];
     let costo=m.costo>=0?num(row[m.costo]):NaN; if(costo<=0) costo=NaN;
     let mg=m.margen>=0?num(row[m.margen]):NaN; if(!isNaN(mg)&&mg>1) mg=mg/100;
     const txt=k=>m[k]>=0?String(row[m[k]]??"").trim():"";
-    out.push({modelo:String(mod).trim(),marca:txt("marca"),tipo:txt("tipo"),segmento:txt("segmento"),precio,matricula:mat,costo,margen:mg});
+    out.push({modelo:String(mod).trim(),marca:txt("marca"),tipo:txt("tipo"),segmento:segAlias(txt("segmento")),precio,matricula:mat,costo,margen:mg});
   } return out; }
 function renderMap(){
   const st=STATE[PROV]; if(!st||!st.aoa){ $("mapBox").classList.add("hidden"); return; }
