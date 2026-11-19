@@ -152,10 +152,10 @@ table.sheet{border-collapse:collapse;width:100%;min-width:1400px;color:var(--she
           <label for="pBase">Aumento sobre el precio con matrícula (L)<input id="pBase" type="number" step="100"></label>
           <label for="pTasa">Tasa 4 pagos (% mensual)<input id="pTasa" type="number" step="0.5"></label>
           <label for="pMeses">Meses del plan<input id="pMeses" type="number" step="1"></label>
-          <label for="pPrima">Prima 4 pagos (% del cash)<input id="pPrima" type="number" step="1"></label>
+          <label for="pPrima">Prima 4 pagos (% del precio en pagos)<input id="pPrima" type="number" step="1"></label>
           <label for="pTasaC">Tasa crédito 6 y 12 meses (% mensual)<input id="pTasaC" type="number" step="0.5"></label>
-          <label for="pP6">Prima crédito 6 meses (%)<input id="pP6" type="number" step="1"></label>
-          <label for="pP12">Prima crédito 12 meses (%)<input id="pP12" type="number" step="1"></label>
+          <label for="pP6">Prima crédito 6 meses (% del precio en pagos)<input id="pP6" type="number" step="1"></label>
+          <label for="pP12">Prima crédito 12 meses (% del precio en pagos)<input id="pP12" type="number" step="1"></label>
           <label for="pMat">Matrícula si la lista no la trae (L)<input id="pMat" type="number" step="100"></label>
           <label for="pMargen">Margen del proveedor si no viene (%)<input id="pMargen" type="number" step="0.5"></label>
         </div>
@@ -313,10 +313,10 @@ function compute(){
     if(noC) costo=r.precio*(1-margen);
     if(!noC&&noM) margen=r.precio?(r.precio-costo)/r.precio:0;
     const conMat=r.precio+mat, aumento=p.base;
-    const cash=r90(conMat+aumento), pagos=r90(cash*(1+p.tasa/100*p.meses)), prima=Math.ceil(cash*p.prima/100);
+    const cash=r90(conMat+aumento), pagos=r90(cash*(1+p.tasa/100*p.meses)), prima=Math.ceil(pagos*p.prima/100);
     const nC=Math.max(p.meses-1,1), cuota4=Math.ceil((pagos-prima)/nC);
-    const prima6=Math.ceil(cash*p.p6/100), cuota6=Math.ceil((cash-prima6)*(1+p.tasaCred/100*6)/6);
-    const prima12=Math.ceil(cash*p.p12/100), cuota12=Math.ceil((cash-prima12)*(1+p.tasaCred/100*12)/12);
+    const prima6=Math.ceil(pagos*p.p6/100), cuota6=Math.ceil((pagos-prima6)*(1+p.tasaCred/100*6)/6);
+    const prima12=Math.ceil(pagos*p.p12/100), cuota12=Math.ceil((pagos-prima12)*(1+p.tasaCred/100*12)/12);
     const gCash=cash-mat-costo, gPagos=pagos-mat-costo;
     const estado=[]; if(margen<=0.0001) estado.push("zero"); else if(margen<=0.05) estado.push("order");
     let prevCash=null,isNew=false; if(prev&&prev.modelos){ const k=keyOf(r.modelo); if(k in prev.modelos) prevCash=prev.modelos[k]; else isNew=true; }
@@ -326,7 +326,7 @@ function compute(){
 function renderAdm(){
   const P=PROVS[PROV], p=readInputs();
   $("upTitle").textContent=`1. Lista de ${P.nombre} del mes`; $("upHint").textContent=P.hint;
-  $("ruleText").innerHTML=`<div><b>Cash</b> = precio ${P.nombre} + matrícula (una sola vez) + L ${p.base.toLocaleString("en-US")}.</div><div><b>4 pagos</b> = cash × ${(1+p.tasa/100*p.meses).toFixed(2)} (${p.tasa}% mensual por ${p.meses} meses). Prima ${p.prima}% del cash y ${Math.max(p.meses-1,1)} cuotas.</div><div><b>Crédito 6 meses</b>: prima ${p.p6}% y ${p.tasaCred}% mensual sobre el saldo. <b>Crédito 12 meses</b>: prima ${p.p12}% y ${p.tasaCred}% mensual sobre el saldo. El saldo es el cash menos la prima.</div><div>Un modelo nuevo usa la misma fórmula sin hacer nada.</div>`;
+  $("ruleText").innerHTML=`<div><b>Cash</b> = precio ${P.nombre} + matrícula (una sola vez) + L ${p.base.toLocaleString("en-US")}.</div><div><b>4 pagos</b> = cash × ${(1+p.tasa/100*p.meses).toFixed(2)} (${p.tasa}% mensual por ${p.meses} meses). Prima ${p.prima}% del precio en pagos y ${Math.max(p.meses-1,1)} cuotas.</div><div><b>Crédito 6 meses</b>: prima ${p.p6}% y ${p.tasaCred}% mensual sobre el saldo. <b>Crédito 12 meses</b>: prima ${p.p12}% y ${p.tasaCred}% mensual sobre el saldo. El saldo es el precio en pagos menos la prima.</div><div>Un modelo nuevo usa la misma fórmula sin hacer nada.</div>`;
   renderMap();
   const rows=compute(); window.__rows=rows; const prev=ls("precios_prev_"+PROV), st=STATE[PROV];
   $("src").textContent=st&&st.source?`Archivo: ${st.source}`:(PROV==="movesa"?"Mostrando ejemplo: lista de distribuidores Movesa (marzo 2026). Sube la del mes para reemplazarla.":"Todavía no hay lista cargada para "+P.nombre+".");
