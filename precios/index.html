@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Listas de Precios · La Roca</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  /* Página oscura de la suite; la lista de vendedores es una hoja clara al estilo de la lista Movesa, con colores La Roca */
+  --bg:#0D0D0D; --surface:#141414; --surface2:#1B1B1B; --ink:#F2F2F2; --muted:#8A8A8A; --line:#262626;
+  --accent:#10B981; --accent-ink:#04140E; --accent-soft:#0B241B;
+  --good:#4CAF7D; --warn:#E0B870; --warn-soft:#2A2214; --bad:#E07070; --bad-soft:#2A1616; --info:#5B9CEA; --info-soft:#13213A;
+  --sheet-title:#0F2D4A; --sheet-head:#14507A; --sheet-ink:#111; --sheet-line:#B9C3CE; --sheet-alt:#F2F6FA;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.45}
+button,input,select{font:inherit}
+.wrap{max-width:1280px;margin:0 auto;padding:16px 16px 48px;display:grid;gap:14px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.top h1{font-size:22px;font-weight:800}
+.top p{color:var(--muted);font-size:13px}
+.hbtn{background:var(--surface2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 12px;text-decoration:none;font-size:13px}
+.provs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media(max-width:640px){.provs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.prov{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;text-align:left;color:var(--ink);display:grid;gap:2px}
+.prov b{font-size:16px} .prov span{font-size:12px;color:var(--muted)}
+.prov.on{border-color:var(--accent);background:var(--accent-soft)}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line)}
+.tab{background:none;border:none;color:var(--muted);padding:9px 14px;cursor:pointer;font-weight:700;border-bottom:2px solid transparent}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.prov:focus-visible,.btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px}
+.card h2{font-size:15px;font-weight:700}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:16px;display:grid;gap:6px;cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.note{font-size:12.5px;color:var(--muted)}
+.btn{background:var(--surface2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 13px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.params,.map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media(max-width:520px){.params,.map{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.params label,.map label{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+.params input,.map select{color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-variant-numeric:tabular-nums;min-width:0}
+.rule{font-size:13px;background:var(--surface2);border-radius:8px;padding:10px 12px;display:grid;gap:4px;color:var(--muted)}
+.rule b{color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
+.kpi .n{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:12px;color:var(--muted)}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.filters input[type=search],.filters select{color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.tablebox{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table.adm{border-collapse:collapse;width:100%;min-width:1150px;font-variant-numeric:tabular-nums}
+.adm th,.adm td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.adm th{font-size:12px;color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--surface)}
+.adm td.l,.adm th.l{text-align:left}
+.adm tr.seg td{background:var(--surface2);font-weight:800;text-align:left;letter-spacing:.4px}
+.adm td.price{font-weight:800}
+.pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;margin-left:6px}
+.p-new{background:var(--info-soft);color:var(--info)} .p-order{background:var(--warn-soft);color:var(--warn)} .p-zero{background:var(--bad-soft);color:var(--bad)}
+.up{color:var(--bad)} .down{color:var(--good)}
+.msg{font-size:13px;border-radius:8px;padding:8px 12px}
+.msg.err{background:var(--bad-soft);color:var(--bad)} .msg.ok{background:var(--accent-soft);color:var(--good)}
+#fileIn{display:none}
+.hidden{display:none!important}
+
+/* Hoja para vendedores: mismo formato que la lista de Movesa, colores La Roca */
+.sheetbox{overflow-x:auto;background:#fff;border-radius:6px}
+table.sheet{border-collapse:collapse;width:100%;min-width:980px;color:var(--sheet-ink);font-family:"Times New Roman",Georgia,serif;font-size:14px;font-variant-numeric:tabular-nums}
+.sheet .ttl td{background:var(--sheet-title);color:#fff;font-weight:700;font-size:20px;padding:8px 10px;text-align:left;border:1px solid var(--sheet-title)}
+.sheet .ttl td small{font-size:12px;font-weight:400;opacity:.85;margin-left:10px;font-family:-apple-system,'Segoe UI',sans-serif}
+.sheet th{background:var(--sheet-head);color:#fff;font-weight:700;padding:6px 8px;border:1px solid #0d3a5a;text-align:center;line-height:1.2;position:sticky;top:0}
+.sheet td{border:1px solid var(--sheet-line);padding:3px 8px;white-space:nowrap}
+.sheet tbody tr:nth-child(even) td{background:var(--sheet-alt)}
+.sheet td.seg{background:#DCE6F0!important;font-weight:700;letter-spacing:.3px}
+.lm{display:flex;justify-content:space-between;gap:12px;min-width:118px}
+.lm.b{font-weight:700}
+@media print{
+  body{background:#fff} .noprint{display:none!important} .wrap{max-width:none;padding:0}
+  .sheetbox{overflow:visible} table.sheet{min-width:0;font-size:11px}
+  .sheet th,.sheet .ttl td,.sheet td.seg{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top noprint">
+    <div><h1>Listas de Precios</h1><p>Precios de motos por proveedor. Los vendedores ven solo los precios; costos y márgenes están en Administración.</p></div>
+    <a class="hbtn" href="/">← Volver a la suite</a>
+  </div>
+
+  <div class="provs noprint" id="provs"></div>
+
+  <div class="tabs noprint" id="tabs">
+    <button type="button" class="tab on" data-t="vend">Lista para vendedores</button>
+    <button type="button" class="tab hidden" data-t="adm" id="tabAdm">Administración (costos y márgenes)</button>
+  </div>
+
+  <!-- ═══ VENDEDORES ═══ -->
+  <section id="vVend" style="display:grid;gap:12px">
+    <div class="filters noprint">
+      <input type="search" id="vq" placeholder="Buscar modelo o marca" aria-label="Buscar modelo o marca">
+      <button class="btn" id="vPrint" type="button">Imprimir o guardar PDF</button>
+      <button class="btn" id="vXlsx" type="button">Descargar Excel</button>
+      <span class="note" id="vInfo"></span>
+    </div>
+    <div class="sheetbox"><table class="sheet" id="vSheet"></table></div>
+  </section>
+
+  <!-- ═══ ADMINISTRACIÓN ═══ -->
+  <section id="vAdm" class="hidden" style="display:grid;gap:14px">
+    <div class="grid2">
+      <div class="card">
+        <h2 id="upTitle">1. Lista del proveedor</h2>
+        <label class="drop" id="drop" for="fileIn">
+          <strong>Sube o arrastra aquí el Excel del proveedor</strong>
+          <span class="note" id="upHint"></span>
+        </label>
+        <input type="file" id="fileIn" accept=".xlsx,.xls">
+        <div id="mapBox" class="hidden" style="display:grid;gap:8px">
+          <div class="note">Revisa que cada dato venga de la columna correcta. Se recuerda para el próximo mes.</div>
+          <div class="map" id="map"></div>
+        </div>
+        <div class="note" id="src"></div>
+        <div id="msg"></div>
+      </div>
+      <div class="card">
+        <h2>2. Reglas de precio</h2>
+        <div class="params">
+          <label for="pBase">Aumento de siempre (L)<input id="pBase" type="number" step="100"></label>
+          <label for="pExtra">Extra sobre la matrícula (L)<input id="pExtra" type="number" step="100"></label>
+          <label for="pMin">Mínimo del extra (L)<input id="pMin" type="number" step="100"></label>
+          <label for="pTasa">Tasa 4 pagos (% mensual)<input id="pTasa" type="number" step="0.5"></label>
+          <label for="pMeses">Meses del plan<input id="pMeses" type="number" step="1"></label>
+          <label for="pPrima">Prima 4 pagos (% del cash)<input id="pPrima" type="number" step="1"></label>
+          <label for="pMat">Matrícula si la lista no la trae (L)<input id="pMat" type="number" step="100"></label>
+          <label for="pMargen">Margen del proveedor si no viene (%)<input id="pMargen" type="number" step="0.5"></label>
+        </div>
+        <div class="rule" id="ruleText"></div>
+      </div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 id="listTitle">Lista La Roca</h2>
+        <div class="row">
+          <button class="btn primary" id="btnPub" type="button">Publicar para vendedores</button>
+          <button class="btn" id="btnXlsx" type="button">Descargar Excel con costos</button>
+          <button class="btn" id="btnSave" type="button" title="Guarda esta lista en este equipo para marcar los modelos nuevos el próximo mes">Guardar como lista del mes</button>
+        </div>
+      </div>
+      <div class="filters">
+        <input type="search" id="q" placeholder="Buscar modelo o marca" aria-label="Buscar modelo o marca">
+        <select id="fSeg" aria-label="Segmento"><option value="">Todos los segmentos</option></select>
+        <label class="row" for="fNew" style="gap:6px"><input type="checkbox" id="fNew"> Solo modelos nuevos</label>
+        <span class="note" id="countTxt"></span>
+      </div>
+      <div id="actMsg"></div>
+    </div>
+
+    <div class="tablebox">
+      <table class="adm">
+        <thead><tr>
+          <th class="l">Modelo</th><th class="l">Marca</th><th>Margen proveedor</th><th>Costo</th><th>Matrícula</th><th>Precio proveedor con matrícula</th>
+          <th>Aumento La Roca</th><th>Cash La Roca</th><th>4 pagos</th><th>Prima 4 pagos</th><th>Ganancia cash</th><th>Ganancia 4 pagos</th><th>vs. lista guardada</th>
+        </tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+    <p class="note">Ganancia = precio − matrícula − costo del proveedor (con ISV). No descuenta comisión ni gastos de tienda. Los precios incluyen la matrícula. Redondeo hacia arriba a terminación 90. Al publicar, a los vendedores solo les llegan los precios: nunca costos ni márgenes.</p>
+  </section>
+</div>
+
+<script>
+let SESION=null;
+(function(){ try{ SESION=JSON.parse(sessionStorage.getItem('suite_sesion')||'null'); }catch(e){} if(!SESION) location.replace('/'); })();
+const ES_ADMIN = !!(SESION && SESION.accesos_apps && SESION.accesos_apps.fintrack===true);
+
+const SB_URL='https://upaenjotkocmdvfuobii.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwYWVuam90a29jbWR2ZnVvYmlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NjQzMzUsImV4cCI6MjA5NDQ0MDMzNX0.am0lcEwz4-HK0KvrPBtv1QB7joNYDpOuQNhbc1HjwZ8';
+async function sb(ruta,op={}){ const r=await fetch(`${SB_URL}/rest/v1/${ruta}`,{...op,headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=representation',...(op.headers||{})}}); if(!r.ok){ const d=await r.json().catch(()=>({})); throw new Error(d.message||'Error de conexión'); } return r.status===204?null:r.json(); }
+
+const EJEMPLO_MOVESA = [{"modelo": "MAXX125", "marca": "ZMOTO", "segmento": "AUTOMATICA", "precio": 22290.0, "matricula": 800.0, "costo": 20061.0, "margen": 0.1}, {"modelo": "ZM150", "marca": "ZMOTO", "segmento": "AUTOMATICA", "precio": 23990.0, "matricula": 800.0, "costo": 20871.3, "margen": 0.13}, {"modelo": "450SR", "marca": "CFMOTO", "segmento": "Deportiva", "precio": 158990.0, "matricula": 3500.0, "costo": 151040.5, "margen": 0.05}, {"modelo": "CF250-6 250SR", "marca": "CFMOTO", "segmento": "Deportiva", "precio": 85490.0, "matricula": 2000.0, "costo": 74376.3, "margen": 0.13}, {"modelo": "CF250-B 250NK", "marca": "CFMOTO", "segmento": "Deportiva", "precio": 71990.0, "matricula": 1700.0, "costo": 68390.5, "margen": 0.05}, {"modelo": "CF300-B 300NK", "marca": "CFMOTO", "segmento": "Deportiva", "precio": 89990.0, "matricula": 2000.0, "costo": 85490.5, "margen": 0.05}, {"modelo": "CF400-7 450NK", "marca": "CFMOTO", "segmento": "Deportiva", "precio": 147990.0, "matricula": 3000.0, "costo": 140590.5, "margen": 0.05}, {"modelo": "CF400-8 450MT", "marca": "CFMOTO", "segmento": "TT", "precio": 175990.0, "matricula": 4000.0, "costo": 167190.5, "margen": 0.05}, {"modelo": "CF800-11 800MTX", "marca": "CFMOTO", "segmento": "TT", "precio": 244990.0, "matricula": 6500.0, "costo": 244990.0, "margen": 0.0}, {"modelo": "CF1000UU-8L U10PRO", "marca": "CFMOTO", "segmento": "TT", "precio": 584990.0, "matricula": 6500.0, "costo": 584990.0, "margen": 0.0}, {"modelo": "CR5", "marca": "ZMOTO", "segmento": "DEPORTIVA", "precio": 51990.0, "matricula": 800.0, "costo": 45751.2, "margen": 0.12}, {"modelo": "CR5 REVO", "marca": "ZMOTO", "segmento": "DEPORTIVA", "precio": 41990.0, "matricula": 800.0, "costo": 36111.4, "margen": 0.14}, {"modelo": "CRX200", "marca": "ZMOTO", "segmento": "DEPORTIVA", "precio": 33490.0, "matricula": 800.0, "costo": 29136.3, "margen": 0.13}, {"modelo": "CRX300", "marca": "ZMOTO", "segmento": "DEPORTIVA", "precio": 49990.0, "matricula": 800.0, "costo": 44991.0, "margen": 0.1}, {"modelo": "200 DUKE GEN2 Negra", "marca": "KTM IN", "segmento": "KTM IN", "precio": 88490.0, "matricula": 2300.0, "costo": 84065.5, "margen": 0.05}, {"modelo": "250 DUKE GEN2 NARANJA", "marca": "KTM IN", "segmento": "KTM IN", "precio": 112990.0, "matricula": 2300.0, "costo": 107340.5, "margen": 0.05}, {"modelo": "250 DUKE GEN2 Blanca", "marca": "KTM IN", "segmento": "KTM IN", "precio": 102990.0, "matricula": 2300.0, "costo": 97840.5, "margen": 0.05}, {"modelo": "390 DUKE", "marca": "ZMOTO", "segmento": "KTM IN", "precio": 164990.0, "matricula": 4700.0, "costo": 156740.5, "margen": 0.05}, {"modelo": "Scrambler 250", "marca": "ZMOTO", "segmento": "DEPORTIVA", "precio": 44990.0, "matricula": 800.0, "costo": 44990.0, "margen": 0.0}, {"modelo": "SCRAMBLER62", "marca": "ZMOTO", "segmento": "DEPORTIVA", "precio": 44990.0, "matricula": 800.0, "costo": 39141.3, "margen": 0.13}, {"modelo": "MG150-7S 2021", "marca": "ZMOTO", "segmento": "TRABAJO", "precio": 23490.0, "matricula": 800.0, "costo": 21141.0, "margen": 0.1}, {"modelo": "NITRO", "marca": "ZMOTO", "segmento": "TRABAJO", "precio": 29490.0, "matricula": 800.0, "costo": 25656.3, "margen": 0.13}, {"modelo": "NITRO150S", "marca": "ZMOTO", "segmento": "TRABAJO", "precio": 28290.0, "matricula": 800.0, "costo": 25461.0, "margen": 0.1}, {"modelo": "XY200GY-8", "marca": "ZMOTO", "segmento": "TT", "precio": 34090.0, "matricula": 800.0, "costo": 30681.0, "margen": 0.1}, {"modelo": "300 PRO", "marca": "ZMOTO", "segmento": "TT", "precio": 44990.0, "matricula": 800.0, "costo": 39591.2, "margen": 0.12}, {"modelo": "SX1", "marca": "ZMOTO", "segmento": "TT", "precio": 41790.0, "matricula": 800.0, "costo": 35939.4, "margen": 0.14}, {"modelo": "SX2 2025", "marca": "ZMOTO", "segmento": "TT", "precio": 30990.0, "matricula": 800.0, "costo": 27891.0, "margen": 0.1}, {"modelo": "Sx4", "marca": "ZMOTO", "segmento": "TT", "precio": 35490.0, "matricula": 800.0, "costo": 31941.0, "margen": 0.1}, {"modelo": "SX6", "marca": "ZMOTO", "segmento": "TT", "precio": 37990.0, "matricula": 800.0, "costo": 32291.5, "margen": 0.15}, {"modelo": "SX1 RALLY", "marca": "ZMOTO", "segmento": "TT", "precio": 49990.0, "matricula": 0.0, "costo": 42991.4, "margen": 0.14}, {"modelo": "CF1000SU-E", "marca": "CFMOTO", "segmento": "CF4R", "precio": 406990.0, "matricula": 9600.0, "costo": 386640.5, "margen": 0.05}, {"modelo": "CF1000SZ-3L", "marca": "CFMOTO", "segmento": "CF4R", "precio": 476990.0, "matricula": 4700.0, "costo": 453140.5, "margen": 0.05}, {"modelo": "CF600AU-3SA", "marca": "CFMOTO", "segmento": "CF4R", "precio": 234990.0, "matricula": 4600.0, "costo": 223240.5, "margen": 0.05}, {"modelo": "CF600UU", "marca": "CFMOTO", "segmento": "CF4R", "precio": 306990.0, "matricula": 3400.0, "costo": 291640.5, "margen": 0.05}, {"modelo": "CFORCE 450", "marca": "CFMOTO", "segmento": "CF4R", "precio": 173490.0, "matricula": 3500.0, "costo": 164815.5, "margen": 0.05}, {"modelo": "CFORCE 520", "marca": "CFMOTO", "segmento": "CF4R", "precio": 194990.0, "matricula": 3800.0, "costo": 185240.5, "margen": 0.05}, {"modelo": "CFORCE 520 LARGA", "marca": "CFMOTO", "segmento": "CF4R", "precio": 204990.0, "matricula": 3800.0, "costo": 194740.5, "margen": 0.05}, {"modelo": "TANK PLUS", "marca": "SHINERAY", "segmento": "Cuatrimoto", "precio": 62490.0, "matricula": 1700.0, "costo": 53741.4, "margen": 0.14}, {"modelo": "XY200ST-6", "marca": "ZMOTO", "segmento": "Cuatrimoto", "precio": 50990.0, "matricula": 1700.0, "costo": 43851.4, "margen": 0.14}, {"modelo": "Terra 125", "marca": "ZMOTO", "segmento": "Cuatrimoto", "precio": 42990.0, "matricula": 1400.0, "costo": 36541.5, "margen": 0.15}, {"modelo": "Terra 200", "marca": "ZMOTO", "segmento": "Cuatrimoto", "precio": 63990.0, "matricula": 1700.0, "costo": 55671.3, "margen": 0.13}, {"modelo": "Terra 250", "marca": "ZMOTO", "segmento": "Cuatrimoto", "precio": 86990.0, "matricula": 2300.0, "costo": 78291.0, "margen": 0.1}, {"modelo": "Terra 300", "marca": "ZMOTO", "segmento": "Cuatrimoto", "precio": 126990.0, "matricula": 2500.0, "costo": 114291.0, "margen": 0.1}, {"modelo": "Terra 180", "marca": "ZMOTO", "segmento": "Cuatrimoto", "precio": 51990.0, "matricula": 1700.0, "costo": 45751.2, "margen": 0.12}, {"modelo": "Runga 250", "marca": "ZMOTO", "segmento": "Moto carga", "precio": 76990.0, "matricula": 1700.0, "costo": 67751.2, "margen": 0.12}, {"modelo": "Runga 320", "marca": "ZMOTO", "segmento": "Moto carga", "precio": 116990.0, "matricula": 3000.0, "costo": 102951.2, "margen": 0.12}, {"modelo": "ZMAX200", "marca": "ZMOTO", "segmento": "Moto carga", "precio": 55990.0, "matricula": 1700.0, "costo": 48151.4, "margen": 0.14}, {"modelo": "DASH", "marca": "Hero", "segmento": "AUTOMATICA", "precio": 30990.0, "matricula": 0.0, "costo": 27891.0, "margen": 0.1}, {"modelo": "ECO 150", "marca": "Hero", "segmento": "TRABAJO", "precio": 30990.0, "matricula": 0.0, "costo": 27891.0, "margen": 0.1}, {"modelo": "HUNK125R", "marca": "Hero", "segmento": "Deportiva", "precio": 44490.0, "matricula": 0.0, "costo": 40041.0, "margen": 0.1}, {"modelo": "Hunk 150", "marca": "Hero", "segmento": "Deportiva", "precio": 39990.0, "matricula": 0.0, "costo": 35991.0, "margen": 0.1}, {"modelo": "HUNK 160R", "marca": "Hero", "segmento": "Deportiva", "precio": 48990.0, "matricula": 0.0, "costo": 44091.0, "margen": 0.1}, {"modelo": "Xpulse200", "marca": "Hero", "segmento": "Deportiva", "precio": 57990.0, "matricula": 0.0, "costo": 52191.0, "margen": 0.1}, {"modelo": "Hunk150 XTEC", "marca": "Hero", "segmento": "Deportiva", "precio": 47990.0, "matricula": 0.0, "costo": 43191.0, "margen": 0.1}, {"modelo": "HUNK160 4V", "marca": "Hero", "segmento": "Deportiva", "precio": 59490.0, "matricula": 0.0, "costo": 53541.0, "margen": 0.1}, {"modelo": "ECO DELUXE", "marca": "Hero", "segmento": "TRABAJO", "precio": 26990.0, "matricula": 0.0, "costo": 24291.0, "margen": 0.1}, {"modelo": "CFLITE 250NK", "marca": "CFMOTO", "segmento": "Deportiva", "precio": 69990.0, "matricula": 1600.0, "costo": 60191.4, "margen": 0.14}, {"modelo": "CFLITE 250SR", "marca": "CFMOTO", "segmento": "Deportiva", "precio": 79990.0, "matricula": 1600.0, "costo": 68791.4, "margen": 0.14}, {"modelo": "CFLITE DUAL 230", "marca": "CFMOTO", "segmento": "Deportiva", "precio": 46990.0, "matricula": 1600.0, "costo": 44640.5, "margen": 0.05}, {"modelo": "ZIGO150", "marca": "ZMOTO", "segmento": "AUTOMATICA", "precio": 28990.0, "matricula": 800.0, "costo": 24931.4, "margen": 0.14}, {"modelo": "DUAL 250", "marca": "CFMOTO", "segmento": "TRABAJO", "precio": 57990.0, "matricula": 1600.0, "costo": 52191.0, "margen": 0.1}];
+const DEF_REGLAS={base:1500,extra:1500,min:2500,tasa:5,meses:4,prima:20};
+const PROVS={
+  movesa:{nombre:"Movesa", hint:"Lista de distribuidores de Movesa (.xlsx). Se lee sola la pestaña que tiene “Precio factura distribuidor”.", mat:0, margen:13, pref:/distrib|movesa/i},
+  honda:{nombre:"Honda", hint:"Lista de Didemo Honda (.xlsx). Revisa abajo las columnas de modelo, precio y costo o margen.", mat:0, margen:12, pref:/didemo|honda/i},
+  italika:{nombre:"Italika", hint:"Lista de Italika (.xlsx). Revisa abajo las columnas de modelo, precio de promoción y costo o margen.", mat:0, margen:10, pref:/italika/i},
+  uma:{nombre:"UMA", hint:"Lista de UMA / Bajaj (.xlsx). Revisa abajo las columnas de modelo, precio y comisión o costo.", mat:0, margen:8, pref:/uma|bajaj/i}
+};
+const FIELDS=[["modelo","Modelo",true],["marca","Marca",false],["tipo","Tipo",false],["segmento","Segmento",false],["precio","Precio proveedor sin matrícula",true],["matricula","Matrícula",false],["costo","Costo / factura distribuidor",false],["margen","Margen o comisión %",false]];
+let PROV="movesa", TAB="vend", STATE={}, PUB={};
+const $=id=>document.getElementById(id);
+const fmt=n=>(n===null||n===undefined||isNaN(n))?"—":"L "+Math.round(n).toLocaleString("en-US");
+const money2=n=>(n===null||n===undefined||isNaN(n))?"":Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=n=>(n===null||isNaN(n))?"—":(Math.round(n*1000)/10)+"%";
+const r90=x=>Math.ceil((x+10)/100)*100-10;
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/\s+/g," ").trim();
+const keyOf=s=>norm(s).replace(/[^A-Z0-9]/g,"");
+function num(v){ if(typeof v==="number") return v; if(v===null||v===undefined) return NaN; const s=String(v).replace(/[L\s,%]/g,""); if(s===""||s==="-") return 0; const n=parseFloat(s); return isNaN(n)?NaN:n; }
+function ls(k,v){ try{ if(v===undefined){ const s=localStorage.getItem(k); return s?JSON.parse(s):null; } localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return v===undefined?null:false; } }
+
+// ── Reglas ──
+function reglas(){ return Object.assign({},DEF_REGLAS,{mat:PROVS[PROV].mat,margen:PROVS[PROV].margen},ls("precios_reglas_"+PROV)||{}); }
+function loadInputs(){ const r=reglas(); $("pBase").value=r.base; $("pExtra").value=r.extra; $("pMin").value=r.min; $("pTasa").value=r.tasa; $("pMeses").value=r.meses; $("pPrima").value=r.prima; $("pMat").value=r.mat; $("pMargen").value=r.margen; }
+function readInputs(){ const r={base:+$("pBase").value||0,extra:+$("pExtra").value||0,min:+$("pMin").value||0,tasa:+$("pTasa").value||0,meses:+$("pMeses").value||0,prima:+$("pPrima").value||0,mat:+$("pMat").value||0,margen:+$("pMargen").value||0}; ls("precios_reglas_"+PROV,r); return r; }
+
+// ── Navegación ──
+function renderProvs(){
+  $("provs").innerHTML=Object.entries(PROVS).map(([k,p])=>{
+    let info;
+    if(TAB==="vend"){ const pb=PUB[k]; info=pb===undefined?"Cargando…":(pb?`Lista del ${new Date(pb.created_at).toLocaleDateString("es-HN")}`:"Sin lista publicada"); }
+    else { const st=STATE[k]; info=st&&st.rows?`${st.rows.length} modelos cargados`:(k==="movesa"?"Ejemplo cargado":"Sin lista cargada"); }
+    return `<button type="button" class="prov ${k===PROV?"on":""}" data-p="${k}"><b>${p.nombre}</b><span>${info}</span></button>`;
+  }).join("");
+  document.querySelectorAll(".prov").forEach(b=>b.onclick=()=>{ PROV=b.dataset.p; loadInputs(); $("msg").innerHTML=""; $("actMsg").innerHTML=""; renderAll(); });
+}
+function renderAll(){
+  renderProvs();
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.t===TAB));
+  $("vVend").classList.toggle("hidden",TAB!=="vend"); $("vAdm").classList.toggle("hidden",TAB!=="adm");
+  if(TAB==="vend") renderVend(); else renderAdm();
+}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{ TAB=t.dataset.t; renderAll(); });
+if(ES_ADMIN) $("tabAdm").classList.remove("hidden");
+
+// ── Vista vendedores (lo publicado) ──
+async function cargarPublicadas(){
+  await Promise.all(Object.keys(PROVS).map(async k=>{
+    try{ const d=await sb(`precios_listas?proveedor=eq.${k}&order=created_at.desc&limit=1`); PUB[k]=d&&d[0]?d[0]:null; }catch(e){ PUB[k]=null; }
+  }));
+  renderAll();
+}
+const LM=(v,b)=>v===null||v===undefined||v===""?"":`<div class="lm ${b?"b":""}"><span>L</span><span>${v===0?"-":money2(v)}</span></div>`;
+function renderVend(){
+  const P=PROVS[PROV], pb=PUB[PROV];
+  const tbl=$("vSheet");
+  if(pb===undefined){ tbl.innerHTML='<tbody><tr><td style="padding:16px">Cargando lista…</td></tr></tbody>'; $("vInfo").textContent=""; return; }
+  if(!pb){ tbl.innerHTML=`<tbody><tr><td style="padding:16px">Todavía no hay lista publicada de ${P.nombre}.${ES_ADMIN?" Súbela en Administración y dale Publicar para vendedores.":""}</td></tr></tbody>`; $("vInfo").textContent=""; return; }
+  const q=norm($("vq").value);
+  const filas=pb.filas.filter(r=>!q||norm(r.modelo+" "+(r.marca||"")).includes(q));
+  const titulo=(pb.titulo||"LISTADO DE PRECIOS").toUpperCase();
+  let h=`<thead><tr class="ttl"><td colspan="9">${esc(titulo)} · ${esc(P.nombre.toUpperCase())} · LA ROCA<small>Publicada el ${new Date(pb.created_at).toLocaleDateString("es-HN")}</small></td></tr>
+  <tr><th>MODELO</th><th>MARCA</th><th>TIPO</th><th>SEGMENTO</th><th>Precio Cash</th><th>Matrícula</th><th>Precio Cash con matrícula incluida</th><th>Contado en 4 pagos (matrícula incluida)</th><th>Prima 4 pagos</th></tr></thead><tbody>`;
+  const orden=[...new Set(filas.map(r=>norm(r.segmento)))];
+  const ord=filas.slice().sort((a,b)=>orden.indexOf(norm(a.segmento))-orden.indexOf(norm(b.segmento)));
+  let seg=null;
+  for(const r of ord){
+    if(norm(r.segmento)!==seg){ seg=norm(r.segmento); if(seg) h+=`<tr><td class="seg" colspan="9">${esc(seg)}</td></tr>`; }
+    h+=`<tr><td>${esc(r.modelo)}</td><td>${esc(r.marca||"")}</td><td>${esc(r.tipo||"")}</td><td>${esc(r.segmento||"")}</td><td>${LM(r.cash_sin_mat)}</td><td>${LM(r.matricula)}</td><td>${LM(r.cash,true)}</td><td>${LM(r.pagos,true)}</td><td>${LM(r.prima)}</td></tr>`;
+  }
+  if(!filas.length) h+='<tr><td colspan="9" style="padding:12px">Ningún modelo coincide con la búsqueda.</td></tr>';
+  tbl.innerHTML=h+"</tbody>";
+  $("vInfo").textContent=`${filas.length} de ${pb.filas.length} modelos`;
+}
+$("vq").addEventListener("input",renderVend);
+$("vPrint").onclick=()=>window.print();
+$("vXlsx").onclick=()=>{
+  const pb=PUB[PROV]; if(!pb) return;
+  const aoa=[[`${(pb.titulo||"LISTADO DE PRECIOS").toUpperCase()} · ${PROVS[PROV].nombre.toUpperCase()} · LA ROCA`],["MODELO","MARCA","TIPO","SEGMENTO","Precio Cash","Matrícula","Precio Cash con matrícula incluida","Contado en 4 pagos (matrícula incluida)","Prima 4 pagos"],
+    ...pb.filas.map(r=>[r.modelo,r.marca,r.tipo,r.segmento,r.cash_sin_mat,r.matricula,r.cash,r.pagos,r.prima])];
+  const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:8}}];
+  ws["!cols"]=[{wch:24},{wch:12},{wch:8},{wch:14},{wch:14},{wch:11},{wch:20},{wch:22},{wch:14}];
+  for(let i=2;i<aoa.length;i++) for(let c=4;c<=8;c++){ const a=XLSX.utils.encode_cell({r:i,c}); if(ws[a]) ws[a].z='"L" #,##0.00'; }
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Lista vendedores");
+  XLSX.writeFile(wb,`Lista de precios ${PROVS[PROV].nombre} La Roca.xlsx`);
+};
+
+// ── Administración ──
+function rowsNow(){ const st=STATE[PROV]; if(st&&st.rows) return st.rows; if(PROV==="movesa") return EJEMPLO_MOVESA; return []; }
+function compute(){
+  const p=readInputs(); const prev=ls("precios_prev_"+PROV);
+  return rowsNow().map(r=>{
+    const mat=(r.matricula===null||r.matricula===undefined||isNaN(r.matricula))?p.mat:r.matricula;
+    let margen=r.margen, costo=r.costo;
+    const noC=costo===null||costo===undefined||isNaN(costo), noM=margen===null||margen===undefined||isNaN(margen);
+    if(noC&&noM) margen=p.margen/100;
+    if(noC) costo=r.precio*(1-margen);
+    if(!noC&&noM) margen=r.precio?(r.precio-costo)/r.precio:0;
+    const conMat=r.precio+mat, aumento=p.base+Math.max(mat+p.extra,p.min);
+    const cash=r90(conMat+aumento), pagos=r90(cash*(1+p.tasa/100*p.meses)), prima=Math.ceil(cash*p.prima/100);
+    const gCash=cash-mat-costo, gPagos=pagos-mat-costo;
+    const estado=[]; if(margen<=0.0001) estado.push("zero"); else if(margen<=0.05) estado.push("order");
+    let prevCash=null,isNew=false; if(prev&&prev.modelos){ const k=keyOf(r.modelo); if(k in prev.modelos) prevCash=prev.modelos[k]; else isNew=true; }
+    return {...r,matricula:mat,margen,costo,conMat,aumento,cash,pagos,prima,gCash,gPagos,estado,prevCash,isNew};
+  });
+}
+function renderAdm(){
+  const P=PROVS[PROV], p=readInputs();
+  $("upTitle").textContent=`1. Lista de ${P.nombre} del mes`; $("upHint").textContent=P.hint;
+  $("ruleText").innerHTML=`<div><b>Cash</b> = precio ${P.nombre} con matrícula + L ${p.base.toLocaleString("en-US")} + matrícula + L ${p.extra.toLocaleString("en-US")} (este extra nunca baja de L ${p.min.toLocaleString("en-US")}).</div><div><b>4 pagos</b> = cash × ${(1+p.tasa/100*p.meses).toFixed(2)} (${p.tasa}% mensual por ${p.meses} meses). <b>Prima</b> = ${p.prima}% del cash.</div><div>Un modelo nuevo usa la misma fórmula sin hacer nada.</div>`;
+  renderMap();
+  const rows=compute(); window.__rows=rows; const prev=ls("precios_prev_"+PROV), st=STATE[PROV];
+  $("src").textContent=st&&st.source?`Archivo: ${st.source}`:(PROV==="movesa"?"Mostrando ejemplo: lista de distribuidores Movesa (marzo 2026). Sube la del mes para reemplazarla.":"Todavía no hay lista cargada para "+P.nombre+".");
+  if(prev) $("src").textContent+=` · Lista guardada: ${prev.fecha} (${Object.keys(prev.modelos).length} modelos)`;
+  $("listTitle").textContent=`Lista La Roca · ${P.nombre}`+(st&&st.title?" · "+st.title.replace(/LISTADO DE PRECIOS|LISTA DE PRECIOS/i,"").trim():"");
+  $("btnPub").disabled=!(st&&st.rows&&st.rows.length);
+  const q=norm($("q").value), onlyNew=$("fNew").checked, sel=$("fSeg"), cur=sel.value;
+  const segs=[...new Set(rows.map(r=>r.segmento||"Sin segmento"))];
+  sel.innerHTML='<option value="">Todos los segmentos</option>'+segs.map(s=>`<option ${s===cur?"selected":""}>${esc(s)}</option>`).join("");
+  const seg=sel.value;
+  const vis=rows.filter(r=>(!q||norm(r.modelo+" "+(r.marca||"")).includes(q))&&(!seg||(r.segmento||"Sin segmento")===seg)&&(!onlyNew||r.isNew));
+  let html="";
+  for(const s of segs){ const g=vis.filter(r=>(r.segmento||"Sin segmento")===s); if(!g.length) continue;
+    html+=`<tr class="seg"><td colspan="13">${esc(s)}</td></tr>`;
+    for(const r of g){
+      let pills=""; if(r.isNew) pills+='<span class="pill p-new">Nuevo</span>'; if(r.estado.includes("order")) pills+='<span class="pill p-order">Solo por pedido</span>'; if(r.estado.includes("zero")) pills+='<span class="pill p-zero">Sin margen</span>';
+      let vs="—"; if(r.prevCash!==null){ const d=r.cash-r.prevCash; vs=d===0?"Igual":`<span class="${d>0?"up":"down"}">${d>0?"+":"−"}L ${Math.abs(Math.round(d)).toLocaleString("en-US")}</span>`; }
+      html+=`<tr><td class="l">${esc(r.modelo)}${pills}</td><td class="l">${esc(r.marca||"")}</td><td>${pct(r.margen)}</td><td>${fmt(r.costo)}</td><td>${fmt(r.matricula)}</td><td>${fmt(r.conMat)}</td><td>${fmt(r.aumento)}</td><td class="price">${fmt(r.cash)}</td><td class="price">${fmt(r.pagos)}</td><td>${fmt(r.prima)}</td><td>${fmt(r.gCash)}</td><td>${fmt(r.gPagos)}</td><td>${vs}</td></tr>`;
+    }}
+  $("tb").innerHTML=html||`<tr><td class="l" colspan="13">${rows.length?"Ningún modelo coincide con el filtro.":"Sube la lista de "+P.nombre+" para ver los precios."}</td></tr>`;
+  $("countTxt").textContent=`${vis.length} de ${rows.length} modelos`;
+  const avg=f=>rows.length?rows.reduce((a,r)=>a+r[f],0)/rows.length:NaN;
+  $("kpis").innerHTML=[[rows.length,"Modelos en la lista"],[prev?rows.filter(r=>r.isNew).length:"—",prev?"Modelos nuevos vs. lista guardada":"Modelos nuevos (guarda una lista primero)"],[rows.filter(r=>r.estado.length).length,"Solo por pedido o sin margen"],[fmt(avg("gCash")),"Ganancia cash promedio"],[fmt(avg("gPagos")),"Ganancia 4 pagos promedio"]].map(([n,l])=>`<div class="kpi"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+}
+
+// ── Lectura del Excel ──
+function guessHeader(aoa){ let best=-1,score=0;
+  for(let i=0;i<Math.min(aoa.length,40);i++){ const h=(aoa[i]||[]).map(norm); const txt=h.filter(x=>x&&isNaN(num(x))).length;
+    const bonus=(h.some(x=>/MODELO|DESCRIPCION|MATERIAL/.test(x))?5:0)+(h.some(x=>/PRECIO|CASH|CONTADO|PROMOCION/.test(x))?3:0);
+    if(txt+bonus>score){score=txt+bonus;best=i;} } return best; }
+function guessMap(h){
+  const f=(re,not)=>h.findIndex(x=>re.test(x)&&!(not&&not.test(x)));
+  const m={};
+  m.modelo=f(/^MODELO|DESCRIPCION/); if(m.modelo<0) m.modelo=f(/^MATERIAL/);
+  m.marca=f(/^MARCA/); m.tipo=f(/^TIPO/); m.segmento=f(/^SEGMENTO/);
+  m.precio=f(/CON DESCUENTO/); if(m.precio<0) m.precio=f(/PROMOCION|PROMO/); if(m.precio<0) m.precio=f(/^CASH|CONTADO$|PRECIO CONTADO|PRECIO/,/PAGOS|MATRICULA|FACTURA|DISTRIBUIDOR/);
+  m.matricula=f(/^MATRICULA/);
+  m.costo=f(/FACTURA|DISTRIBUIDOR|^COSTO/); m.margen=f(/MARGEN|COMISION/);
+  if(h.some(x=>/^20\d\d/.test(x)) && (m.precio<0 || /PAGOS/.test(h[m.precio]||""))) m.precio=-2;
+  if(PROV==="honda" && !/FACTURA/.test(h[m.costo]||"")) m.costo=-1;
+  return m;
+}
+function buildRows(st){ const m=st.map, out=[];
+  for(const row of st.aoa.slice(st.hi+1)){
+    const mod=m.modelo>=0?row[m.modelo]:null; if(mod===null||String(mod).trim()===""||/^MODELO$|^DESCRIPCION$|^MATERIAL$/i.test(norm(mod))) continue;
+    let precio=NaN;
+    if(m.precio===-2){ for(const j of st.years){ const v=num(row[j]); if(!isNaN(v)&&v>0) precio=v; } }
+    else if(m.precio>=0) precio=num(row[m.precio]);
+    if(isNaN(precio)||precio<=0) continue;
+    const mat=m.matricula>=0?num(row[m.matricula]):NaN;
+    let costo=m.costo>=0?num(row[m.costo]):NaN; if(costo<=0) costo=NaN;
+    let mg=m.margen>=0?num(row[m.margen]):NaN; if(!isNaN(mg)&&mg>1) mg=mg/100;
+    const txt=k=>m[k]>=0?String(row[m[k]]??"").trim():"";
+    out.push({modelo:String(mod).trim(),marca:txt("marca"),tipo:txt("tipo"),segmento:txt("segmento"),precio,matricula:mat,costo,margen:mg});
+  } return out; }
+function renderMap(){
+  const st=STATE[PROV]; if(!st||!st.aoa){ $("mapBox").classList.add("hidden"); return; }
+  $("mapBox").classList.remove("hidden");
+  const h=(st.aoa[st.hi]||[]);
+  const yr=st.years&&st.years.length?`<option value="-2" __S__>Último precio por año (${st.years.map(j=>String(h[j]).replace(/\D/g,"")).join(", ")})</option>`:"";
+  const opts=i=>`<option value="-1" ${i===-1?"selected":""}>— No usar —</option>`+yr.replace("__S__",i===-2?"selected":"")+h.map((x,j)=>`<option value="${j}" ${j===i?"selected":""}>${esc(String(x??"").replace(/\s+/g," ").trim()||"Columna "+(j+1))}</option>`).join("");
+  $("map").innerHTML=FIELDS.map(([k,l,req])=>`<label for="m_${k}">${l}${req?" *":""}<select id="m_${k}" data-k="${k}">${opts(st.map[k]??-1)}</select></label>`).join("");
+  document.querySelectorAll("#map select").forEach(s=>s.onchange=()=>{ st.map[s.dataset.k]=+s.value; ls("precios_map_"+PROV,{sheet:st.sheet,map:st.map}); st.rows=buildRows(st); renderAll(); });
+}
+async function handleFile(f){
+  if(!f) return; $("msg").innerHTML="";
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
+    const saved=ls("precios_map_"+PROV);
+    let names=[...wb.SheetNames]; const pref=PROVS[PROV].pref;
+    names.sort((a,b)=>(pref.test(b)?1:0)-(pref.test(a)?1:0));
+    if(saved&&names.includes(saved.sheet)) names=[saved.sheet,...names.filter(n=>n!==saved.sheet)];
+    let chosen=null;
+    for(const sn of names){
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
+      const hi=guessHeader(aoa); if(hi<0) continue;
+      const h=(aoa[hi]||[]).map(norm);
+      let map=guessMap(h); if(saved&&saved.sheet===sn) map=Object.assign(map,saved.map);
+      const years=h.map((x,j)=>/^20\d\d/.test(x)?j:-1).filter(j=>j>=0);
+      if(map.modelo<0||map.precio===-1) continue;
+      if(PROV==="movesa"&&map.costo<0) continue;
+      let title=null; for(const r of aoa.slice(0,10)) for(const c of (r||[])) if(!title&&c&&/LISTADO DE PRECIOS|LISTA DE PRECIOS|VIGENCIA/i.test(String(c))) title=String(c).trim();
+      chosen={aoa,hi,map,years,sheet:sn,title,source:`${f.name} (pestaña “${sn}”)`}; break;
+    }
+    if(!chosen) throw new Error("no encontré una pestaña con columnas de modelo y precio.");
+    chosen.rows=buildRows(chosen); STATE[PROV]=chosen; ls("precios_map_"+PROV,{sheet:chosen.sheet,map:chosen.map});
+    $("msg").innerHTML=`<div class="msg ok">Listo: ${chosen.rows.length} modelos leídos. Revisa las columnas y luego dale Publicar para vendedores.</div>`;
+    renderAll();
+  }catch(e){ $("msg").innerHTML=`<div class="msg err">No pude leer el archivo: ${esc(e.message)} Revisa que sea la lista de precios en Excel.</div>`; }
+}
+$("fileIn").addEventListener("change",e=>{handleFile(e.target.files[0]); e.target.value="";});
+const drop=$("drop");
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",e=>handleFile(e.dataTransfer.files[0]));
+["pBase","pExtra","pMin","pTasa","pMeses","pPrima","pMat","pMargen","q","fNew"].forEach(id=>$(id).addEventListener("input",renderAdm));
+$("fSeg").addEventListener("change",renderAdm);
+
+$("btnPub").onclick=async()=>{
+  const st=STATE[PROV]; if(!st||!st.rows) return;
+  const rows=compute();
+  const filas=rows.map(r=>({modelo:r.modelo,marca:r.marca||"",tipo:r.tipo||"",segmento:r.segmento||"",cash_sin_mat:r.cash-r.matricula,matricula:r.matricula,cash:r.cash,pagos:r.pagos,prima:r.prima}));
+  const titulo=(st.title||"").replace(/^LISTADO DE PRECIOS|^LISTA DE PRECIOS/i,"LISTADO DE PRECIOS").trim()||"LISTADO DE PRECIOS";
+  $("btnPub").disabled=true;
+  try{
+    const d=await sb("precios_listas",{method:"POST",body:JSON.stringify({proveedor:PROV,titulo,filas,publicado_por:SESION.nombre||SESION.codigo})});
+    PUB[PROV]=d[0];
+    $("actMsg").innerHTML=`<div class="msg ok">Lista de ${PROVS[PROV].nombre} publicada: ${filas.length} modelos. Los vendedores ya la ven en “Lista para vendedores”, solo con precios.</div>`;
+  }catch(e){ $("actMsg").innerHTML=`<div class="msg err">No se pudo publicar: ${esc(e.message)}. Intenta de nuevo.</div>`; }
+  $("btnPub").disabled=false; renderProvs();
+};
+function aoaOut(){ const head=["Segmento","Modelo","Marca","Tipo","Margen proveedor","Costo","Matrícula","Precio proveedor con matrícula","Aumento La Roca","Cash La Roca","4 pagos","Prima 4 pagos","Ganancia cash","Ganancia 4 pagos","Nota"];
+  return [head,...window.__rows.map(r=>[r.segmento,r.modelo,r.marca,r.tipo,Math.round(r.margen*1000)/1000,Math.round(r.costo*100)/100,r.matricula,r.conMat,r.aumento,r.cash,r.pagos,r.prima,Math.round(r.gCash),Math.round(r.gPagos),[r.isNew?"Nuevo":"",r.estado.includes("order")?"Solo por pedido":"",r.estado.includes("zero")?"Sin margen":""].filter(Boolean).join(", ")])]; }
+$("btnXlsx").onclick=()=>{ if(!window.__rows.length) return; const ws=XLSX.utils.aoa_to_sheet(aoaOut());
+  ws["!cols"]=[{wch:14},{wch:26},{wch:12},{wch:8},{wch:10},{wch:13},{wch:10},{wch:16},{wch:13},{wch:13},{wch:13},{wch:12},{wch:13},{wch:14},{wch:24}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Lista con costos"); XLSX.writeFile(wb,`Lista La Roca ${PROVS[PROV].nombre} con costos.xlsx`); };
+$("btnSave").onclick=()=>{ const modelos={}; for(const r of window.__rows) modelos[keyOf(r.modelo)]=r.cash;
+  const ok=ls("precios_prev_"+PROV,{fecha:new Date().toLocaleDateString("es-HN"),modelos});
+  $("actMsg").innerHTML=ok?`<div class="msg ok">Lista de ${PROVS[PROV].nombre} guardada en este equipo. El próximo mes verás los modelos nuevos y cuánto cambió cada precio.</div>`:'<div class="msg err">Este navegador no permite guardar la lista.</div>'; renderAdm(); };
+
+loadInputs(); renderAll(); cargarPublicadas();
+</script>
+</body>
+</html>
