@@ -404,6 +404,28 @@ async function loadCapacitacionesAdmin(){
 }
 
 /* ============ SHELL / NAV ============ */
+// Contador rojo de solicitudes sin aprobar/rechazar: visible en todas las vistas del admin
+// (tambien en "Mi espacio") y se refresca solo cada 30s, sin re-renderizar la pagina.
+function totalSolicitudesPendientes(){
+  const a=state.adminData; if(!a) return 0;
+  return (a.adelantos_pendientes||[]).length+(a.vacaciones_pendientes||[]).length+(a.permisos_pendientes||[]).length+(a.prestamos_pendientes||[]).length+(a.incapacidades_pendientes||[]).length;
+}
+function badgeSolicitudesHtml(){
+  const tot=totalSolicitudesPendientes();
+  return tot>0?` <span class="nav-badge-roja">${tot}</span>`:'';
+}
+let _pendPollTimer=null;
+function iniciarPollPendientes(){
+  if(_pendPollTimer) return;
+  _pendPollTimer=setInterval(async ()=>{
+    if(!state.session||state.session.rol!=='admin'||document.hidden) return;
+    const {data, error} = await sb.rpc('rrhh_admin_dashboard', {p_admin_codigo: state.session.codigo, p_admin_pin: state.session.pin});
+    if(error||!data) return;
+    state.adminData = data;
+    const el=document.getElementById('nav-badge-solicitudes');
+    if(el) el.innerHTML=badgeSolicitudesHtml();
+  }, 30000);
+}
 function navItemsFor(rol){
   if(rol==='admin'){
     return [
@@ -457,11 +479,7 @@ function renderShell(bodyHtml){
       ${items.map(([k,label])=>{
         if(k==='__sep') return `<div style="padding:18px 22px 6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7d838b">${label}</div>`;
         let extra='';
-        if(k==='solicitudes'&&state.adminData){
-          const a=state.adminData;
-          const tot=(a.adelantos_pendientes||[]).length+(a.vacaciones_pendientes||[]).length+(a.permisos_pendientes||[]).length+(a.prestamos_pendientes||[]).length+(a.incapacidades_pendientes||[]).length;
-          if(tot>0)extra=` <span class="nav-badge-roja">${tot}</span>`;
-        }
+        if(k==='solicitudes') extra=`<span id="nav-badge-solicitudes">${badgeSolicitudesHtml()}</span>`;
         if(k==='solicitudes'){
           const totalUnread = Object.values(state.chatUnread).reduce((s,n)=>s+(n|0),0);
           if(totalUnread>0) extra+=` <span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--brick);color:#fff;font-size:11px;font-weight:700;vertical-align:middle">${totalUnread>9?'9+':totalUnread}</span>`;
@@ -495,7 +513,6 @@ function viewResumen(){
   const e = state.expediente;
   if(!e) return '<div class="empty">Cargando...</div>';
   const diasTomados = e.vacaciones.filter(v=>v.estado==='aprobado').reduce((s,v)=>s+Number(v.dias_solicitados),0);
-  const diasDisp = Number(e.empleado.dias_vacaciones_anuales) - diasTomados;
   return `
     <div class="resumen-head">
       ${avatarHtml(e.empleado.nombre, e.empleado.foto_url, 'lg')}
@@ -506,7 +523,7 @@ function viewResumen(){
     </div>
     <div style="height:8px"></div>
     <div class="grid cols-4">
-      <div class="card stat-card"><div class="label">Días de vacación disponibles</div><div class="value gold">${diasDisp}</div></div>
+      <div class="card stat-card"><div class="label">Días de vacación tomados</div><div class="value gold">${diasTomados}</div></div>
       <div class="card stat-card"><div class="label">Promedio pagado (6 meses)</div><div class="value">${fmtL(e.promedio_pago_6m)}</div></div>
       <div class="card stat-card"><div class="label">Solicitudes pendientes</div><div class="value">${e.vacaciones.filter(v=>v.estado==='pendiente').length + e.permisos.filter(p=>p.estado==='pendiente').length}</div></div>
       <div class="card stat-card"><div class="label">Llamadas de atención</div><div class="value">${e.llamadas_atencion.length}</div></div>
@@ -530,7 +547,7 @@ function viewVacaciones(){
   const e = state.expediente;
   return `
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <div><h1 class="page-title">Vacaciones</h1><p class="page-sub">${e.empleado.dias_vacaciones_anuales} días anuales asignados</p></div>
+      <div><h1 class="page-title">Vacaciones</h1><p class="page-sub">${e.vacaciones.filter(v=>v.estado==='aprobado').reduce((s,v)=>s+Number(v.dias_solicitados),0)} días tomados</p></div>
       <button class="btn gold sm" id="btn-solicitar-vac">Solicitar vacaciones</button>
     </div>
     <div class="card">
@@ -1535,6 +1552,7 @@ async function render(){
   const {rol} = state.session;
 
   const esVistaEmpleado = navEmpleado().some(([k])=>k===state.view) || ['asistencias','pagos'].includes(state.view);
+  if(rol === 'admin'){ if(!state.adminData) await loadAdminDashboard(); iniciarPollPendientes(); }
   if(rol === 'admin' && !esVistaEmpleado){
     if(state.view==='dashboard'){ if(!state.adminData) await loadAdminDashboard(); renderShell(viewDashboardAdmin()); loadActividadAsociados(); }
     else if(state.view==='dashboard-empleados'){ if(!state.dashEmp) await loadDashEmpleados(); renderShell(viewDashboardEmpleados()); bindDashboardEmpleados(); }

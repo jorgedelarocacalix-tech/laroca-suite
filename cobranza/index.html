@@ -3793,18 +3793,14 @@ function buildCierreHoy(cartId,rows){
   var withMora=rows.map(function(r){var m=calcMoraCliente(r,cartId);var p=PROMESAS[cartId+'::'+r.nombre];var solPend=!!(p&&p.mora_solicitud&&p.mora_solicitud.pendiente);return {r:r,mora:m&&m.diferencia>0?m.diferencia:0,fecha:fechaCierreEfectiva(cartId,r,p),solPend:solPend,sig:promesaMesSiguiente(p)};});
   if(_CIERRE_HOY_SORT==='fecha'){
     // "Fecha más cercana" = la misma fecha que se muestra en la tabla (promesa vigente del mes,
-    // si no la de la proyección del asesor). Primero lo que vence de hoy en adelante (más próximo
-    // primero); después lo ya vencido este mes (lo más reciente primero). Antes usaba la fecha de
-    // promesas viejas (ej. 06/07) y esos clientes salían de primeros (reporte de Jorge 2026-11-09).
-    var hoyISO=HOY.getFullYear()+'-'+(HOY.getMonth()<9?'0':'')+(HOY.getMonth()+1)+'-'+(HOY.getDate()<10?'0':'')+HOY.getDate();
+    // si no la de la proyección del asesor). Orden ascendente: vencidas del mes arriba, luego hoy y próximas.
     withMora.sort(function(a,b){
       if(a.solPend!==b.solPend)return a.solPend?-1:1; // solicitudes de mora pendientes siempre al tope
       if(a.sig!==b.sig)return a.sig?1:-1; // prometieron para el mes siguiente: al final
-      if(a.fecha&&b.fecha){
-        var fa=a.fecha>=hoyISO,fb=b.fecha>=hoyISO;
-        if(fa!==fb)return fa?-1:1;
-        return fa?a.fecha.localeCompare(b.fecha):b.fecha.localeCompare(a.fecha);
-      }
+      // 2026-11-19 (Jorge): las fechas ya vencidas van PRIMERO (la más atrasada arriba) para darles
+      // seguimiento; luego hoy y las próximas en orden ascendente. Es seguro porque
+      // fechaCierreEfectiva solo devuelve fechas del mes actual (las del mes siguiente van al final).
+      if(a.fecha&&b.fecha)return a.fecha.localeCompare(b.fecha);
       if(a.fecha&&!b.fecha)return -1;
       if(!a.fecha&&b.fecha)return 1;
       return b.mora-a.mora||(b.r.saldo||0)-(a.r.saldo||0);
