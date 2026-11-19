@@ -271,7 +271,7 @@ function renderVend(){
   let h=`<thead><tr class="ttl"><td colspan="15">${esc(titulo)} · ${esc(P.nombre.toUpperCase())} · LA ROCA<small>Publicada el ${new Date(pb.created_at).toLocaleDateString("es-HN")}</small></td></tr>
   <tr><th rowspan="2">MODELO</th><th rowspan="2">MARCA</th><th rowspan="2">TIPO</th><th rowspan="2">SEGMENTO</th><th rowspan="2">Precio Cash</th><th rowspan="2">Matrícula</th><th rowspan="2">Precio Cash con matrícula incluida</th><th rowspan="2" class="skg">Para usar con financiera SKG</th>
   <th colspan="3">Contado en 4 pagos</th><th colspan="2">Crédito 6 meses</th><th colspan="2">Crédito 12 meses</th></tr>
-  <tr><th>Total</th><th>Prima</th><th>${c4} cuotas de</th><th>Prima</th><th>Cuota</th><th>Prima</th><th>Cuota</th></tr></thead><tbody>`;
+  <tr><th>Total</th><th>Prima mínima</th><th>${c4} cuotas de</th><th>Prima mínima</th><th>Cuota</th><th>Prima mínima</th><th>Cuota</th></tr></thead><tbody>`;
   const fx=filas.map(r=>Object.assign({},r,{segmento:segAlias(r.segmento)}));
   const orden=[...new Set(fx.map(r=>norm(r.segmento)))];
   const ord=pegarVariantes(fx.slice().sort((a,b)=>orden.indexOf(norm(a.segmento))-orden.indexOf(norm(b.segmento))));
@@ -288,7 +288,7 @@ $("vq").addEventListener("input",renderVend);
 $("vPrint").onclick=()=>window.print();
 $("vXlsx").onclick=()=>{
   const pb=PUB[PROV]; if(!pb) return;
-  const aoa=[[`${(pb.titulo||"LISTADO DE PRECIOS").toUpperCase()} · ${PROVS[PROV].nombre.toUpperCase()} · LA ROCA`],["MODELO","MARCA","TIPO","SEGMENTO","Precio Cash","Matrícula","Precio Cash con matrícula incluida","Para usar con financiera SKG","4 pagos: total","4 pagos: prima","4 pagos: cuota","6 meses: prima","6 meses: cuota","12 meses: prima","12 meses: cuota"],
+  const aoa=[[`${(pb.titulo||"LISTADO DE PRECIOS").toUpperCase()} · ${PROVS[PROV].nombre.toUpperCase()} · LA ROCA`],["MODELO","MARCA","TIPO","SEGMENTO","Precio Cash","Matrícula","Precio Cash con matrícula incluida","Para usar con financiera SKG","4 pagos: total","4 pagos: prima mínima","4 pagos: cuota","6 meses: prima mínima","6 meses: cuota","12 meses: prima mínima","12 meses: cuota"],
     ...pb.filas.map(r=>[r.modelo,r.marca,r.tipo,r.segmento,r.cash_sin_mat,r.matricula,r.cash,r.skg,r.pagos,r.prima,r.cuota4,r.prima6,r.cuota6,r.prima12,r.cuota12])];
   const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:14}}];
   ws["!cols"]=[{wch:24},{wch:12},{wch:8},{wch:14},{wch:14},{wch:11},{wch:18},{wch:16},{wch:14},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13},{wch:13}];
