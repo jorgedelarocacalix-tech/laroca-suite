@@ -514,7 +514,7 @@ function initDB(){var d={users:initDB_users(),carteras:[
   {id:'sumuebledanli',name:'Su Mueble Danli'}
 ],clients:{},calls:[],activity:[],newLeads:[]};localStorage.setItem(SK,JSON.stringify(d));return d;}
 
-var DB=loadDB(),CU=null,CCI=null,pinBuf='',activeCat='all',activeYear='todos',activeCart=null;
+var DB=loadDB(),CU=null,CCI=null,pinBuf='',activeCat='all',activeYear='todos',activeCart=null,activeSeg=false;
 var calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 var dragClient=null,activeBoard='recompra',kbActiveCart=null,kbSelVend=null,kbMobCol=null;
 var _td={card:null,el:null,ghost:null,active:false,x0:0,y0:0,wasDrag:false};var _kbScrollT=0;
@@ -937,7 +937,10 @@ function vClientes(){
   var sy=Object.keys(yrs).sort(function(a,b){return a==='todos'?-1:b==='todos'?1:b-a;});
   var yH='<div class="filter-row">'+sy.map(function(y){return '<div class="ytab '+(activeYear===y?'on':'')+'" data-yr="'+y+'" onclick="setYear(this)">'+(y==='todos'?'📅 Todos':y)+'</div>';}).join('')+'</div>';
   var progBar=CU.role==='vendedor'?'<div id="vend-meta-bar"></div>':'';
-  return progBar+cartH+yH+'<div class="filter-row"><button class="cfilter all '+(activeCat==='all'?'on':'')+'" data-cat="all" onclick="setCat(this)">Todos</button><button class="cfilter ex '+(activeCat==='ex'?'on':'')+'" data-cat="ex" onclick="setCat(this)">⭐ Excelente</button><button class="cfilter bu '+(activeCat==='bu'?'on':'')+'" data-cat="bu" onclick="setCat(this)">👍 Bueno</button><button class="cfilter re '+(activeCat==='re'?'on':'')+'" data-cat="re" onclick="setCat(this)">⚠️ Regular</button><button class="cfilter ri '+(activeCat==='ri'?'on':'')+'" data-cat="ri" onclick="setCat(this)">🔴 Riesgoso</button><input class="srch" id="srch" placeholder="🔍 Buscar cliente..." oninput="renderCards()" /><span class="res-ct" id="res-ct"></span></div><div class="cards-grid" id="cards-grid"></div><div id=\"pagination\"></div>';
+  var segCount=0;getPool().forEach(function(c){if(seguimientoCiclo(c.id))segCount++;});
+  return progBar+cartH+yH+'<div class="filter-row"><button class="cfilter all '+(activeCat==='all'?'on':'')+'" data-cat="all" onclick="setCat(this)">Todos</button><button class="cfilter ex '+(activeCat==='ex'?'on':'')+'" data-cat="ex" onclick="setCat(this)">⭐ Excelente</button><button class="cfilter bu '+(activeCat==='bu'?'on':'')+'" data-cat="bu" onclick="setCat(this)">👍 Bueno</button><button class="cfilter re '+(activeCat==='re'?'on':'')+'" data-cat="re" onclick="setCat(this)">⚠️ Regular</button><button class="cfilter ri '+(activeCat==='ri'?'on':'')+'" data-cat="ri" onclick="setCat(this)">🔴 Riesgoso</button>'
+    +'<button class="cfilter '+(activeSeg?'on':'')+'" style="'+(activeSeg?'background:#fffbeb;border-color:#fbd38d;color:#c05621;':'')+'" onclick="toggleSegFilter(this)">⏰ Seguimiento pendiente'+(segCount?' ('+segCount+')':'')+'</button>'
+    +'<input class="srch" id="srch" placeholder="🔍 Buscar cliente..." oninput="renderCards()" /><span class="res-ct" id="res-ct"></span></div><div class="cards-grid" id="cards-grid"></div><div id=\"pagination\"></div>';
 }
 function renderCards(){
   var grid=document.getElementById('cards-grid');if(!grid)return;
@@ -967,6 +970,7 @@ function renderCards(){
   cs=cs.map(function(c){return Object.assign({},c,score(c));});
   cs.sort(function(a,b){var ua=a.estado==='urgente'?1:0,ub=b.estado==='urgente'?1:0;if(ua!==ub)return ub-ua;return b.s-a.s;});
   if(activeCat!=='all')cs=cs.filter(function(c){return c.cat===activeCat;});
+  if(activeSeg)cs=cs.filter(function(c){return !!seguimientoCiclo(c.id);});
   var rc=document.getElementById('res-ct');if(rc)rc.textContent=cs.length+' clientes';
   if(!cs.length){
   var msg=CU.role==='vendedor'?
@@ -987,10 +991,12 @@ function renderCards(){
     var callBtn=c.telefono?'<a href="tel:'+c.telefono+'" onclick="event.stopPropagation()" class="btn-call">📲 Llamar</a>':'<button class="btn-call" data-cid="'+c._cid+'" data-id="'+c.id+'" onclick="event.stopPropagation();openCl(this.dataset.cid,this.dataset.id)">+ Agregar tel.</button>';
     var activeVend=getActiveVendedor(c.id);
     var isBlocked=activeVend!==null;
+    var seg=seguimientoCiclo(c.id);
     h+='<div class="ccard" data-cid="'+c._cid+'" data-id="'+c.id+'" onclick="openCl(this.dataset.cid,this.dataset.id)" style="'+(isBlocked?'border-color:#fed7d7;':'')+'">';
     if(isBlocked)h+='<div style="background:#fff5f5;padding:5px 12px;font-size:11px;font-weight:700;color:#c53030;display:flex;align-items:center;gap:5px;">🔒 Gestionando hoy: '+activeVend+'</div>';
     h+='<div class="ccard-top '+c.cat+'"></div>';
     h+='<div class="cc-head"><div class="cc-av av-'+c.cat+'">'+c.nombre[0]+'</div><div class="cc-info"><div class="cc-name">'+c.nombre+'</div><div class="cc-sub">'+tel+cn+'</div></div><span class="cat-badge cb-'+c.cat+'">'+c.ic+' '+c.lbl+'</span></div>';
+    if(seg&&!isBlocked)h+='<div style="padding:0 16px 8px;">'+segBadgeHTML(seg)+'</div>';
     h+='<div class="cc-score"><div class="sbw"><div class="sb-bar sb-'+c.cat+'" style="width:'+c.s+'%"></div></div><span class="sn sn-'+c.cat+'">'+c.s+'</span></div>';
     h+='<div class="cc-stats"><div class="cs"><div class="cs-v">'+(c.totalPagos||0)+'</div><div class="cs-l">Pagos</div></div><div class="cs"><div class="cs-v">'+(c.antiguedad||0)+'m</div><div class="cs-l">Antigüed.</div></div><div class="cs"><div class="cs-v">'+fmt(c.montoTotal||0)+'</div><div class="cs-l">Total L.</div></div></div>';
     h+='<div class="cc-foot">'+callBtn+'<button class="btn-sm" data-cid="'+c._cid+'" data-id="'+c.id+'" onclick="event.stopPropagation();openCl(this.dataset.cid,this.dataset.id)">Ver detalles →</button></div></div>';
@@ -1015,7 +1021,8 @@ function renderCards(){
 function goPage(p){clientPage=p;renderCards();window.scrollTo(0,0);}
 function setCart(id,el){activeCart=id;clientPage=0;goTo('clientes');}
 function setYear(el){activeYear=el.dataset.yr;clientPage=0;document.querySelectorAll('.filter-row .ytab[data-yr]').forEach(function(t){t.classList.remove('on');});el.classList.add('on');renderCards();}
-function setCat(el){var cat=el.dataset.cat;activeCat=cat;clientPage=0;document.querySelectorAll('.cfilter').forEach(function(b){b.classList.remove('on');});el.classList.add('on');renderCards();}
+function setCat(el){var cat=el.dataset.cat;activeCat=cat;clientPage=0;document.querySelectorAll('.cfilter[data-cat]').forEach(function(b){b.classList.remove('on');});el.classList.add('on');renderCards();}
+function toggleSegFilter(el){activeSeg=!activeSeg;clientPage=0;if(activeSeg){el.classList.add('on');el.style.cssText='background:#fffbeb;border-color:#fbd38d;color:#c05621;';}else{el.classList.remove('on');el.style.cssText='';}renderCards();}
 
 function parseFlexDate(s){if(!s)return null;if(/^\d{4}-\d{2}-\d{2}/.test(s)){var d0=new Date(s);return isNaN(d0)?null:d0;}var pt=s.split('/');if(pt.length===3){var d1=new Date(parseInt(pt[2]),parseInt(pt[1])-1,parseInt(pt[0]));return isNaN(d1)?null:d1;}return null;}
 function lastActivityInfo(calls,c){
@@ -1029,6 +1036,41 @@ function lastActivityInfo(calls,c){
   var ds=best.toLocaleDateString('es-HN',{day:'2-digit',month:'2-digit',year:'numeric'});
   return '<div style="margin-bottom:14px;"><span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#f7f9fc;border:1.5px solid var(--border);border-radius:20px;font-size:11px;font-weight:700;color:var(--t2);">🕐 Último ingreso: '+ds+' · '+src+'</span></div>';
 }
+// Ciclo de reintento 1-7-90: mientras un cliente quede en estado 'seguimiento' sin una gestión nueva,
+// calcula cuántos días lleva esperando y qué etapa de reintento (1/7/90) le toca hoy.
+function seguimientoCiclo(clientId){
+  var calls=DB.calls.filter(function(x){return x.clientId===clientId&&x.estado!=='actividad';});
+  if(!calls.length)return null;
+  var ult=null;
+  calls.forEach(function(x){var d=parseFlexDate(x.dateISO)||parseFlexDate(x.date);if(d&&(!ult||d>ult.fecha))ult={call:x,fecha:d};});
+  if(!ult||ult.call.estado!=='seguimiento')return null;
+  var hoy=new Date();hoy.setHours(0,0,0,0);
+  var base=new Date(ult.fecha.getTime());base.setHours(0,0,0,0);
+  var dias=Math.round((hoy-base)/86400000);
+  if(dias<1)return null;
+  var etapaLbl=dias<7?'Día 1':dias<90?'Día 7':'Día 90';
+  return {dias:dias,etapa:etapaLbl,desde:ult.call.date};
+}
+function segBadgeHTML(seg){
+  if(!seg)return '';
+  return '<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;background:#fffbeb;border:1.5px solid #fbd38d;border-radius:20px;font-size:10px;font-weight:700;color:#c05621;white-space:nowrap;">⏰ Seguimiento · '+seg.etapa+' ('+seg.dias+'d)</div>';
+}
+var SEG_MSGS={
+  'Día 1':function(n){return 'Hola '+n+'! 😊 ¿Tuviste chance de revisar la info que te compartí? Cualquier duda me dices.';},
+  'Día 7':function(n){return 'Hola '+n+', ¿cómo vas? Quería saber si sigues interesado/a, con gusto te ayudo con las opciones de pago.';},
+  'Día 90':function(n){return 'Hola '+n+'! Ha pasado un tiempo, quería saber si sigue interesándote o si surgió algo nuevo en lo que te pueda ayudar.';}
+};
+function segBannerHTML(seg,c){
+  if(!seg)return '';
+  var msg=SEG_MSGS[seg.etapa](c.nombre);
+  return '<div style="background:#fffbeb;border:1.5px solid #fbd38d;border-radius:12px;padding:14px 16px;margin-bottom:14px;">'
+    +'<div style="font-size:13px;font-weight:700;color:#c05621;margin-bottom:4px;">⏰ Seguimiento pendiente — '+seg.etapa+' ('+seg.dias+' días sin contacto desde '+seg.desde+')</div>'
+    +'<div style="font-size:12px;color:#7b341e;margin-bottom:10px;">Como aún no está conectado el WhatsApp, copia este mensaje sugerido y envíalo manualmente:</div>'
+    +'<div style="background:#fff;border:1.5px solid #fbd38d;border-radius:8px;padding:10px 12px;font-size:13px;color:#2d3748;margin-bottom:10px;">'+msg+'</div>'
+    +'<button class="btn-s" style="font-size:12px;padding:7px 14px;" data-msg="'+msg.replace(/"/g,'&quot;')+'" onclick="copySegMsg(this)">📋 Copiar mensaje</button>'
+    +'</div>';
+}
+function copySegMsg(btn){var m=btn.dataset.msg||'';if(navigator.clipboard)navigator.clipboard.writeText(m);else{var t=document.createElement('textarea');t.value=m;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);}toast('Mensaje copiado','ok');}
 function attachHistImg(input,cid,clientId){
   if(!input.files||!input.files[0])return;
   var file=input.files[0];
@@ -1069,6 +1111,7 @@ function openCl(cid,clientId){
   document.getElementById('mc-cat').innerHTML='<span class="cat-badge cb-'+sc.cat+'">'+sc.ic+' '+sc.lbl+' · '+sc.s+'/100</span>';
   var calls=DB.calls.filter(function(x){return x.clientId===clientId;});
   var lastActH=lastActivityInfo(calls,c);
+  var segH=segBannerHTML(seguimientoCiclo(clientId),c);
   var sbH='<div class="score-box"><div class="stl" style="margin-bottom:10px;">📊 Puntaje crediticio</div>';
   sc.rsns.forEach(function(r){sbH+='<div class="sbd-row"><span class="sbd-ic">'+r.ic+'</span><span class="sbd-tx">'+r.tx+'</span><span class="sbd-pt '+(r.pt>0?'pos':r.pt<0?'neg':'neu')+'">'+(r.pt>0?'+':'')+r.pt+'</span></div>';});
   sbH+='</div>';
@@ -1090,6 +1133,7 @@ function openCl(cid,clientId){
   if(activeVend){blockedBanner='<div style="background:#fff5f5;border:1.5px solid #fed7d7;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;"><span style="font-size:24px;">🔒</span><div><div style="font-size:14px;font-weight:700;color:#c53030;">Cliente bloqueado</div><div style="font-size:12px;color:#c53030;margin-top:3px;">El asesor <strong>'+activeVend+'</strong> esta gestionando este cliente.</div><div style="font-size:11px;color:#718096;margin-top:4px;">Se desbloquea cuando '+activeVend+' lo mueva a Perdido en el Kanban.</div></div></div>';}
   document.getElementById('mc-body').innerHTML=
     blockedBanner+'<div class="copy-bar"><span class="copy-nm">'+c.nombre+'</span><button class="btn-copy" data-nm="'+c.nombre.replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'" onclick="copyNmBtn(this)">📋 Copiar</button></div>'+
+    segH+
     lastActH+
     '<div class="contact-row"><div><label class="fl">📞 Teléfono</label><div class="cf-wr"><input class="fi2" id="fi-tel" value="'+(c.telefono||'')+'" placeholder="Agregar teléfono..." data-cid="'+cid+'" data-clid="'+clientId+'" data-field="telefono" oninput="saveFieldInp(this)" />'+dialBtn+'</div></div>'+
     '<div><label class="fl">📍 Dirección</label><input class="fi2" value="'+(c.direccion||'')+'" placeholder="Agregar dirección..." data-cid="'+cid+'" data-clid="'+clientId+'" data-field="direccion" oninput="saveFieldInp(this)" /></div></div>'+
